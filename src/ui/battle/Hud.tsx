@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { BIOMES, STAGES_PER_ZONE } from '../../game/content';
 import { arenaAvailable, bossAvailable } from '../../game/game';
+import { RARITIES, RARITY_COLOR } from '../../game/model';
 import { useGame } from '../../store/game';
 import { useSettings } from '../../store/settings';
 import { Button } from '../components/Button';
@@ -82,6 +83,31 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
               </>
             )}
             <Row label="Ne pas proposer un Pokémon déjà possédé (3★+)" value={st.hideOwnedOffers} onChange={(v) => st.set({ hideOwnedOffers: v })} />
+            <View style={{ gap: 6 }}>
+              <Text style={styles.setLabel}>Recyclage groupé du Sac (Sac → Recycler) : jusqu'à</Text>
+              <View style={styles.chipsRow}>
+                {RARITIES.map((name, i) => (
+                  <Pressable key={name} onPress={() => st.set({ recycleMaxRarity: i })}
+                    style={[styles.chip, st.recycleMaxRarity === i && { backgroundColor: RARITY_COLOR[i] }]}>
+                    <Text style={styles.chipTxt}>{name}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+            <Row label="Recycler auto les objets trouvés hors ligne" value={st.idleAutoRecycle} onChange={(v) => st.set({ idleAutoRecycle: v })} />
+            {st.idleAutoRecycle && (
+              <View style={{ gap: 6 }}>
+                <Text style={styles.setLabel}>Recyclage hors ligne : jusqu'à</Text>
+                <View style={styles.chipsRow}>
+                  {RARITIES.map((name, i) => (
+                    <Pressable key={name} onPress={() => st.set({ idleRecycleMaxRarity: i })}
+                      style={[styles.chip, st.idleRecycleMaxRarity === i && { backgroundColor: RARITY_COLOR[i] }]}>
+                      <Text style={styles.chipTxt}>{name}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            )}
             <Button label="Nouvelle partie" color="#5a2020" onPress={() => setDialog({
               title: 'Tout effacer ?', message: 'Équipe, objets, Pokédex et progression seront perdus.',
               primary: { label: 'Tout effacer', onPress: async () => { await reset(); runner.restart(); onClose(); } },
@@ -123,5 +149,8 @@ const styles = StyleSheet.create({
   title: { color: C.text, fontSize: 20, fontWeight: '900' },
   setRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
   setLabel: { color: C.text, fontSize: 15, flex: 1 },
+  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chip: { backgroundColor: C.panel2, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
+  chipTxt: { color: C.text, fontSize: 12, fontWeight: '700' },
   credits: { color: C.dim, fontSize: 11, lineHeight: 16 },
 });

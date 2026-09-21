@@ -35,6 +35,19 @@ test('équipe trop faible pour la zone en cours : 0 gain', () => {
   expect(gains!.shinies.length).toBe(0);
 });
 
+test('recyclage auto hors ligne : désactivable, seuil de rareté configurable', () => {
+  const s = readyGame();
+  const withAuto = computeIdleGains(s, IDLE_CAP_MS, seededRng(7), { autoRecycle: true, recycleMaxRarity: 1 })!;
+  const withoutAuto = computeIdleGains(s, IDLE_CAP_MS, seededRng(7), { autoRecycle: false })!;
+  // même tirage (seed identique) : les objets qui partaient en éclats reviennent dans le sac
+  expect(withoutAuto.shardsFromRecycle).toBe(0);
+  expect(withoutAuto.bagItems.length).toBeGreaterThan(withAuto.bagItems.length);
+  // sans options : comportement historique (équivalent à autoRecycle:true, recycleMaxRarity:1)
+  const defaults = computeIdleGains(s, IDLE_CAP_MS, seededRng(7))!;
+  expect(defaults.shardsFromRecycle).toBe(withAuto.shardsFromRecycle);
+  expect(defaults.bagItems.length).toBe(withAuto.bagItems.length);
+});
+
 test('plafond 8h : une absence plus longue ne rapporte pas plus', () => {
   const s = readyGame();
   const at8h = computeIdleGains(s, IDLE_CAP_MS, seededRng(7))!;

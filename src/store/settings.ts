@@ -16,11 +16,19 @@ export interface Settings {
   autoCaptureUpgrade: boolean;
   /** ne propose pas une capture si l'espèce est déjà possédée à 3★ ou mieux */
   hideOwnedOffers: boolean;
+  /** rareté d'objet maximale incluse dans le recyclage groupé du Sac (0 Commun … 6 Chromatique) */
+  recycleMaxRarity: number;
+  /** recycle automatiquement (en éclats) les objets trouvés hors ligne jusqu'à `idleRecycleMaxRarity`,
+   *  plutôt que de les ajouter au Sac */
+  idleAutoRecycle: boolean;
+  /** rareté d'objet maximale recyclée automatiquement hors ligne (indépendante de `recycleMaxRarity`) */
+  idleRecycleMaxRarity: number;
 }
 
 const DEFAULTS: Settings = {
   sound: true, haptics: true, fast: false,
   autoCapture: false, autoCaptureBestBall: false, autoCaptureUpgrade: false, hideOwnedOffers: false,
+  recycleMaxRarity: 1, idleAutoRecycle: true, idleRecycleMaxRarity: 1,
 };
 
 interface Store extends Settings {
@@ -38,7 +46,13 @@ export const useSettings = create<Store>((set, get) => ({
   },
   set: (patch) => {
     set(patch);
-    const { sound, haptics, fast, autoCapture, autoCaptureBestBall, autoCaptureUpgrade, hideOwnedOffers } = { ...get(), ...patch };
-    AsyncStorage.setItem(KEY, JSON.stringify({ sound, haptics, fast, autoCapture, autoCaptureBestBall, autoCaptureUpgrade, hideOwnedOffers })).catch(() => {});
+    const {
+      sound, haptics, fast, autoCapture, autoCaptureBestBall, autoCaptureUpgrade, hideOwnedOffers,
+      recycleMaxRarity, idleAutoRecycle, idleRecycleMaxRarity,
+    } = { ...get(), ...patch };
+    AsyncStorage.setItem(KEY, JSON.stringify({
+      sound, haptics, fast, autoCapture, autoCaptureBestBall, autoCaptureUpgrade, hideOwnedOffers,
+      recycleMaxRarity, idleAutoRecycle, idleRecycleMaxRarity,
+    })).catch(() => {});
   },
 }));

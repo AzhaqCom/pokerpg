@@ -133,7 +133,12 @@ function emptyGains(s: GameState, absenceMs: number, durationMs: number): IdleGa
  * Calcule les gains d'une absence de `absenceMs` : ne modifie jamais `s`.
  * `null` si l'absence est trop courte pour valoir le calcul (< `IDLE_MIN_MS`).
  */
-export function computeIdleGains(s: GameState, absenceMs: number, rng: Rng): IdleGains | null {
+export function computeIdleGains(
+  s: GameState, absenceMs: number, rng: Rng,
+  opts: { autoRecycle?: boolean; recycleMaxRarity?: number } = {},
+): IdleGains | null {
+  const autoRecycle = opts.autoRecycle ?? true;
+  const recycleMaxRarity = opts.recycleMaxRarity ?? 1;
   if (absenceMs < IDLE_MIN_MS || !s.team.length) return null;
   const durationMs = Math.min(absenceMs, IDLE_CAP_MS);
   const sample = sampleWaves(s, rng, SAMPLE_WAVES);
@@ -157,7 +162,7 @@ export function computeIdleGains(s: GameState, absenceMs: number, rng: Rng): Idl
   for (let i = 0; i < kills; i++) {
     if (rng.int(100) < LOOT_CHANCE) {
       const it = rollLoot(rng, sample.lootLevel);
-      if (it.rarity <= 1) shardsFromRecycle += recycleValue(it);
+      if (autoRecycle && it.rarity <= recycleMaxRarity) shardsFromRecycle += recycleValue(it);
       else bagItems.push(it);
     }
   }

@@ -38,7 +38,8 @@ function checkIdle(onGains: (g: IdleGains) => void) {
   const s = useGame.getState().s;
   if (!s || !s.starterChosen) return;
   const now = Date.now();
-  const gains = computeIdleGains(s, now - s.lastActive, rng);
+  const { idleAutoRecycle, idleRecycleMaxRarity } = useSettings.getState();
+  const gains = computeIdleGains(s, now - s.lastActive, rng, { autoRecycle: idleAutoRecycle, recycleMaxRarity: idleRecycleMaxRarity });
   useGame.getState().act((g) => touchLastActive(g, now));
   if (gains) { runner.paused = true; onGains(gains); }
 }

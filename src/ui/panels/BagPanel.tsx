@@ -4,6 +4,7 @@ import { BALL_PRICE, BALLS, BallKind, buyBall, fuseItems, fusionCandidates, held
 import { slotOf, template, itemScore } from '../../game/items';
 import { Item, ItemSlot, RARITIES, RARITY_COLOR } from '../../game/model';
 import { rng, useGame } from '../../store/game';
+import { useSettings } from '../../store/settings';
 import { toast } from '../../store/ui';
 import { ItemDetail } from '../ItemDetail';
 import { BallIcon } from '../components/BallIcon';
@@ -22,6 +23,7 @@ export function BagPanel() {
   const s = useGame((g) => g.s)!;
   useGame((g) => g.rev);
   const act = useGame((g) => g.act);
+  const recycleMaxRarity = useSettings((st) => st.recycleMaxRarity);
   const [filter, setFilter] = useState<ItemSlot | 'all'>('all');
   const [sel, setSel] = useState<string | null>(null);
   const held = heldBy(s);
@@ -29,7 +31,7 @@ export function BagPanel() {
     .filter((i) => filter === 'all' || slotOf(i) === filter)
     .sort((a, b) => b.rarity - a.rarity || itemScore(b) - itemScore(a));
   const fusions = fusionCandidates(s);
-  const junk = Object.values(s.items).filter((i) => i.rarity <= 1 && !i.locked && !held.has(i.uid));
+  const junk = Object.values(s.items).filter((i) => i.rarity <= recycleMaxRarity && !i.locked && !held.has(i.uid));
   const selected = sel ? s.items[sel] : null;
 
   return (
@@ -67,7 +69,7 @@ export function BagPanel() {
                 act((g) => { for (let c = fusionCandidates(g); c.length; c = fusionCandidates(g)) { const out = fuseItems(g, c[0].map((i) => i.uid), rng); if (out) { n++; toast(`Fusion : ${template(out.templateId).name} ${RARITIES[out.rarity]}`, RARITY_COLOR[out.rarity]); } } });
                 if (n) { feedback('medal', true); runner.restart(); }
               }} />
-              <Button small label={`Recycler communs et peu communs (${junk.length})`} disabled={!junk.length} onPress={() => {
+              <Button small label={`Recycler jusqu'à ${RARITIES[recycleMaxRarity]} (${junk.length})`} disabled={!junk.length} onPress={() => {
                 const gain = act((g) => recycle(g, junk.map((i) => i.uid)));
                 toast(`+${gain} éclats`);
               }} />
