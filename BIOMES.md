@@ -156,9 +156,9 @@ rare dès le biome 2). Test de non-régression : `game.test.ts`.
 
 ## Biome 3 — fait (2026-09-21)
 
-**Biome Électrique** codé dans `content.ts` (`BIOMES[2]`) : Sous-station (Nv 30-31, boss Krabboss 33),
-Salle des Générateurs (31-33, boss Magnéton 36), Centrale Principale (33-35, boss Électrode 38), arène
-de Carmin-sur-Mer — Major Bob (Électrik), équipe Voltorbe/Magnéton/Raichu Nv 35-39 (Raichu en clin
+**Biome Électrique** codé dans `content.ts` (`BIOMES[2]`) : Sous-station (Nv 30-31, boss Krabboss 32),
+Salle des Générateurs (31-33, boss Magnéton 33), Centrale Principale (33-34, boss Électrode 34), arène
+de Carmin-sur-Mer — Major Bob (Électrik), équipe Voltorbe/Magnéton/Raichu Nv 32-35 (Raichu en clin
 d'œil au starter Pikachu du biome 1, même logique que Stari/Staross en biome 2). Les 8 espèces prévues
 (Magnéti, Voltorbe, Élektek, Voltali, Rondoudou, Canarticho, Krabby, Évoli) sont chacune présentes dans
 au moins un pool de zone (jamais seulement en boss), pour rester farmables en chromatique.
@@ -167,9 +167,27 @@ Nouveau décor de combat `electric` (violet/métal) ajouté dans `ZoneDef.biome`
 (`BattleView.tsx`), les 4 décors existants (forest/meadow/cave/water) ne convenaient à aucune zone de ce
 biome.
 
-Tests ajoutés dans `game.test.ts` : cohérence des niveaux du biome 3, continuité avec la fin du biome 2,
+**Correctif niveaux (même jour, avant de coder le biome 4)** : l'arène montait initialement à Nv.39 au
+lieu du Nv.35 documenté plus haut (§ Courbe de niveau) — écart découvert en préparant le biome 4, dont le
+point de départ dépend du niveau de fin exact du biome 3. Corrigé (niveaux resserrés 30→35 au lieu de
+30→39) avant de coder la suite, sinon toute la courbe dérive de biome en biome. Un test générique dans
+`game.test.ts` vérifie désormais, pour chaque biome codé : le niveau max de l'arène tombe pile sur le
+niveau documenté dans ce fichier, et le biome suivant démarre pile où le précédent finit.
+
+Tests ajoutés dans `game.test.ts` : courbe de niveau (cohérence + continuité + valeurs documentées),
 couverture des 8 espèces prévues en rencontre sauvage.
+
+## Biome 4 — fait (2026-09-21)
+
+**Biome Verdoyant** (`BIOMES[3]`, Nv 35→43, Plante + Insecte) : Clos Fleuri (35-37, boss Persian 38),
+Ronce Profonde (37-39, boss Noadkoko 40), Canopée Verdoyante (39-42, boss Poissoroy 42), arène de
+Céladopole — Erika (Plante, Badge Prisme), équipe Rafflesia/Empiflor/Parasect Nv 40-43 (finales du
+biome 1, même logique de réutilisation que Raichu en biome 3). Espèces prévues (Noeunoeuf, Saquedeneu,
+Insécateur, Scarabrute, Mélofée, Miaouss, Excelangue, Poissirène) toutes en pool.
+
+Tests ajoutés : couverture des espèces prévues, inclus dans le test générique de courbe de niveau
+(4 biomes codés à ce stade).
 
 ## Prochaine étape
 
-Biome 4 (Biome Verdoyant, Plante/Insecte, arène Erika) quand Arno valide ce biome 3 en jeu.
+Biome 5 (Marais Toxique, Poison/Fantôme, arène Koga) en cours.

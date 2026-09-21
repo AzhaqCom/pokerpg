@@ -123,26 +123,33 @@ test('migrateSave : une pension XP déjà en place mais sans taux calculé reço
   expect(migrated.pension).toEqual([{ uid: 'm1', since: 123, xpPerHour: PENSION_XP_FALLBACK_PER_HOUR }]);
 });
 
-test('biome 2 : niveaux croissants, arène cohérente avec la fin des zones', () => {
-  const b = BIOMES[1];
-  expect(b.zones[0].minLv).toBeLessThan(b.zones[1].minLv);
-  expect(b.zones[1].minLv).toBeLessThan(b.zones[2].minLv);
-  const arenaMaxLv = Math.max(...b.arena.team.map(([, lv]) => lv));
-  expect(arenaMaxLv).toBeGreaterThanOrEqual(b.zones[2].maxLv);
-});
+/**
+ * Courbe de niveau documentée dans BIOMES.md (calcul § « Courbe de niveau ») : niveau de fin de
+ * chaque biome codé jusqu'ici. L'arène doit y arriver pile (max du `team`), et le biome suivant doit
+ * démarrer pile là où le précédent finit — sinon toute la suite de la courbe dérive.
+ */
+const DOCUMENTED_END_LEVELS = [18, 30, 35, 43];
 
-test('biome 3 : niveaux croissants, arène cohérente, prend la suite du niveau de fin du biome 2', () => {
-  const b = BIOMES[2];
-  expect(b.zones[0].minLv).toBeLessThanOrEqual(b.zones[1].minLv);
-  expect(b.zones[1].minLv).toBeLessThanOrEqual(b.zones[2].minLv);
-  const arenaMaxLv = Math.max(...b.arena.team.map(([, lv]) => lv));
-  expect(arenaMaxLv).toBeGreaterThanOrEqual(b.zones[2].maxLv);
-  expect(b.zones[0].minLv).toBe(BIOMES[1].arena.team[BIOMES[1].arena.team.length - 1][1]);
+test('courbe de niveau : chaque biome codé monte jusqu’au niveau documenté dans BIOMES.md, sans rupture avec le suivant', () => {
+  BIOMES.forEach((b, i) => {
+    expect(b.zones[0].minLv).toBeLessThanOrEqual(b.zones[1].minLv);
+    expect(b.zones[1].minLv).toBeLessThanOrEqual(b.zones[2].minLv);
+    const arenaMaxLv = Math.max(...b.arena.team.map(([, lv]) => lv));
+    expect(arenaMaxLv).toBeGreaterThanOrEqual(b.zones[2].maxLv);
+    if (i < DOCUMENTED_END_LEVELS.length) expect(arenaMaxLv).toBe(DOCUMENTED_END_LEVELS[i]);
+    if (i > 0) expect(b.zones[0].minLv).toBe(Math.max(...BIOMES[i - 1].arena.team.map(([, lv]) => lv)));
+  });
 });
 
 test('biome 3 : Magnéti/Voltorbe/Élektek/Voltali/Rondoudou/Canarticho/Krabby/Évoli capturables en rencontre sauvage', () => {
   const required = [81, 100, 125, 135, 39, 83, 98, 133];
   const inSomePool = (id: number) => BIOMES[2].zones.some((z) => z.pool.some(([sid]) => sid === id));
+  for (const id of required) expect(inSomePool(id)).toBe(true);
+});
+
+test('biome 4 : Noeunoeuf/Saquedeneu/Insécateur/Scarabrute/Mélofée/Miaouss/Excelangue/Poissirène capturables en rencontre sauvage', () => {
+  const required = [102, 114, 123, 127, 35, 52, 108, 118];
+  const inSomePool = (id: number) => BIOMES[3].zones.some((z) => z.pool.some(([sid]) => sid === id));
   for (const id of required) expect(inSomePool(id)).toBe(true);
 });
 

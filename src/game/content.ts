@@ -90,23 +90,49 @@ export const BIOMES: BiomeDef[] = [
       {
         name: 'Sous-station', minLv: 30, maxLv: 31, biome: 'electric',
         pool: [[81, 30], [39, 30], [98, 25], [100, 15]],
-        boss: { speciesId: 99, level: 33, title: 'Krabboss cuirassé' },
+        boss: { speciesId: 99, level: 32, title: 'Krabboss cuirassé' },
       },
       {
         name: 'Salle des Générateurs', minLv: 31, maxLv: 33, biome: 'electric',
         pool: [[81, 20], [100, 20], [40, 20], [98, 15], [125, 10], [83, 15]],
-        boss: { speciesId: 82, level: 36, title: 'Magnéton triple charge' },
+        boss: { speciesId: 82, level: 33, title: 'Magnéton triple charge' },
       },
       {
-        name: 'Centrale Principale', minLv: 33, maxLv: 35, biome: 'electric',
+        name: 'Centrale Principale', minLv: 33, maxLv: 34, biome: 'electric',
         pool: [[81, 15], [40, 20], [99, 15], [125, 15], [83, 10], [135, 15], [133, 10]],
-        boss: { speciesId: 101, level: 38, title: 'Électrode explosif' },
+        boss: { speciesId: 101, level: 34, title: 'Électrode explosif' },
       },
     ],
     arena: {
       name: 'Arène de Carmin-sur-Mer', leader: 'Major Bob', type: 'Électrik',
-      team: [[100, 35], [82, 37], [26, 39]],
+      team: [[100, 32], [82, 33], [26, 35]],
       badge: 'Badge Foudre',
+    },
+  },
+  {
+    // Nv.35→43 — voir BIOMES.md : type dominant Plante (+ Insecte), écart original +5.
+    name: 'Biome Verdoyant',
+    zones: [
+      {
+        name: 'Clos Fleuri', minLv: 35, maxLv: 37, biome: 'meadow',
+        pool: [[35, 30], [52, 30], [102, 25], [108, 15]],
+        boss: { speciesId: 53, level: 38, title: 'Persian félin' },
+      },
+      {
+        name: 'Ronce Profonde', minLv: 37, maxLv: 39, biome: 'forest',
+        pool: [[102, 20], [108, 15], [114, 20], [123, 15], [118, 10], [35, 10], [52, 10]],
+        boss: { speciesId: 103, level: 40, title: 'Noadkoko sage' },
+      },
+      {
+        name: 'Canopée Verdoyante', minLv: 39, maxLv: 42, biome: 'forest',
+        pool: [[114, 15], [123, 15], [127, 15], [118, 15], [108, 10], [102, 15], [35, 15]],
+        boss: { speciesId: 119, level: 42, title: 'Poissoroy royal' },
+      },
+    ],
+    arena: {
+      name: 'Arène de Céladopole', leader: 'Erika', type: 'Plante',
+      team: [[45, 40], [71, 41], [47, 43]],
+      badge: 'Badge Prisme',
     },
   },
 ];
