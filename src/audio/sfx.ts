@@ -23,7 +23,9 @@ export async function initSfx() {
   if (ready) return;
   ready = true;
   try {
-    await setAudioModeAsync({ playsInSilentMode: false, interruptionMode: 'mixWithOthers' });
+    // les jeux jouent habituellement même en mode silencieux/« Ne pas déranger » (contrairement aux
+    // sonneries) — l'app a déjà ses propres réglages Sons/Musique pour couper le son si besoin.
+    await setAudioModeAsync({ playsInSilentMode: true, interruptionMode: 'mixWithOthers' });
   } catch { /* web / non supporté */ }
   for (const k of Object.keys(SOURCES) as Sfx[]) {
     try {

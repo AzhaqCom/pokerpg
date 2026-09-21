@@ -5,6 +5,8 @@ const KEY = 'pokelootborn/settings/v1';
 
 export interface Settings {
   sound: boolean;
+  /** musique de fond en boucle (indépendant des bruitages) */
+  music: boolean;
   haptics: boolean;
   /** vitesse de combat ×2 (débloquée au 1er badge) */
   fast: boolean;
@@ -26,7 +28,7 @@ export interface Settings {
 }
 
 const DEFAULTS: Settings = {
-  sound: true, haptics: true, fast: false,
+  sound: true, music: true, haptics: true, fast: false,
   autoCapture: false, autoCaptureBestBall: false, autoCaptureUpgrade: false, hideOwnedOffers: false,
   recycleMaxRarity: 1, idleAutoRecycle: true, idleRecycleMaxRarity: 1,
 };
@@ -47,11 +49,11 @@ export const useSettings = create<Store>((set, get) => ({
   set: (patch) => {
     set(patch);
     const {
-      sound, haptics, fast, autoCapture, autoCaptureBestBall, autoCaptureUpgrade, hideOwnedOffers,
+      sound, music, haptics, fast, autoCapture, autoCaptureBestBall, autoCaptureUpgrade, hideOwnedOffers,
       recycleMaxRarity, idleAutoRecycle, idleRecycleMaxRarity,
     } = { ...get(), ...patch };
     AsyncStorage.setItem(KEY, JSON.stringify({
-      sound, haptics, fast, autoCapture, autoCaptureBestBall, autoCaptureUpgrade, hideOwnedOffers,
+      sound, music, haptics, fast, autoCapture, autoCaptureBestBall, autoCaptureUpgrade, hideOwnedOffers,
       recycleMaxRarity, idleAutoRecycle, idleRecycleMaxRarity,
     })).catch(() => {});
   },

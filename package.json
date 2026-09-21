@@ -40,7 +40,8 @@
     "typecheck": "tsc --noEmit",
     "thumbs": "python3 tools/make_thumbs.py",
     "sfx": "python3 tools/gen_sfx.py",
-    "icon": "node tools/make_icon.js"
+    "icon": "node tools/make_icon.js",
+    "music": "node tools/gen_music.js"
   },
   "private": true
 }

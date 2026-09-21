@@ -80,6 +80,7 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
           <Text style={styles.title}>Réglages</Text>
           <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ gap: 12 }}>
             <Row label="Sons" value={st.sound} onChange={(v) => st.set({ sound: v })} />
+            <Row label="Musique" value={st.music} onChange={(v) => st.set({ music: v })} />
             <Row label="Vibrations" value={st.haptics} onChange={(v) => st.set({ haptics: v })} />
             <Row label="Capturer automatiquement les Pokémon manquants" value={st.autoCapture} onChange={(v) => st.set({ autoCapture: v })} />
             {st.autoCapture && (

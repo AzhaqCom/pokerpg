@@ -2,6 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { AppState, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { initMusic, setMusicEnabled } from './src/audio/music';
 import { initSfx, setSfxEnabled } from './src/audio/sfx';
 import { canEvolve, explorationReady, fusionBadgeCount, pensionXpReady, touchLastActive } from './src/game/game';
 import { IdleGains, computeIdleGains } from './src/game/idle';
@@ -51,11 +52,14 @@ function useBoot(onIdleGains: (g: IdleGains) => void) {
         await useSettings.getState().load();
         await initSfx();
         setSfxEnabled(useSettings.getState().sound);
+        await initMusic();
+        setMusicEnabled(useSettings.getState().music);
         await useGame.getState().load();
         checkIdle(onIdleGains);
       } catch (e) { reportError(e, 'démarrage'); }
     })();
     const unsub = useSettings.subscribe((st) => setSfxEnabled(st.sound));
+    const unsubMusic = useSettings.subscribe((st) => setMusicEnabled(st.music));
     let wasActive = true;
     const sub = AppState.addEventListener('change', (st) => {
       runner.paused = st !== 'active';
@@ -66,7 +70,7 @@ function useBoot(onIdleGains: (g: IdleGains) => void) {
       }
       wasActive = st === 'active';
     });
-    return () => { unsub(); sub.remove(); };
+    return () => { unsub(); unsubMusic(); sub.remove(); };
   }, []);
 }
 
