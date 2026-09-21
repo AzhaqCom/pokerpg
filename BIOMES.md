@@ -199,6 +199,17 @@ Fantominus, Leveinard, Stari) toutes en pool. Nouveau décor `swamp` (vert maré
 Tests ajoutés : couverture des espèces prévues, inclus dans le test générique de courbe de niveau
 (5 biomes codés à ce stade).
 
+## Biome 6 — fait (2026-09-21)
+
+**Sanctuaire Psy** (`BIOMES[5]`, Nv 61→66, Psy + Combat) : Torii Embrumé (61-62, boss Colossinge 63),
+Dojo de la Prévoyance (62-64, boss Hypnomade 65), Sanctuaire Intérieur (64-65, boss Mackogneur 65),
+arène de Safrania — Morgane (Psy, Badge Marais), équipe Kadabra/Alakazam/Hypnomade Nv 63-66 (Alakazam
+en clin d'œil à Abra du biome 1). Espèces prévues (Soporifik, Férosinge, Machoc, Kicklee, Tygnon,
+Kangourex, Tauros) toutes en pool. Nouveau décor `temple` (violet mystique).
+
+Tests ajoutés : couverture des espèces prévues, inclus dans le test générique de courbe de niveau
+(6 biomes codés à ce stade).
+
 ## Prochaine étape
 
-Biome 6 (Sanctuaire Psy, Psy/Combat, arène Morgane) quand Arno valide les biomes 4 et 5 en jeu.
+Biome 7 (Terres de Feu, Feu/Glace, arène Auguste) en cours.

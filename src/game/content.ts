@@ -9,7 +9,7 @@ export interface ZoneDef {
   /** `repeatable` : boss rejouable après la 1re victoire (légendaires en fin de jeu), jamais le cas pour un boss de zone classique. */
   boss: { speciesId: number; level: number; title: string; repeatable?: boolean };
   /** fond de combat */
-  biome: 'forest' | 'meadow' | 'cave' | 'water' | 'electric' | 'swamp';
+  biome: 'forest' | 'meadow' | 'cave' | 'water' | 'electric' | 'swamp' | 'temple';
 }
 
 export interface ArenaDef {
@@ -159,6 +159,32 @@ export const BIOMES: BiomeDef[] = [
       name: 'Arène de Parmanie', leader: 'Koga', type: 'Poison',
       team: [[89, 58], [110, 60], [94, 61]],
       badge: 'Badge Âme',
+    },
+  },
+  {
+    // Nv.61→66 — voir BIOMES.md : type dominant Psy (+ Combat, dojo voisin), écart original +3.
+    name: 'Sanctuaire Psy',
+    zones: [
+      {
+        name: 'Torii Embrumé', minLv: 61, maxLv: 62, biome: 'temple',
+        pool: [[96, 30], [56, 30], [66, 25], [128, 15]],
+        boss: { speciesId: 57, level: 63, title: 'Colossinge déchaîné' },
+      },
+      {
+        name: 'Dojo de la Prévoyance', minLv: 62, maxLv: 64, biome: 'temple',
+        pool: [[96, 15], [56, 15], [66, 20], [106, 15], [107, 15], [115, 10], [128, 10]],
+        boss: { speciesId: 97, level: 65, title: 'Hypnomade mystique' },
+      },
+      {
+        name: 'Sanctuaire Intérieur', minLv: 64, maxLv: 65, biome: 'temple',
+        pool: [[106, 20], [107, 20], [115, 15], [128, 15], [66, 10], [56, 10], [96, 10]],
+        boss: { speciesId: 68, level: 65, title: 'Mackogneur titan' },
+      },
+    ],
+    arena: {
+      name: 'Arène de Safrania', leader: 'Morgane', type: 'Psy',
+      team: [[64, 63], [65, 65], [97, 66]],
+      badge: 'Badge Marais',
     },
   },
 ];
