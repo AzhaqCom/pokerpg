@@ -38,6 +38,11 @@ test('starter niveau 5, dans l’équipe et le Pokédex', () => {
   expect(s.dex.caught).toContain(7);
 });
 
+test('Onix est capturable en rencontre sauvage (pas seulement Pokémon d’arène, jamais offert en capture)', () => {
+  const inSomePool = BIOMES.some((b) => b.zones.some((z) => z.pool.some(([id]) => id === 95)));
+  expect(inSomePool).toBe(true);
+});
+
 test('un starter niveau 5 gagne la 1re étape', () => {
   let wins = 0;
   for (let i = 0; i < 20; i++) {
@@ -124,6 +129,21 @@ test('biome 2 : niveaux croissants, arène cohérente avec la fin des zones', ()
   expect(b.zones[1].minLv).toBeLessThan(b.zones[2].minLv);
   const arenaMaxLv = Math.max(...b.arena.team.map(([, lv]) => lv));
   expect(arenaMaxLv).toBeGreaterThanOrEqual(b.zones[2].maxLv);
+});
+
+test('biome 3 : niveaux croissants, arène cohérente, prend la suite du niveau de fin du biome 2', () => {
+  const b = BIOMES[2];
+  expect(b.zones[0].minLv).toBeLessThanOrEqual(b.zones[1].minLv);
+  expect(b.zones[1].minLv).toBeLessThanOrEqual(b.zones[2].minLv);
+  const arenaMaxLv = Math.max(...b.arena.team.map(([, lv]) => lv));
+  expect(arenaMaxLv).toBeGreaterThanOrEqual(b.zones[2].maxLv);
+  expect(b.zones[0].minLv).toBe(BIOMES[1].arena.team[BIOMES[1].arena.team.length - 1][1]);
+});
+
+test('biome 3 : Magnéti/Voltorbe/Élektek/Voltali/Rondoudou/Canarticho/Krabby/Évoli capturables en rencontre sauvage', () => {
+  const required = [81, 100, 125, 135, 39, 83, 98, 133];
+  const inSomePool = (id: number) => BIOMES[2].zones.some((z) => z.pool.some(([sid]) => sid === id));
+  for (const id of required) expect(inSomePool(id)).toBe(true);
 });
 
 test('remainingEvolutions : 0 pour une forme finale, 1/2 pour Paras/Aspicot', () => {
@@ -326,19 +346,21 @@ test('fusionBadgeCount : compte les groupes fusionnables, sans se soucier des po
 test('fusion depuis l’inventaire : l’objet porté reste porté', () => {
   const s = strongGame();
   const rng = seededRng(2);
+  const before = Object.keys(s.items); // objets du starter (griffe/écharpe/oran), déjà équipés
   const items = [0, 1, 2].map(() => makeItem('lunettes', 0, 3, rng));
   for (const it of items) s.items[it.uid] = it;
-  equip(s, s.team[0], items[0].uid);
+  equip(s, s.team[0], items[0].uid); // remplace la griffe du starter en offense
   expect(fusionCandidates(s)).toHaveLength(1);
   const out = fuseItems(s, items.map((i) => i.uid), rng)!;
   expect(out.rarity).toBe(1);
   expect(s.mons[s.team[0]].items.offense).toBe(out.uid);
-  expect(Object.keys(s.items)).toEqual([out.uid]);
+  expect(Object.keys(s.items).sort()).toEqual([...before, out.uid].sort());
 });
 
 test('fusion : jamais les objets équipés de deux Pokémon différents dans le même lot', () => {
   const s = newGame();
   chooseStarter(s, 4, seededRng(1));
+  s.mons[s.team[0]].items = {}; s.items = {}; // ignore le kit de départ, hors sujet ici
   const second = makeMon(1, 5, seededRng(2));
   addMon(s, second); // rejoint l'équipe (2 membres)
   const rng = seededRng(3);

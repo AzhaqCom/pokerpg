@@ -5,7 +5,7 @@
 import { Battle, FighterInit } from './battle';
 import { BADGE_BONUS, BIOMES, STAGES_PER_ZONE, WAVES_PER_STAGE, ZoneDef } from './content';
 import { PType, learnedMoves, movesAtLevel, species } from './data';
-import { berryHeal, fuse, canFuse, newUid, recycleValue, rerollCost, rerollSub, rollLoot, slotOf, template, upgrade, upgradeCost } from './items';
+import { berryHeal, fuse, canFuse, makeItem, newUid, recycleValue, rerollCost, rerollSub, rollLoot, slotOf, template, upgrade, upgradeCost } from './items';
 import { BattleBonuses, Item, ItemSlot, Mon, emptyBonuses } from './model';
 import { Rng } from './rng';
 import { auraBonuses, combatPower, finalStats, levelFromXp, monBonuses, monStars, sumBonuses, xpForLevel } from './stats';
@@ -145,11 +145,19 @@ export function makeMon(speciesId: number, level: number, rng: Rng, shiny = fals
   };
 }
 
+/** Objets offerts au starter (1 par emplacement, rareté commune) : un peu de marge pour le début. */
+const STARTER_ITEMS = ['lunettes', 'echarpe', 'oran'] as const;
+
 export function chooseStarter(s: GameState, speciesId: number, rng: Rng) {
   const mon = makeMon(speciesId, 5, rng, false, 8);
   addMon(s, mon);
   s.team = [mon.uid];
   s.starterChosen = true;
+  for (const templateId of STARTER_ITEMS) {
+    const item = makeItem(templateId, 0, 5, rng);
+    s.items[item.uid] = item;
+    equip(s, mon.uid, item.uid);
+  }
 }
 
 export function addMon(s: GameState, mon: Mon) {
@@ -460,12 +468,26 @@ export function allyFighter(s: GameState, uid: string, hp?: number): FighterInit
 /** Malus des sauvages ordinaires (le joueur a l'avantage, comme dans les RPG). */
 export const WILD_MALUS = { hp: 0.85, atk: 0.85 };
 
-export function wildFighter(id: string, mon: Mon, opts: { boss?: boolean; hpMult?: number; wild?: boolean } = {}): FighterInit {
+/**
+ * Malus additionnel tant que l'équipe n'a pas ses 3 membres : un K.O. sans remplaçant fait perdre
+ * l'étape, donc on amortit la période fragile avant la 3e capture.
+ */
+export const SOLO_MALUS: Record<number, number> = { 1: 0.8, 2: 0.9, 3: 1 };
+
+export function wildFighter(
+  id: string, mon: Mon,
+  opts: { boss?: boolean; hpMult?: number; wild?: boolean; teamSize?: number } = {},
+): FighterInit {
   const stats = finalStats(mon, emptyBonuses());
   const w = opts.wild ? WILD_MALUS : { hp: 1, atk: 1 };
+  const solo = opts.wild ? SOLO_MALUS[Math.min(3, Math.max(1, opts.teamSize ?? 3))] : 1;
   return {
     id, side: 1, speciesId: mon.speciesId, level: mon.level, shiny: mon.shiny,
-    stats: { ...stats, hp: Math.round(stats.hp * w.hp * (opts.hpMult ?? 1)), atk: Math.round(stats.atk * w.atk) },
+    stats: {
+      ...stats,
+      hp: Math.round(stats.hp * w.hp * solo * (opts.hpMult ?? 1)),
+      atk: Math.round(stats.atk * w.atk * solo),
+    },
     moves: mon.moves, boss: opts.boss,
   };
 }
@@ -549,7 +571,7 @@ export class StageRun {
     const allies = this.s.team.map((u) => allyFighter(this.s, u, this.hp[u]));
     const enemies = this.waves[this.waveIndex].map((e, i) => {
       addUnique(this.s.dex.seen, e.mon.speciesId);
-      return wildFighter(`w${this.waveIndex}-${i}`, e.mon, { boss: e.boss, hpMult: e.hpMult, wild: e.wild });
+      return wildFighter(`w${this.waveIndex}-${i}`, e.mon, { boss: e.boss, hpMult: e.hpMult, wild: e.wild, teamSize: this.s.team.length });
     });
     return new Battle([...allies, ...enemies], this.rng2);
   }

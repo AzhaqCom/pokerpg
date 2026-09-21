@@ -143,6 +143,33 @@ l'arène précédente n'est pas battue.
 Tests ajoutés dans `game.test.ts` : traversée complète d'un biome jusqu'à l'arène → transition vers le
 biome suivant, `selectStage` refuse un biome verrouillé, cohérence des niveaux du biome 2.
 
+## Correctif — audit de couverture des 151 (2026-09-21)
+
+Vérification systématique : sur 151 espèces, 81 formes de base/sans évolution doivent être placées
+explicitement (les autres suivent automatiquement en montant de niveau). **1 manquait** : **Onix**
+(#95), présent uniquement dans l'équipe de l'arène de Pierre — or un combat d'arène (`kind === 'arena'`)
+n'offre jamais de capture (`waveRewards` dans `game.ts`), donc Onix était incapturable, chromatique
+inclus. Corrigé : ajouté en rencontre sauvage rare (poids 5) dans le pool de Clairière (biome 1), en plus
+de rester dans l'équipe du leader. Reste des 80 autres espèces : couverture confirmée (biome 1 codé,
+biome 2 codé, biomes 3-8 et réserve 9-10 par la liste de ce document, starters non choisis en rencontre
+rare dès le biome 2). Test de non-régression : `game.test.ts`.
+
+## Biome 3 — fait (2026-09-21)
+
+**Biome Électrique** codé dans `content.ts` (`BIOMES[2]`) : Sous-station (Nv 30-31, boss Krabboss 33),
+Salle des Générateurs (31-33, boss Magnéton 36), Centrale Principale (33-35, boss Électrode 38), arène
+de Carmin-sur-Mer — Major Bob (Électrik), équipe Voltorbe/Magnéton/Raichu Nv 35-39 (Raichu en clin
+d'œil au starter Pikachu du biome 1, même logique que Stari/Staross en biome 2). Les 8 espèces prévues
+(Magnéti, Voltorbe, Élektek, Voltali, Rondoudou, Canarticho, Krabby, Évoli) sont chacune présentes dans
+au moins un pool de zone (jamais seulement en boss), pour rester farmables en chromatique.
+
+Nouveau décor de combat `electric` (violet/métal) ajouté dans `ZoneDef.biome` et `SKIES`
+(`BattleView.tsx`), les 4 décors existants (forest/meadow/cave/water) ne convenaient à aucune zone de ce
+biome.
+
+Tests ajoutés dans `game.test.ts` : cohérence des niveaux du biome 3, continuité avec la fin du biome 2,
+couverture des 8 espèces prévues en rencontre sauvage.
+
 ## Prochaine étape
 
-Biome 3 (Centrale Électrique, Nv 30→35, arène Major Bob) quand Arno valide ce biome 2 en jeu.
+Biome 4 (Biome Verdoyant, Plante/Insecte, arène Erika) quand Arno valide ce biome 3 en jeu.

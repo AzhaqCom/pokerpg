@@ -9,7 +9,7 @@ export interface ZoneDef {
   /** `repeatable` : boss rejouable après la 1re victoire (légendaires en fin de jeu), jamais le cas pour un boss de zone classique. */
   boss: { speciesId: number; level: number; title: string; repeatable?: boolean };
   /** fond de combat */
-  biome: 'forest' | 'meadow' | 'cave' | 'water';
+  biome: 'forest' | 'meadow' | 'cave' | 'water' | 'electric';
 }
 
 export interface ArenaDef {
@@ -47,7 +47,7 @@ export const BIOMES: BiomeDef[] = [
       },
       {
         name: 'Clairière', minLv: 10, maxLv: 14, biome: 'forest',
-        pool: [[46, 20], [48, 20], [23, 15], [17, 15], [69, 15], [25, 5], [63, 5]],
+        pool: [[46, 20], [48, 20], [23, 15], [17, 15], [69, 15], [25, 5], [63, 5], [95, 5]],
         boss: { speciesId: 15, level: 16, title: 'Dardargnan reine' },
       },
     ],
@@ -81,6 +81,32 @@ export const BIOMES: BiomeDef[] = [
       name: 'Arène de Céruline', leader: 'Ondine', type: 'Eau',
       team: [[120, 27], [120, 28], [121, 30]],
       badge: 'Badge Cascade',
+    },
+  },
+  {
+    // Nv.30→35 — voir BIOMES.md : type dominant Électrik, courte progression (écart original +3).
+    name: 'Biome Électrique',
+    zones: [
+      {
+        name: 'Sous-station', minLv: 30, maxLv: 31, biome: 'electric',
+        pool: [[81, 30], [39, 30], [98, 25], [100, 15]],
+        boss: { speciesId: 99, level: 33, title: 'Krabboss cuirassé' },
+      },
+      {
+        name: 'Salle des Générateurs', minLv: 31, maxLv: 33, biome: 'electric',
+        pool: [[81, 20], [100, 20], [40, 20], [98, 15], [125, 10], [83, 15]],
+        boss: { speciesId: 82, level: 36, title: 'Magnéton triple charge' },
+      },
+      {
+        name: 'Centrale Principale', minLv: 33, maxLv: 35, biome: 'electric',
+        pool: [[81, 15], [40, 20], [99, 15], [125, 15], [83, 10], [135, 15], [133, 10]],
+        boss: { speciesId: 101, level: 38, title: 'Électrode explosif' },
+      },
+    ],
+    arena: {
+      name: 'Arène de Carmin-sur-Mer', leader: 'Major Bob', type: 'Électrik',
+      team: [[100, 35], [82, 37], [26, 39]],
+      badge: 'Badge Foudre',
     },
   },
 ];

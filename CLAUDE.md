@@ -10,7 +10,8 @@ Projet perso non commercial (sprites PMD SpriteCollab CC BY-NC → pas de Play S
 **Tout en français** (UI, commentaires, commits). Dev sous **Windows + PowerShell 5** : pas de `&&`,
 une commande par ligne. Arno veut des propositions arrêtées et structurées, pas une liste d'options ouvertes.
 
-État : **V1 jouable et testée par Arno** (biome 1 complet, biome 2 « Biome Aquatique » codé et testé).
+État : **V1 jouable et testée par Arno** (biome 1 complet, biome 2 « Biome Aquatique » et biome 3
+« Biome Électrique » codés et testés, pas encore validés en jeu par Arno).
 8 améliorations codées le 2026-09-21 (voir `AMELIORATIONS.md`) : perf sac, nettoyage doublons boîte,
 tri par type, étoiles de qualité génétique, options de capture auto, pension repensée en XP + nouvel
 onglet Exploration. Reste le test manuel Expo Go par Arno. Voir `BIOMES.md` pour le plan des biomes

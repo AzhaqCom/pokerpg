@@ -16,6 +16,7 @@ const SKIES: Record<string, [string, string, string]> = {
   forest: ['#5fae8b', '#b9e6c9', '#4e8f4a'],
   cave: ['#2b2f3a', '#4a5064', '#5b5350'],
   water: ['#4fc3f7', '#b3e5fc', '#0288d1'],
+  electric: ['#4a3f7a', '#d8c9ff', '#3a3547'],
 };
 
 /** Boucle d'affichage : fait avancer le combat et redessine ~30 fois par seconde. */
