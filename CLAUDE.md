@@ -10,10 +10,10 @@ Projet perso non commercial (sprites PMD SpriteCollab CC BY-NC → pas de Play S
 **Tout en français** (UI, commentaires, commits). Dev sous **Windows + PowerShell 5** : pas de `&&`,
 une commande par ligne. Arno veut des propositions arrêtées et structurées, pas une liste d'options ouvertes.
 
-État : **V1 jouable et testée par Arno** (biome 1 complet). Biomes 2 à 6 (Aquatique, Électrique,
-Verdoyant, Marais Toxique, Sanctuaire Psy) codés et testés (Jest), pas encore validés en jeu par Arno
-(haut niveau requis pour les atteindre en partant d'une nouvelle sauvegarde). Le jeu s'appelle
-**PokéLoot** depuis le 2026-09-21.
+État : **V1 jouable et testée par Arno** (biome 1 complet). Biomes 2 à 7 (Aquatique, Électrique,
+Verdoyant, Marais Toxique, Sanctuaire Psy, Terres de Feu) codés et testés (Jest), pas encore validés en
+jeu par Arno (haut niveau requis pour les atteindre en partant d'une nouvelle sauvegarde). Le jeu
+s'appelle **PokéLoot** depuis le 2026-09-21.
 8 améliorations codées le 2026-09-21 (voir `AMELIORATIONS.md`) : perf sac, nettoyage doublons boîte,
 tri par type, étoiles de qualité génétique, options de capture auto, pension repensée en XP + nouvel
 onglet Exploration. Reste le test manuel Expo Go par Arno. Voir `BIOMES.md` pour le plan des biomes

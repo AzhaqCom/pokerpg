@@ -210,6 +210,18 @@ Kangourex, Tauros) toutes en pool. Nouveau décor `temple` (violet mystique).
 Tests ajoutés : couverture des espèces prévues, inclus dans le test générique de courbe de niveau
 (6 biomes codés à ce stade).
 
+## Biome 7 — fait (2026-09-21)
+
+**Terres de Feu** (`BIOMES[6]`, Nv 66→73, Feu + Glace) : Contrefort Cendré (66-68, boss Feunard 69),
+Champ de Lave (68-70, boss Arcanin 71), Caldeira Ardente (70-72, boss Galopa 72), arène de l'Île
+Cannelle — Auguste (Feu, Badge Volcan), équipe Arcanin/Magmar/Dracaufeu Nv 70-73 (Dracaufeu en clin
+d'œil au starter Salamèche du biome 1, même logique que Raichu/Alakazam). Espèces prévues (Goupix,
+Caninos, Ponyta, Magmar, Pyroli, Lippoutou, Hypotrempe) toutes en pool. Nouveau décor `volcano`
+(rouge/noir cendré).
+
+Tests ajoutés : couverture des espèces prévues, inclus dans le test générique de courbe de niveau
+(7 biomes codés à ce stade).
+
 ## Prochaine étape
 
-Biome 7 (Terres de Feu, Feu/Glace, arène Auguste) en cours.
+Biome 8 (Plaines Rocheuses, Sol, arène Giovanni) en cours.

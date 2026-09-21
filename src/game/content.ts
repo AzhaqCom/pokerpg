@@ -9,7 +9,7 @@ export interface ZoneDef {
   /** `repeatable` : boss rejouable après la 1re victoire (légendaires en fin de jeu), jamais le cas pour un boss de zone classique. */
   boss: { speciesId: number; level: number; title: string; repeatable?: boolean };
   /** fond de combat */
-  biome: 'forest' | 'meadow' | 'cave' | 'water' | 'electric' | 'swamp' | 'temple';
+  biome: 'forest' | 'meadow' | 'cave' | 'water' | 'electric' | 'swamp' | 'temple' | 'volcano';
 }
 
 export interface ArenaDef {
@@ -185,6 +185,32 @@ export const BIOMES: BiomeDef[] = [
       name: 'Arène de Safrania', leader: 'Morgane', type: 'Psy',
       team: [[64, 63], [65, 65], [97, 66]],
       badge: 'Badge Marais',
+    },
+  },
+  {
+    // Nv.66→73 — voir BIOMES.md : type dominant Feu (+ Glace), écart original +4.
+    name: 'Terres de Feu',
+    zones: [
+      {
+        name: 'Contrefort Cendré', minLv: 66, maxLv: 68, biome: 'volcano',
+        pool: [[37, 30], [58, 30], [77, 25], [124, 15]],
+        boss: { speciesId: 38, level: 69, title: 'Feunard ardent' },
+      },
+      {
+        name: 'Champ de Lave', minLv: 68, maxLv: 70, biome: 'volcano',
+        pool: [[37, 15], [58, 15], [77, 15], [116, 20], [126, 15], [124, 10], [136, 10]],
+        boss: { speciesId: 59, level: 71, title: 'Arcanin flamboyant' },
+      },
+      {
+        name: 'Caldeira Ardente', minLv: 70, maxLv: 72, biome: 'volcano',
+        pool: [[116, 15], [117, 10], [126, 15], [136, 15], [124, 15], [77, 15], [37, 15]],
+        boss: { speciesId: 78, level: 72, title: 'Galopa fulgurant' },
+      },
+    ],
+    arena: {
+      name: 'Arène de l’Île Cannelle', leader: 'Auguste', type: 'Feu',
+      team: [[59, 70], [126, 71], [6, 73]],
+      badge: 'Badge Volcan',
     },
   },
 ];
