@@ -188,6 +188,17 @@ Insécateur, Scarabrute, Mélofée, Miaouss, Excelangue, Poissirène) toutes en 
 Tests ajoutés : couverture des espèces prévues, inclus dans le test générique de courbe de niveau
 (4 biomes codés à ce stade).
 
+## Biome 5 — fait (2026-09-21)
+
+**Marais Toxique** (`BIOMES[4]`, Nv 43→61, Poison + Fantôme) : Marais Embrumé (43-48, boss Nosferalto
+50), Tourbière Toxique (48-55, boss Grotadmorv 57), Cœur du Marécage (55-59, boss Smogogo 60), arène de
+Parmanie — Koga (Poison, Badge Âme), équipe Grotadmorv/Smogogo/Ectoplasma Nv 58-61 (les propres boss de
+ce biome, cohérent avec un maître Poison/Spectre). Espèces prévues (Nosferapti, Tadmorv, Smogo,
+Fantominus, Leveinard, Stari) toutes en pool. Nouveau décor `swamp` (vert marécageux).
+
+Tests ajoutés : couverture des espèces prévues, inclus dans le test générique de courbe de niveau
+(5 biomes codés à ce stade).
+
 ## Prochaine étape
 
-Biome 5 (Marais Toxique, Poison/Fantôme, arène Koga) en cours.
+Biome 6 (Sanctuaire Psy, Psy/Combat, arène Morgane) quand Arno valide les biomes 4 et 5 en jeu.

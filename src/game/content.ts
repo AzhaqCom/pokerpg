@@ -9,7 +9,7 @@ export interface ZoneDef {
   /** `repeatable` : boss rejouable après la 1re victoire (légendaires en fin de jeu), jamais le cas pour un boss de zone classique. */
   boss: { speciesId: number; level: number; title: string; repeatable?: boolean };
   /** fond de combat */
-  biome: 'forest' | 'meadow' | 'cave' | 'water' | 'electric';
+  biome: 'forest' | 'meadow' | 'cave' | 'water' | 'electric' | 'swamp';
 }
 
 export interface ArenaDef {
@@ -133,6 +133,32 @@ export const BIOMES: BiomeDef[] = [
       name: 'Arène de Céladopole', leader: 'Erika', type: 'Plante',
       team: [[45, 40], [71, 41], [47, 43]],
       badge: 'Badge Prisme',
+    },
+  },
+  {
+    // Nv.43→61 — voir BIOMES.md : type dominant Poison (+ Fantôme), écart original +11.
+    name: 'Marais Toxique',
+    zones: [
+      {
+        name: 'Marais Embrumé', minLv: 43, maxLv: 48, biome: 'swamp',
+        pool: [[41, 30], [109, 30], [88, 25], [92, 15]],
+        boss: { speciesId: 42, level: 50, title: 'Nosferalto vampire' },
+      },
+      {
+        name: 'Tourbière Toxique', minLv: 48, maxLv: 55, biome: 'swamp',
+        pool: [[88, 20], [109, 20], [92, 15], [41, 15], [113, 10], [120, 20]],
+        boss: { speciesId: 89, level: 57, title: 'Grotadmorv abyssal' },
+      },
+      {
+        name: 'Cœur du Marécage', minLv: 55, maxLv: 59, biome: 'swamp',
+        pool: [[92, 20], [113, 15], [120, 20], [88, 15], [109, 15], [41, 15]],
+        boss: { speciesId: 110, level: 60, title: 'Smogogo asphyxiant' },
+      },
+    ],
+    arena: {
+      name: 'Arène de Parmanie', leader: 'Koga', type: 'Poison',
+      team: [[89, 58], [110, 60], [94, 61]],
+      badge: 'Badge Âme',
     },
   },
 ];

@@ -11,8 +11,8 @@ Projet perso non commercial (sprites PMD SpriteCollab CC BY-NC → pas de Play S
 une commande par ligne. Arno veut des propositions arrêtées et structurées, pas une liste d'options ouvertes.
 
 État : **V1 jouable et testée par Arno** (biome 1 complet). Biomes 2 « Biome Aquatique », 3 « Biome
-Électrique » et 4 « Biome Verdoyant » codés et testés (Jest), pas encore validés en jeu par Arno (haut
-niveau requis pour les atteindre en partant d'une nouvelle sauvegarde).
+Électrique », 4 « Biome Verdoyant » et 5 « Marais Toxique » codés et testés (Jest), pas encore validés
+en jeu par Arno (haut niveau requis pour les atteindre en partant d'une nouvelle sauvegarde).
 8 améliorations codées le 2026-09-21 (voir `AMELIORATIONS.md`) : perf sac, nettoyage doublons boîte,
 tri par type, étoiles de qualité génétique, options de capture auto, pension repensée en XP + nouvel
 onglet Exploration. Reste le test manuel Expo Go par Arno. Voir `BIOMES.md` pour le plan des biomes
