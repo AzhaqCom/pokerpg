@@ -1,4 +1,4 @@
-# Pokémon Lootborn (V1)
+# PokéLoot (V1)
 
 RPG à combats automatiques avec les Pokémon de 1re génération : ton équipe se bat seule, tu gagnes en la préparant.
 Projet personnel, non commercial.

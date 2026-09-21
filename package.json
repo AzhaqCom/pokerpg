@@ -1,5 +1,5 @@
 {
-  "name": "pokelootborn",
+  "name": "pokeloot",
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
@@ -25,6 +25,7 @@
     "fast-xml-parser": "^5.11.1",
     "jest": "^30.5.2",
     "pngjs": "^7.0.0",
+    "sharp": "^0.35.4",
     "ts-jest": "^29.4.12",
     "tsx": "^4.23.13",
     "typescript": "~6.0.3"
@@ -39,7 +40,7 @@
     "typecheck": "tsc --noEmit",
     "thumbs": "python3 tools/make_thumbs.py",
     "sfx": "python3 tools/gen_sfx.py",
-    "icon": "python3 tools/make_icon.py"
+    "icon": "node tools/make_icon.js"
   },
   "private": true
 }

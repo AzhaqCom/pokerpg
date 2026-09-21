@@ -1,6 +1,6 @@
 @AGENTS.md
 
-# Pokémon Lootborn — contexte projet
+# PokéLoot — contexte projet
 
 RPG mobile à **combats automatiques** façon Lootborn Warriors avec les 151 Pokémon de la 1re génération.
 Le joueur ne pilote pas les combats : il joue la **préparation** (capture, équipe de 3, objets, fusion,

@@ -14,7 +14,7 @@ export function StarterScreen() {
   const w = Math.min(150, (width - 48) / 3);
   return (
     <View style={styles.root}>
-      <Text style={styles.title}>Pokémon Lootborn</Text>
+      <Text style={styles.title}>PokéLoot</Text>
       <Text style={styles.sub}>Ton équipe se bat seule. À toi de la préparer : capacités, objets, talents, captures… et de lancer les boss.</Text>
       <Text style={styles.pick}>Choisis ton premier Pokémon</Text>
       <View style={styles.row}>
