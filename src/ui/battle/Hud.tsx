@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { BIOMES, STAGES_PER_ZONE } from '../../game/content';
-import { arenaAvailable, bossAvailable } from '../../game/game';
+import { addMon, arenaAvailable, bossAvailable, makeMon } from '../../game/game';
 import { RARITIES, RARITY_COLOR } from '../../game/model';
-import { useGame } from '../../store/game';
+import { rng, useGame } from '../../store/game';
 import { useSettings } from '../../store/settings';
 import { Button } from '../components/Button';
 import { Dialog, DialogSpec } from '../components/Dialog';
@@ -67,6 +67,7 @@ export function HudBottom() {
 function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const st = useSettings();
   const reset = useGame((g) => g.reset);
+  const act = useGame((g) => g.act);
   const [dialog, setDialog] = useState<DialogSpec | null>(null);
   return (
     <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
@@ -114,6 +115,12 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
                   ))}
                 </View>
               </View>
+            )}
+            {__DEV__ && (
+              <Button label="🐛 Debug : +10 Pokémon dans la boîte" color="#37474f" onPress={() => {
+                act((g) => { for (let i = 0; i < 10; i++) addMon(g, makeMon(1 + Math.floor(rng.int(151)), 5 + rng.int(20), rng, rng.int(20) === 0, 8)); });
+                feedback();
+              }} />
             )}
             <Button label="Nouvelle partie" color="#5a2020" onPress={() => setDialog({
               title: 'Tout effacer ?', message: 'Équipe, objets, Pokédex et progression seront perdus.',
