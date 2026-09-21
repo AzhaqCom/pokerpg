@@ -9,7 +9,7 @@ export interface ZoneDef {
   /** `repeatable` : boss rejouable après la 1re victoire (légendaires en fin de jeu), jamais le cas pour un boss de zone classique. */
   boss: { speciesId: number; level: number; title: string; repeatable?: boolean };
   /** fond de combat */
-  biome: 'forest' | 'meadow' | 'cave' | 'water' | 'electric' | 'swamp' | 'temple' | 'volcano';
+  biome: 'forest' | 'meadow' | 'cave' | 'water' | 'electric' | 'swamp' | 'temple' | 'volcano' | 'desert';
 }
 
 export interface ArenaDef {
@@ -211,6 +211,32 @@ export const BIOMES: BiomeDef[] = [
       name: 'Arène de l’Île Cannelle', leader: 'Auguste', type: 'Feu',
       team: [[59, 70], [126, 71], [6, 73]],
       badge: 'Badge Volcan',
+    },
+  },
+  {
+    // Nv.73→78 — voir BIOMES.md : type dominant Sol, écart original +3.
+    name: 'Plaines Rocheuses',
+    zones: [
+      {
+        name: 'Carrière Aride', minLv: 73, maxLv: 74, biome: 'desert',
+        pool: [[27, 30], [50, 30], [104, 25], [84, 15]],
+        boss: { speciesId: 28, level: 75, title: 'Sablaireau ensablé' },
+      },
+      {
+        name: 'Crevasse Rocheuse', minLv: 74, maxLv: 76, biome: 'desert',
+        pool: [[27, 15], [50, 15], [104, 15], [111, 20], [84, 15], [129, 20]],
+        boss: { speciesId: 51, level: 76, title: 'Triopikeur foreur' },
+      },
+      {
+        name: 'Plateau Desséché', minLv: 76, maxLv: 77, biome: 'desert',
+        pool: [[111, 20], [129, 20], [104, 15], [84, 15], [50, 15], [27, 15]],
+        boss: { speciesId: 105, level: 77, title: 'Ossatueur osseux' },
+      },
+    ],
+    arena: {
+      name: 'Arène de Jadielle', leader: 'Giovanni', type: 'Sol',
+      team: [[112, 75], [85, 76], [34, 78]],
+      badge: 'Badge Terre',
     },
   },
 ];

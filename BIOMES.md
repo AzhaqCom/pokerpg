@@ -222,6 +222,19 @@ Caninos, Ponyta, Magmar, Pyroli, Lippoutou, Hypotrempe) toutes en pool. Nouveau 
 Tests ajoutés : couverture des espèces prévues, inclus dans le test générique de courbe de niveau
 (7 biomes codés à ce stade).
 
+## Biome 8 — fait (2026-09-21)
+
+**Plaines Rocheuses** (`BIOMES[7]`, Nv 73→78, Sol) : Carrière Aride (73-74, boss Sablaireau 75),
+Crevasse Rocheuse (74-76, boss Triopikeur 76), Plateau Desséché (76-77, boss Ossatueur 77), arène de
+Jadielle — Giovanni (Sol, Badge Terre), équipe Rhinoféros/Dodrio/Nidoking Nv 75-78 (Nidoking en clin
+d'œil à la lignée Nidoran♂ du biome 1). Espèces prévues (Sabelette, Taupiqueur, Osselait, Rhinocorne,
+Doduo, Magicarpe) toutes en pool. Nouveau décor `desert` (ocre aride).
+
+Tests ajoutés : couverture des espèces prévues, inclus dans le test générique de courbe de niveau
+(8 biomes codés à ce stade — les 8 badges de la ligue Kanto sont maintenant tous couverts).
+
 ## Prochaine étape
 
-Biome 8 (Plaines Rocheuses, Sol, arène Giovanni) en cours.
+Biome 9 (Route Victoire, réserve mixte, Conseil des 4) — dernière ligne droite avant la Ligue
+(biome 10). Voir « Cas particuliers » plus haut pour les oiseaux légendaires/Mewtwo/Mew (rejouables,
+chromatiques à chaque tentative) et Dracolosse.

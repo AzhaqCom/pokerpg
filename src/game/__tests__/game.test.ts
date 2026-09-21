@@ -128,7 +128,7 @@ test('migrateSave : une pension XP déjà en place mais sans taux calculé reço
  * chaque biome codé jusqu'ici. L'arène doit y arriver pile (max du `team`), et le biome suivant doit
  * démarrer pile là où le précédent finit — sinon toute la suite de la courbe dérive.
  */
-const DOCUMENTED_END_LEVELS = [18, 30, 35, 43, 61, 66, 73];
+const DOCUMENTED_END_LEVELS = [18, 30, 35, 43, 61, 66, 73, 78];
 
 test('courbe de niveau : chaque biome codé monte jusqu’au niveau documenté dans BIOMES.md, sans rupture avec le suivant', () => {
   BIOMES.forEach((b, i) => {
@@ -168,6 +168,12 @@ test('biome 6 : Soporifik/Férosinge/Machoc/Kicklee/Tygnon/Kangourex/Tauros capt
 test('biome 7 : Goupix/Caninos/Ponyta/Magmar/Pyroli/Lippoutou/Hypotrempe capturables en rencontre sauvage', () => {
   const required = [37, 58, 77, 126, 136, 124, 116];
   const inSomePool = (id: number) => BIOMES[6].zones.some((z) => z.pool.some(([sid]) => sid === id));
+  for (const id of required) expect(inSomePool(id)).toBe(true);
+});
+
+test('biome 8 : Sabelette/Taupiqueur/Osselait/Rhinocorne/Doduo/Magicarpe capturables en rencontre sauvage', () => {
+  const required = [27, 50, 104, 111, 84, 129];
+  const inSomePool = (id: number) => BIOMES[7].zones.some((z) => z.pool.some(([sid]) => sid === id));
   for (const id of required) expect(inSomePool(id)).toBe(true);
 });
 
