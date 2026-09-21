@@ -125,6 +125,13 @@ export function migrateSave(raw: Record<string, unknown>): Record<string, unknow
       if (!mon.talentTypeChoices) mon.talentTypeChoices = {};
     }
   }
+  // Filet de sécurité : une équipe qui référence un Pokémon relâché/supprimé (uid fantôme, jamais
+  // nettoyé par un bug passé) fait croire l'équipe pleine alors qu'elle affiche moins de 3 membres —
+  // « Ajouter à l'équipe » propose alors de remplacer au lieu d'ajouter. Retiré au chargement.
+  if (Array.isArray(raw.team) && raw.mons && typeof raw.mons === 'object') {
+    const mons = raw.mons as Record<string, unknown>;
+    raw.team = (raw.team as string[]).filter((u, i, arr) => mons[u] && arr.indexOf(u) === i);
+  }
   return raw;
 }
 

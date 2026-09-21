@@ -124,6 +124,15 @@ test('migrateSave : une pension XP déjà en place mais sans taux calculé reço
   expect(migrated.pension).toEqual([{ uid: 'm1', since: 123, xpPerHour: PENSION_XP_FALLBACK_PER_HOUR }]);
 });
 
+test('migrateSave : nettoie les uid fantômes de l’équipe (Pokémon relâché/supprimé jamais retiré de team)', () => {
+  const old = {
+    team: ['m1', 'ghost1', 'm1', 'ghost2'], // doublon + fantômes, comme un vieux bug aurait pu en laisser
+    mons: { m1: { uid: 'm1' } },
+  } as unknown as Record<string, unknown>;
+  const migrated = migrateSave(old) as unknown as GameState;
+  expect(migrated.team).toEqual(['m1']); // fantômes et doublon retirés : l’équipe redevient ajoutable
+});
+
 /**
  * Courbe de niveau documentée dans BIOMES.md (calcul § « Courbe de niveau ») : niveau de fin de
  * chaque biome codé jusqu'ici. L'arène doit y arriver pile (max du `team`), et le biome suivant doit

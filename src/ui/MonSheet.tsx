@@ -58,6 +58,9 @@ export function MonSheet() {
   const sp = species(mon.speciesId);
   const st = monStats(s, mon.uid);
   const inTeam = s.team.includes(mon.uid);
+  // uid fantôme (Pokémon relâché/supprimé) jamais nettoyé de l'équipe : compter les membres valides
+  // plutôt que s.team.length brut, sinon l'équipe semble pleine alors qu'elle affiche moins de 3.
+  const validTeamCount = s.team.filter((u) => s.mons[u]).length;
   const tree = talentTree(sp.types);
   const pts = talentPoints(mon.level) - spentPoints(mon.talents);
   const spent = spentPoints(mon.talents);
@@ -212,11 +215,11 @@ export function MonSheet() {
 
           <View style={[styles.row, { marginTop: 12 }]}>
             {inTeam ? (
-              <Button label="Retirer de l'équipe" disabled={s.team.length <= 1} onPress={() => { act((g) => setTeam(g, g.team.filter((u) => u !== mon.uid))); changed(); }} style={{ flex: 1 }} />
+              <Button label="Retirer de l'équipe" disabled={validTeamCount <= 1} onPress={() => { act((g) => setTeam(g, g.team.filter((u) => u !== mon.uid))); changed(); }} style={{ flex: 1 }} />
             ) : (
-              <Button label={s.team.length < TEAM_SIZE ? "Ajouter à l'équipe" : "Remplacer un membre de l'équipe"} color={C.accent}
+              <Button label={validTeamCount < TEAM_SIZE ? "Ajouter à l'équipe" : "Remplacer un membre de l'équipe"} color={C.accent}
                 onPress={() => {
-                  if (s.team.length < TEAM_SIZE) { act((g) => setTeam(g, [...g.team, mon.uid])); changed(); }
+                  if (validTeamCount < TEAM_SIZE) { act((g) => setTeam(g, [...g.team, mon.uid])); changed(); }
                   else setSwapPicker(true);
                 }} style={{ flex: 1 }} />
             )}
