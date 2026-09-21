@@ -52,7 +52,11 @@ export function MonSheet() {
   const [dialog, setDialog] = useState<DialogSpec | null>(null);
   const mon = uid && s ? s.mons[uid] : null;
 
-  const close = () => { setPicker(null); open(null); };
+  // MonSheet est une instance unique et persistante (pas remontée à chaque Pokémon ouvert) : sans ça,
+  // les popups internes (objet, échange d'équipe, talent au choix, dialogue) restent ouvertes en
+  // mémoire d'un Pokémon à l'autre — ex. le sélecteur « Qui remplacer ? » resté armé après un premier
+  // échange se redéclenchait silencieusement sur le Pokémon suivant, sans jamais s'afficher.
+  const close = () => { setPicker(null); setSwapPicker(false); setAffinityPick(null); setDialog(null); open(null); };
   if (!s || !mon) return <Modal visible={false} transparent />;
 
   const sp = species(mon.speciesId);
@@ -302,6 +306,7 @@ function TeamSwapPicker({ newUid, onClose, onChanged }: { newUid: string; onClos
                 <Pressable key={uid} style={styles.swapRow} onPress={() => {
                   act((g) => setTeam(g, g.team.map((u, j) => (j === i ? newUid : u))));
                   onChanged();
+                  onClose();
                 }}>
                   <Text style={styles.swapSlot}>{i + 1}</Text>
                   <MonThumb speciesId={m.speciesId} shiny={m.shiny} size={40} />
