@@ -2,7 +2,7 @@
  * Joueur automatique : sert aux tests d'équilibrage (simulation de la V1
  * complète, du starter au badge). Joue « raisonnablement bien ».
  */
-import { STARTERS } from './content';
+import { BIOMES, STARTERS } from './content';
 import {
   GameState, StageRun, arenaAvailable, bossAvailable, canEvolve, chooseStarter, equip, evolve, fuseItems,
   fusionCandidates, heldItems, newGame, rankUpTalent, recycle, setTeam, tryCapture, holder,
@@ -64,7 +64,7 @@ export function simulate(rng: Rng, maxSeconds = 6 * 3600, trace?: string[]): Sim
   const milestones: Record<string, number> = {};
   const mark = (k: string) => { if (milestones[k] === undefined) milestones[k] = Math.round(t / 60); };
   let cooldown = 0; // après un boss raté, le bot farme 3 étapes avant de réessayer
-  while (t < maxSeconds && !s.arenaBeaten[0]) {
+  while (t < maxSeconds && !s.arenaBeaten[BIOMES.length - 1]) {
     let kind: 'stage' | 'boss' | 'arena' = 'stage';
     if (cooldown > 0) cooldown--;
     else if (arenaAvailable(s) && s.zone === 2 && s.stage >= 5) kind = 'arena';
@@ -83,8 +83,8 @@ export function simulate(rng: Rng, maxSeconds = 6 * 3600, trace?: string[]): Sim
     trace?.push(`${Math.round(t / 60)}min ${kind} z${run.zone}s${run.stage} ${run.result} lv=${s.team.map((u) => s.mons[u].level)} sp=${s.team.map((u) => s.mons[u].speciesId)}`);
     if (run.result === 'lose' && kind !== 'stage') cooldown = 3;
     if (run.result === 'win') {
-      if (kind === 'boss') mark(`boss${run.zone + 1}`);
-      if (kind === 'arena') mark('badge');
+      if (kind === 'boss') mark(`biome${run.biome + 1}-boss${run.zone + 1}`);
+      if (kind === 'arena') mark(`biome${run.biome + 1}-badge`);
     }
     if (Object.keys(s.mons).length >= 2) mark('2e Pokémon');
     manage(s, rng);
@@ -93,6 +93,6 @@ export function simulate(rng: Rng, maxSeconds = 6 * 3600, trace?: string[]): Sim
   }
   return {
     seconds: Math.round(t), milestones, teamLevels: s.team.map((u) => s.mons[u].level),
-    captures: s.totals.captures, items: Object.keys(s.items).length, finished: s.arenaBeaten[0],
+    captures: s.totals.captures, items: Object.keys(s.items).length, finished: s.arenaBeaten[BIOMES.length - 1],
   };
 }

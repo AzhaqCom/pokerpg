@@ -12,10 +12,12 @@ une commande par ligne. Arno veut des propositions arrêtées et structurées, p
 
 État : **V1 jouable et testée par Arno** (biome 1 complet). **Les 10 biomes du plan sont codés et
 testés (Jest)** (voir `BIOMES.md`) : les 151 espèces sont toutes couvertes, courbe de niveau Nv.3→100.
-Biomes 2-10 pas encore validés en jeu par Arno (haut niveau requis). Boss **rejouables**
-(`repeatable: true` sur `ZoneDef.boss`, biomes 9-10) pour les légendaires — chromatique tiré à chaque
-tentative, contrairement à un boss de zone classique (jamais chromatique). Le jeu s'appelle
-**PokéLoot** depuis le 2026-09-21.
+**Simulation d'équilibrage bout en bout ajoutée** (`balance.test.ts`) : un joueur efficace termine les
+10 biomes en 3h30-6h50 de combat simulé, sans blocage — biomes 6-8 anormalement rapides (~3 min
+chacun), à surveiller au test manuel (voir `BIOMES.md`). Biomes 2-10 pas encore validés en jeu par
+Arno (haut niveau requis). Boss **rejouables** (`repeatable: true` sur `ZoneDef.boss`, biomes 9-10)
+pour les légendaires — chromatique tiré à chaque tentative, contrairement à un boss de zone classique
+(jamais chromatique). Le jeu s'appelle **PokéLoot** depuis le 2026-09-21.
 8 améliorations codées le 2026-09-21 (voir `AMELIORATIONS.md`) : perf sac, nettoyage doublons boîte,
 tri par type, étoiles de qualité génétique, options de capture auto, pension repensée en XP + nouvel
 onglet Exploration. Reste le test manuel Expo Go par Arno. Voir `BIOMES.md` pour le plan des biomes
@@ -25,7 +27,7 @@ suivants.
 ```
 npm install
 npx expo start          # Expo Go / dev client
-npm test                # Jest (25 tests, dont simulation d'équilibrage complète)
+npm test                # Jest (76 tests, dont simulation d'équilibrage bout en bout, ~20 s)
 npm run typecheck       # tsc --noEmit
 npx expo prebuild       # puis build APK Android
 ```

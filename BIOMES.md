@@ -281,3 +281,23 @@ conditions réelles (comme pour le lot du 2026-09-21 sur le biome 1).
 Test ajouté : audit exhaustif des 151 espèces (81 formes de base/sans évolution, toutes en rencontre
 sauvage ou boss rejouable) sur l'ensemble des biomes codés — sert de garde-fou pour tout futur ajustement
 de contenu.
+
+## Simulation d'équilibrage bout en bout (2026-09-21)
+
+`bot.ts`/`balance.test.ts` ne simulaient qu'un badge (biome 1) — étendu maintenant que les 10 biomes
+existent : le bot joue jusqu'au badge du Champion (`s.arenaBeaten[BIOMES.length - 1]`), jalons
+`biomeN-bossZ`/`biomeN-badge` par biome (au lieu d'un seul `boss1..3`/`badge` global, qui n'aurait
+enregistré que la première occurrence toutes biomes confondues).
+
+**Résultat, sondé sur 10 seeds** : le jeu complet se termine toujours, entre **3h30 et 6h50** de combat
+pur simulé (aucun blocage). Test committé sur 3 seeds, bornes larges (1h30-10h) pour ne pas devenir
+friable au moindre ajustement futur.
+
+**Observation notable, pas encore traitée** : les biomes 6, 7 et 8 se traversent en ~3-4 min chacun
+(contre 77 min pour le biome 1, 41 min pour le biome 5), alors que le badge 1er biome vise 30 min-3h.
+En partie explicable par la courbe de niveau elle-même (écarts originaux Bulbapedia +3/+4/+3 pour ces
+biomes contre +11 pour le biome 5, donc des paliers volontairement courts — voir § Courbe de niveau) et
+par un joueur déjà suréquipé/talents avancés à ce stade. Mais l'écart est marqué ; à surveiller au test
+manuel en jeu, et éventuellement retravailler la difficulty de ces 3 zones si ça se confirme trop facile
+en conditions réelles (pas fait ici : décision d'équilibrage à trancher avec Arno, pas une correction de
+bug comme Onix/Racaillou).
