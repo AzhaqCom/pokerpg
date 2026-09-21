@@ -70,10 +70,15 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
   const [dialog, setDialog] = useState<DialogSpec | null>(null);
   return (
     <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.box} onPress={() => {}}>
+      {/* Fond et boîte en calques superposés (pas un Pressable imbriqué dans un autre) : un tap sur le
+          fond ferme le menu, un tap sur la boîte est simplement bloqué par superposition — contrairement
+          à un Pressable parent qui capterait le toucher dès le contact et empêcherait la ScrollView de
+          détecter un geste de défilement démarré sur du texte brut (non protégé comme les boutons/switches). */}
+      <Pressable style={styles.backdrop} onPress={onClose} />
+      <View style={styles.centerWrap} pointerEvents="box-none">
+        <View style={styles.box}>
           <Text style={styles.title}>Réglages</Text>
-          <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ gap: 12 }}>
+          <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ gap: 12 }}>
             <Row label="Sons" value={st.sound} onChange={(v) => st.set({ sound: v })} />
             <Row label="Vibrations" value={st.haptics} onChange={(v) => st.set({ haptics: v })} />
             <Row label="Capturer automatiquement les Pokémon manquants" value={st.autoCapture} onChange={(v) => st.set({ autoCapture: v })} />
@@ -120,8 +125,8 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
             </Text>
           </ScrollView>
           <Button label="Fermer" onPress={onClose} />
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
       <Dialog spec={dialog} onClose={() => setDialog(null)} />
     </Modal>
   );
@@ -145,7 +150,8 @@ const styles = StyleSheet.create({
   speedTxt: { color: '#fff', fontWeight: '900' },
   gear: { color: C.sub, fontSize: 22 },
   row: { flexDirection: 'row', gap: 8, paddingHorizontal: 10 },
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24 },
+  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)' },
+  centerWrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', padding: 24 },
   box: { backgroundColor: C.panel, borderRadius: 18, padding: 18, gap: 12, maxHeight: '85%' },
   title: { color: C.text, fontSize: 20, fontWeight: '900' },
   setRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
