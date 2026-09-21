@@ -2,15 +2,15 @@ import { BIOMES, STAGES_PER_ZONE } from '../content';
 import { ALL_SPECIES } from '../data';
 import {
   GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, arenaAvailable, assignExploration, assignPension, autoCaptureBall, bestStarsOf, biomeAvailable, bossAvailable,
-  canEvolve, captureChance, captureLevel, chooseStarter, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, giveXp, harvestExploration, harvestPension,
-  holder, makeMon, addMon, makeWaves, migrateSave, newGame, rankUpTalent, recycle, release, releaseExcess, remainingEvolutions, removePension, selectStage,
-  teamMaxLevel, tryCapture, xpGapMult,
+  canEvolve, captureChance, captureLevel, chooseStarter, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
+  harvestExploration, harvestPension, holder, makeMon, addMon, makeWaves, migrateSave, newGame, rankUpTalent, recycle, release, releaseExcess, remainingEvolutions,
+  removePension, selectStage, teamMaxLevel, tryCapture, xpGapMult,
 } from '../game';
 import { makeItem } from '../items';
 import { emptyBonuses } from '../model';
 import { Rng, seededRng } from '../rng';
 import { spentPoints } from '../talents';
-import { combatPower, finalStats } from '../stats';
+import { combatPower, finalStats, monStars } from '../stats';
 
 const H = 3600_000;
 
@@ -342,6 +342,35 @@ test('capture : Balls consommées, espèce rare 2× plus dure, boss garanti', ()
   expect(s.balls.poke).toBe(before - 10);
   expect(caught).toBeGreaterThan(0);
   expect(s.team.length).toBe(3); // les captures remplissent l'équipe
+});
+
+test('genesMinForBadges : plancher de qualité qui monte avec les badges (jamais redescend en repartant farmer un biome antérieur)', () => {
+  expect(genesMinForBadges(0)).toBe(0);
+  expect(genesMinForBadges(3)).toBe(0);
+  expect(genesMinForBadges(4)).toBe(8);
+  expect(genesMinForBadges(7)).toBe(8);
+  expect(genesMinForBadges(8)).toBe(12);
+  expect(genesMinForBadges(10)).toBe(12);
+});
+
+test('capture : le plancher de gènes par badge garantit au moins 2★ dès 4 badges, 3★ dès 8', () => {
+  const s = newGame();
+  chooseStarter(s, 4, seededRng(1));
+  s.badges = 8;
+  s.balls.poke = 50;
+  let mon: ReturnType<typeof tryCapture> = null;
+  for (let i = 0; i < 50 && !mon; i++) mon = tryCapture(s, { speciesId: 10, level: 4, shiny: false, rare: false }, 'poke', seededRng(i));
+  expect(mon).not.toBeNull();
+  expect(Math.min(mon!.genes.hp, mon!.genes.atk, mon!.genes.def, mon!.genes.spe)).toBeGreaterThanOrEqual(12);
+  expect(monStars(mon!)).toBeGreaterThanOrEqual(3);
+
+  s.badges = 4;
+  s.balls.poke = 50;
+  mon = null;
+  for (let i = 0; i < 50 && !mon; i++) mon = tryCapture(s, { speciesId: 10, level: 4, shiny: false, rare: false }, 'poke', seededRng(100 + i));
+  expect(mon).not.toBeNull();
+  expect(Math.min(mon!.genes.hp, mon!.genes.atk, mon!.genes.def, mon!.genes.spe)).toBeGreaterThanOrEqual(8);
+  expect(monStars(mon!)).toBeGreaterThanOrEqual(2);
 });
 
 test('capture plafonnée au niveau du meilleur Pokémon de l’équipe', () => {

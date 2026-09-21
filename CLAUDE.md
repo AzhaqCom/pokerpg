@@ -88,6 +88,10 @@ Modules natifs : toujours `npx expo install <pkg>`. Skia 2.6.2 (épinglé) **exi
 - Qualité génétique : gènes (PV/Atq/Déf/Vit, 0-15 chacun) tirés une fois à la capture, jamais modifiés
   ensuite — plafond réel du Pokémon même si le PC affiché grimpe avec niveau/objets/talents/badges.
   Étoiles (`monStars` dans `stats.ts`) : 4★ gènes parfaits (15/15/15/15), 3★ ≥80 %, 2★ ≥50 %, 1★ en dessous.
+  Plancher garanti par badge (`genesMinForBadges` dans `game.ts`, appliqué à toute capture — sauvage,
+  boss, chromatique idle) : dès 4 badges, gènes ≥8/15 chacun (2★ minimum garanti, 3-4★ toujours possibles
+  par chance) ; dès 8 badges, gènes ≥12/15 chacun (3★ minimum garanti). `s.badges` ne redescend jamais,
+  même en repartant farmer un biome antérieur — objectif rejouabilité/complétion (tout en 4★+chromatique).
 - Pension (XP passive, taux dynamique = 40 % de l'XP/h réelle de l'équipe actuelle — `teamXpPerHour`
   dans `idle.ts`, figé au moment où le Pokémon est posté —, plafond 8 h) vs Exploration (ex-pension : Verger/
   Entraînement/Fouille, ressources) : deux listes séparées dans `GameState`, un Pokémon ne peut être

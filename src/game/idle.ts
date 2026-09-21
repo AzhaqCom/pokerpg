@@ -12,7 +12,7 @@ import { Battle } from './battle';
 import { BIOMES } from './content';
 import {
   BETWEEN_WAVES_MS, GameState, LOOT_CHANCE, PENSION_CAP_MS, SHINY_ODDS, addMon, allyFighter,
-  giveXp, makeMon, makeWaves, pickSpecies, teamMaxLevel, wildFighter, xpGapMult,
+  genesMinForBadges, giveXp, makeMon, makeWaves, pickSpecies, teamMaxLevel, wildFighter, xpGapMult,
 } from './game';
 import { recycleValue, rollLoot } from './items';
 import { Item, Mon } from './model';
@@ -174,7 +174,7 @@ export function computeIdleGains(
     if (rng.int(SHINY_ODDS) === 0) {
       const speciesId = pickSpecies(zone, rng);
       const level = Math.min(Math.max(2, zone.minLv - 1 + rng.int(2)), cap);
-      shinies.push(makeMon(speciesId, level, rng, true));
+      shinies.push(makeMon(speciesId, level, rng, true, genesMinForBadges(s.badges)));
     }
   }
 

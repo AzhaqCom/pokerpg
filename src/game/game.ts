@@ -744,13 +744,26 @@ export function autoCaptureBall(s: GameState, best: boolean): BallKind | null {
   return order.find((b) => s.balls[b] > 0) ?? null;
 }
 
+/**
+ * Plancher de gènes garanti par badge (`s.badges` ne redescend jamais, même en repartant farmer un
+ * biome antérieur) : dès 4 badges, capture au moins 2★ (qualité ≥ 50 %, gènes ≥ 8/15 chacun, jusqu'à
+ * 4★ toujours possible par chance) ; dès 8 badges, au moins 3★ (gènes ≥ 12/15 chacun). Récompense la
+ * progression sans jamais retirer la rareté du 4★ parfait (15/15/15/15 reste un coup de chance, pas
+ * un plancher).
+ */
+export function genesMinForBadges(badges: number): number {
+  if (badges >= 8) return 12;
+  if (badges >= 4) return 8;
+  return 0;
+}
+
 export function tryCapture(s: GameState, offer: CaptureOffer, ball: BallKind | null, rng: Rng): Mon | null {
   if (!offer.guaranteed) {
     if (!ball || s.balls[ball] <= 0) return null;
     s.balls[ball]--;
     if (rng.int(100) >= captureChance(offer, ball)) return null;
   }
-  const mon = makeMon(offer.speciesId, captureLevel(s, offer), rng, offer.shiny);
+  const mon = makeMon(offer.speciesId, captureLevel(s, offer), rng, offer.shiny, genesMinForBadges(s.badges));
   addMon(s, mon);
   s.totals.captures++;
   return mon;
