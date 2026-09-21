@@ -10,11 +10,12 @@ Projet perso non commercial (sprites PMD SpriteCollab CC BY-NC → pas de Play S
 **Tout en français** (UI, commentaires, commits). Dev sous **Windows + PowerShell 5** : pas de `&&`,
 une commande par ligne. Arno veut des propositions arrêtées et structurées, pas une liste d'options ouvertes.
 
-État : **V1 jouable et testée par Arno** (biome 1 complet). Biomes 2 à 8 (Aquatique, Électrique,
-Verdoyant, Marais Toxique, Sanctuaire Psy, Terres de Feu, Plaines Rocheuses) codés et testés (Jest),
-pas encore validés en jeu par Arno (haut niveau requis pour les atteindre en partant d'une nouvelle
-sauvegarde) — les 8 badges de la ligue Kanto sont couverts, reste Route Victoire + Ligue (biomes 9-10,
-réserve postgame). Le jeu s'appelle **PokéLoot** depuis le 2026-09-21.
+État : **V1 jouable et testée par Arno** (biome 1 complet). Biomes 2 à 9 (Aquatique, Électrique,
+Verdoyant, Marais Toxique, Sanctuaire Psy, Terres de Feu, Plaines Rocheuses, Route Victoire) codés et
+testés (Jest), pas encore validés en jeu par Arno (haut niveau requis). Biome 9 introduit les boss
+**rejouables** (`repeatable: true` sur `ZoneDef.boss`) pour les légendaires — chromatique tiré à chaque
+tentative, contrairement à un boss de zone classique (jamais chromatique). Reste le biome 10 (Ligue).
+Le jeu s'appelle **PokéLoot** depuis le 2026-09-21.
 8 améliorations codées le 2026-09-21 (voir `AMELIORATIONS.md`) : perf sac, nettoyage doublons boîte,
 tri par type, étoiles de qualité génétique, options de capture auto, pension repensée en XP + nouvel
 onglet Exploration. Reste le test manuel Expo Go par Arno. Voir `BIOMES.md` pour le plan des biomes

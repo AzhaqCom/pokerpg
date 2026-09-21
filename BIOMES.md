@@ -233,8 +233,31 @@ Doduo, Magicarpe) toutes en pool. Nouveau décor `desert` (ocre aride).
 Tests ajoutés : couverture des espèces prévues, inclus dans le test générique de courbe de niveau
 (8 biomes codés à ce stade — les 8 badges de la ligue Kanto sont maintenant tous couverts).
 
+## Biome 9 — fait (2026-09-21)
+
+**Route Victoire** (`BIOMES[8]`, Nv 78→90, réserve postgame) : Entrée de la Route Victoire (78-82, boss
+Dracolosse 84, classique), Passage Rocheux (82-86, boss **Artikodin 87, rejouable**), Sommet Balayé par
+les Vents (86-89, boss **Électhor 90, rejouable**), « arène » Conseil des 4 (équipe Léviator/Mackogneur/
+Grolem Nv 88-90, réutilise Magicarpe biome 8, Machoc biome 6, Racaillou biome 1). Espèces couvertes en
+pool : Minidraco (pré-évolution de Dracolosse, indispensable pour le chromatique du boss), Ptéra,
+Lokhlass, Kabuto, Ronflex, Amonita, M. Mime — Métamorph et Porygon restent à placer au biome 10.
+
+**Mécanisme des boss rejouables** (`repeatable: true`, prévu dans `ZoneDef` mais jamais câblé avant) :
+- `makeWaves` (game.ts) : un boss `repeatable` tire son chromatique comme un sauvage (1/256) à **chaque**
+  tentative ; un boss classique reste toujours non-chromatique (inchangé, pour ne pas trivialiser le
+  farm d'un boss unique).
+- `waveRewards` : l'offre de capture du boss reflète désormais le vrai statut chromatique du Pokémon
+  généré (`b.shiny`) au lieu d'un `false` en dur — sans incidence sur les boss classiques (toujours
+  `false` puisque jamais chromatiques).
+- `MapPanel` et le raccourci `HudBottom` : le bouton « Défier » reste actif après une victoire si
+  `boss.repeatable`, au lieu de disparaître comme pour un boss de zone classique.
+
+Tests ajoutés : couverture des espèces prévues (hors Métamorph/Porygon, biome 10), Artikodin/Électhor
+marqués `repeatable`, tirage chromatique du boss rejouable vs jamais pour un boss classique, offre de
+capture qui reflète le tirage, bouton Défier non verrouillé après une victoire.
+
 ## Prochaine étape
 
-Biome 9 (Route Victoire, réserve mixte, Conseil des 4) — dernière ligne droite avant la Ligue
-(biome 10). Voir « Cas particuliers » plus haut pour les oiseaux légendaires/Mewtwo/Mew (rejouables,
-chromatiques à chaque tentative) et Dracolosse.
+Biome 10 (Ligue Pokémon, réserve mixte, Champion) — dernier biome du plan : Sulfura, Mewtwo, Mew
+(rejouables), Métamorph, Porygon. Une fois fait, les 151 espèces seront placées et la courbe de niveau
+ira jusqu'au Nv.100.

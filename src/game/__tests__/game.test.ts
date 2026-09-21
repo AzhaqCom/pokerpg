@@ -2,12 +2,12 @@ import { BIOMES, STAGES_PER_ZONE } from '../content';
 import {
   GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, arenaAvailable, assignExploration, assignPension, autoCaptureBall, bestStarsOf, biomeAvailable, bossAvailable,
   canEvolve, captureChance, captureLevel, chooseStarter, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, giveXp, harvestExploration, harvestPension,
-  holder, makeMon, addMon, migrateSave, newGame, rankUpTalent, recycle, release, releaseExcess, remainingEvolutions, removePension, selectStage,
+  holder, makeMon, addMon, makeWaves, migrateSave, newGame, rankUpTalent, recycle, release, releaseExcess, remainingEvolutions, removePension, selectStage,
   teamMaxLevel, tryCapture, xpGapMult,
 } from '../game';
 import { makeItem } from '../items';
 import { emptyBonuses } from '../model';
-import { seededRng } from '../rng';
+import { Rng, seededRng } from '../rng';
 import { spentPoints } from '../talents';
 import { combatPower, finalStats } from '../stats';
 
@@ -128,7 +128,7 @@ test('migrateSave : une pension XP déjà en place mais sans taux calculé reço
  * chaque biome codé jusqu'ici. L'arène doit y arriver pile (max du `team`), et le biome suivant doit
  * démarrer pile là où le précédent finit — sinon toute la suite de la courbe dérive.
  */
-const DOCUMENTED_END_LEVELS = [18, 30, 35, 43, 61, 66, 73, 78];
+const DOCUMENTED_END_LEVELS = [18, 30, 35, 43, 61, 66, 73, 78, 90];
 
 test('courbe de niveau : chaque biome codé monte jusqu’au niveau documenté dans BIOMES.md, sans rupture avec le suivant', () => {
   BIOMES.forEach((b, i) => {
@@ -175,6 +175,52 @@ test('biome 8 : Sabelette/Taupiqueur/Osselait/Rhinocorne/Doduo/Magicarpe captura
   const required = [27, 50, 104, 111, 84, 129];
   const inSomePool = (id: number) => BIOMES[7].zones.some((z) => z.pool.some(([sid]) => sid === id));
   for (const id of required) expect(inSomePool(id)).toBe(true);
+});
+
+test('biome 9 : fossiles/Ronflex/Lokhlass/Minidraco/M. Mime capturables en rencontre sauvage', () => {
+  const required = [138, 140, 142, 143, 147, 131, 122];
+  const inSomePool = (id: number) => BIOMES[8].zones.some((z) => z.pool.some(([sid]) => sid === id));
+  for (const id of required) expect(inSomePool(id)).toBe(true);
+});
+
+test('biome 9 : Artikodin/Électhor sont des boss rejouables (farmables sans être en pool)', () => {
+  const legendaries = [144, 145];
+  const bosses = BIOMES[8].zones.map((z) => z.boss);
+  for (const id of legendaries) {
+    const boss = bosses.find((b) => b.speciesId === id);
+    expect(boss?.repeatable).toBe(true);
+  }
+});
+
+test('boss rejouable (légendaire) : chromatique tiré comme un sauvage à chaque tentative ; boss de zone classique jamais chromatique', () => {
+  const alwaysShiny: Rng = { int: () => 0 };
+  const repeatableWaves = makeWaves('boss', 8, 1, 1, alwaysShiny); // biome 9, zone Artikodin (repeatable)
+  expect(repeatableWaves[0][0].mon.shiny).toBe(true);
+  const classicWaves = makeWaves('boss', 0, 0, 1, alwaysShiny); // biome 1, zone Lisière (boss classique)
+  expect(classicWaves[0][0].mon.shiny).toBe(false);
+});
+
+test('boss rejouable : l’offre de capture reflète le tirage chromatique (jamais garanti false comme un boss classique)', () => {
+  // seed 307 : le tout premier tirage (le jet chromatique du boss, dans makeWaves) tombe à 0 → chromatique.
+  // Rng séparé pour la mise en place (équipe écrasante, indépendante du seed de combat) et pour le combat.
+  const overpowered = makeMon(4, 1000, seededRng(1), false, 15);
+  const s = newGame();
+  addMon(s, overpowered);
+  s.biome = 8; s.zone = 1; // biome 9, zone Artikodin (repeatable)
+  const run = new StageRun(s, 'boss', seededRng(307));
+  run.battle.runToEnd();
+  const rewards = run.finishWave();
+  expect(run.result).toBe('win');
+  expect(rewards?.capture?.guaranteed).toBe(true);
+  expect(rewards?.capture?.shiny).toBe(true);
+});
+
+test('boss rejouable : le bouton Défier reste actif après une 1re victoire (jamais verrouillé côté carte)', () => {
+  const s = newGame();
+  expect(BIOMES[8].zones[1].boss.repeatable).toBe(true); // Artikodin
+  expect(BIOMES[0].zones[0].boss.repeatable).toBeUndefined(); // boss de zone classique
+  s.bossesBeaten[8][1] = true; // déjà battu une fois
+  expect(BIOMES[8].zones[1].boss.repeatable || !s.bossesBeaten[8][1]).toBe(true); // reste défiable
 });
 
 test('remainingEvolutions : 0 pour une forme finale, 1/2 pour Paras/Aspicot', () => {

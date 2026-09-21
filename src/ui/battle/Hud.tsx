@@ -46,7 +46,8 @@ export function HudBottom() {
   useFrameClock(4);
   const s = useGame((g) => g.s)!;
   const run = runner.run;
-  const canBoss = bossAvailable(s) && !s.bossesBeaten[s.biome][s.zone] && run?.kind !== 'boss';
+  const zoneBoss = BIOMES[s.biome].zones[s.zone].boss;
+  const canBoss = bossAvailable(s) && (zoneBoss.repeatable || !s.bossesBeaten[s.biome][s.zone]) && run?.kind !== 'boss';
   const canArena = arenaAvailable(s) && !s.arenaBeaten[s.biome] && run?.kind !== 'arena';
   return (
     <View style={{ gap: 6 }}>

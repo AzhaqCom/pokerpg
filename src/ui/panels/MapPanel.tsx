@@ -89,7 +89,7 @@ function BiomeSection({ biome, bi, s, act, onOpenZone }: {
                   </Pressable>
                 );
               })}
-              {!s.bossesBeaten[bi][zi] && (
+              {(z.boss.repeatable || !s.bossesBeaten[bi][zi]) && (
                 <Button small label={`Boss : ${species(z.boss.speciesId).name} Nv.${z.boss.level}`} color={bossAvailable(s, bi, zi) ? '#c62828' : C.panel2}
                   disabled={!bossAvailable(s, bi, zi)} onPress={() => { feedback('tap', true); act((g) => selectStage(g, bi, zi, STAGES_PER_ZONE)); runner.request('boss'); }} />
               )}

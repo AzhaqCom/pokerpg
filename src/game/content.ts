@@ -239,6 +239,32 @@ export const BIOMES: BiomeDef[] = [
       badge: 'Badge Terre',
     },
   },
+  {
+    // Nv.78→90 — voir BIOMES.md : réserve postgame mixte, écart original +7 (Conseil des 4).
+    name: 'Route Victoire',
+    zones: [
+      {
+        name: 'Entrée de la Route Victoire', minLv: 78, maxLv: 82, biome: 'cave',
+        pool: [[147, 40], [142, 30], [131, 30]],
+        boss: { speciesId: 149, level: 84, title: 'Dracolosse gardien' },
+      },
+      {
+        name: 'Passage Rocheux', minLv: 82, maxLv: 86, biome: 'cave',
+        pool: [[140, 40], [143, 30], [147, 30]],
+        boss: { speciesId: 144, level: 87, title: 'Artikodin', repeatable: true },
+      },
+      {
+        name: 'Sommet Balayé par les Vents', minLv: 86, maxLv: 89, biome: 'cave',
+        pool: [[138, 40], [122, 30], [143, 30]],
+        boss: { speciesId: 145, level: 90, title: 'Électhor', repeatable: true },
+      },
+    ],
+    arena: {
+      name: 'Conseil des 4', leader: 'Conseil des 4', type: 'mixte',
+      team: [[130, 88], [68, 89], [76, 90]],
+      badge: 'Titre de Maître',
+    },
+  },
 ];
 
 /** Bonus permanent par badge (toute l'équipe). */

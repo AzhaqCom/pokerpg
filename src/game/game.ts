@@ -516,7 +516,10 @@ export function makeWaves(kind: StageKind, biomeIndex: number, zoneIndex: number
   const zone = biome.zones[zoneIndex];
   if (kind === 'boss') {
     const b = zone.boss;
-    return [[{ mon: makeMon(b.speciesId, b.level, rng, false, 10), boss: true, hpMult: 5 }]];
+    // boss de zone classique : jamais chromatique (ne pas trivialiser le farm d'un boss unique) ;
+    // boss rejouable (légendaire) : tiré comme un sauvage à chaque tentative, sinon infarmable en chromatique.
+    const shiny = b.repeatable ? rng.int(SHINY_ODDS) === 0 : false;
+    return [[{ mon: makeMon(b.speciesId, b.level, rng, shiny, 10), boss: true, hpMult: 5 }]];
   }
   const lv = zone.minLv + Math.floor(((zone.maxLv - zone.minLv) * (stage - 1)) / (STAGES_PER_ZONE - 1));
   const waves: WaveEnemy[][] = [];
@@ -642,7 +645,7 @@ function waveRewards(s: GameState, kind: StageKind, biomeIndex: number, zoneInde
   const shiny = enemies.find((e) => e.mon.shiny && !e.boss);
   if (kind === 'boss') {
     const b = enemies[0].mon;
-    out.capture = { speciesId: b.speciesId, level: b.level, shiny: false, rare: false, guaranteed: true };
+    out.capture = { speciesId: b.speciesId, level: b.level, shiny: b.shiny, rare: false, guaranteed: true };
   } else if (kind === 'stage' && (shiny || rng.int(100) < CAPTURE_OFFER_CHANCE)) {
     const e = shiny ?? enemies[rng.int(enemies.length)];
     out.capture = { speciesId: e.mon.speciesId, level: e.mon.level, shiny: e.mon.shiny, rare: isRareInZone(zone, e.mon.speciesId), guaranteed: e.mon.shiny };
