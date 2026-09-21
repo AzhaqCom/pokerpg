@@ -246,9 +246,11 @@ export function MonSheet() {
 function ItemPicker({ slot, monUid, onClose, onChanged }: { slot: ItemSlot; monUid: string; onClose: () => void; onChanged: () => void }) {
   const s = useGame((g) => g.s)!;
   const act = useGame((g) => g.act);
+  const [dialog, setDialog] = useState<DialogSpec | null>(null);
   const mon = s.mons[monUid];
   const current = mon.items[slot] ? s.items[mon.items[slot]!] : undefined;
   const list = Object.values(s.items).filter((i) => slotOf(i) === slot).sort((a, b) => itemScore(b) - itemScore(a));
+  const doEquip = (uid: string) => { feedback(); act((g) => equip(g, monUid, uid)); onChanged(); onClose(); };
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
@@ -258,17 +260,27 @@ function ItemPicker({ slot, monUid, onClose, onChanged }: { slot: ItemSlot; monU
             {current && <Button small label="Retirer l'objet" onPress={() => { act((g) => unequip(g, monUid, slot)); onChanged(); onClose(); }} />}
             {list.map((it) => {
               const w = holder(s, it.uid);
+              const wornByOther = w && w.uid !== monUid ? monName(w) : undefined;
               const cmp = current ? (itemScore(it) > itemScore(current) ? 'up' : itemScore(it) < itemScore(current) ? 'down' : null) : 'up';
               return (
-                <ItemCard key={it.uid} item={it} selected={it.uid === current?.uid} wornBy={w && w.uid !== monUid ? monName(w) : undefined}
+                <ItemCard key={it.uid} item={it} selected={it.uid === current?.uid} wornBy={wornByOther}
                   compare={it.uid === current?.uid ? null : cmp}
-                  onPress={() => { feedback(); act((g) => equip(g, monUid, it.uid)); onChanged(); onClose(); }} />
+                  onPress={() => {
+                    if (wornByOther) {
+                      setDialog({
+                        title: 'Objet déjà équipé', message: `${wornByOther} porte cet objet. Le lui retirer pour l'équiper ici ?`,
+                        primary: { label: 'Transférer', onPress: () => doEquip(it.uid) },
+                        secondary: { label: 'Annuler', onPress: () => {} },
+                      });
+                    } else doEquip(it.uid);
+                  }} />
               );
             })}
             {!list.length && <Text style={styles.empty}>Aucun objet de ce type pour l'instant : il en tombe en combat.</Text>}
           </ScrollView>
         </Pressable>
       </Pressable>
+      <Dialog spec={dialog} onClose={() => setDialog(null)} />
     </Modal>
   );
 }

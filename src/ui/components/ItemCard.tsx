@@ -27,7 +27,8 @@ export function ItemCard({ item, onPress, selected, wornBy, compare }: {
         {item.locked && <Text style={styles.lock}>🔒</Text>}
         <Text style={styles.lv}>Nv.{item.level}</Text>
       </View>
-      <Text style={styles.rarity}>{RARITIES[item.rarity]}{t.set ? ' · Panoplie Sylvestre' : ''}{wornBy ? ` · porté par ${wornBy}` : ''}</Text>
+      {wornBy && <View style={styles.wornBadge}><Text style={styles.wornTxt}>⚠ Déjà porté par {wornBy}</Text></View>}
+      <Text style={styles.rarity}>{RARITIES[item.rarity]}{t.set ? ' · Panoplie Sylvestre' : ''}</Text>
       <Text style={styles.main}>{itemMainText(item)}</Text>
       {item.subs.map((s, i) => <Text key={i} style={styles.sub}>{STAT_LABEL[s.stat]} +{s.value} %</Text>)}
     </Pressable>
@@ -44,6 +45,8 @@ const styles = StyleSheet.create({
   up: { color: '#69f0ae', fontWeight: '900' },
   down: { color: '#ff8a80', fontWeight: '900' },
   lock: { fontSize: 11 },
+  wornBadge: { backgroundColor: '#4a3410', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3, alignSelf: 'flex-start' },
+  wornTxt: { color: C.warn, fontSize: 12, fontWeight: '800' },
   rarity: { color: C.dim, fontSize: 11 },
   main: { color: C.text, fontSize: 13, fontWeight: '600' },
   sub: { color: C.sub, fontSize: 12 },
