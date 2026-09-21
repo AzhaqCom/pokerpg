@@ -1,4 +1,5 @@
 import { BIOMES, STAGES_PER_ZONE } from '../content';
+import { ALL_SPECIES } from '../data';
 import {
   GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, arenaAvailable, assignExploration, assignPension, autoCaptureBall, bestStarsOf, biomeAvailable, bossAvailable,
   canEvolve, captureChance, captureLevel, chooseStarter, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, giveXp, harvestExploration, harvestPension,
@@ -128,7 +129,7 @@ test('migrateSave : une pension XP déjà en place mais sans taux calculé reço
  * chaque biome codé jusqu'ici. L'arène doit y arriver pile (max du `team`), et le biome suivant doit
  * démarrer pile là où le précédent finit — sinon toute la suite de la courbe dérive.
  */
-const DOCUMENTED_END_LEVELS = [18, 30, 35, 43, 61, 66, 73, 78, 90];
+const DOCUMENTED_END_LEVELS = [18, 30, 35, 43, 61, 66, 73, 78, 90, 100];
 
 test('courbe de niveau : chaque biome codé monte jusqu’au niveau documenté dans BIOMES.md, sans rupture avec le suivant', () => {
   BIOMES.forEach((b, i) => {
@@ -177,19 +178,37 @@ test('biome 8 : Sabelette/Taupiqueur/Osselait/Rhinocorne/Doduo/Magicarpe captura
   for (const id of required) expect(inSomePool(id)).toBe(true);
 });
 
-test('biome 9 : fossiles/Ronflex/Lokhlass/Minidraco/M. Mime capturables en rencontre sauvage', () => {
-  const required = [138, 140, 142, 143, 147, 131, 122];
-  const inSomePool = (id: number) => BIOMES[8].zones.some((z) => z.pool.some(([sid]) => sid === id));
+test('biomes 9-10 : fossiles/Ronflex/Lokhlass/Minidraco/M. Mime/Métamorph/Porygon capturables en rencontre sauvage', () => {
+  const required = [138, 140, 142, 143, 147, 131, 122, 132, 137];
+  const inSomePool = (id: number) => [...BIOMES[8].zones, ...BIOMES[9].zones].some((z) => z.pool.some(([sid]) => sid === id));
   for (const id of required) expect(inSomePool(id)).toBe(true);
 });
 
-test('biome 9 : Artikodin/Électhor sont des boss rejouables (farmables sans être en pool)', () => {
-  const legendaries = [144, 145];
-  const bosses = BIOMES[8].zones.map((z) => z.boss);
+test('biomes 9-10 : Artikodin/Électhor/Sulfura/Mewtwo/Mew sont des boss rejouables (farmables sans être en pool)', () => {
+  const legendaries = [144, 145, 146, 150, 151];
+  const bosses = [...BIOMES[8].zones, ...BIOMES[9].zones].map((z) => z.boss);
   for (const id of legendaries) {
     const boss = bosses.find((b) => b.speciesId === id);
     expect(boss?.repeatable).toBe(true);
   }
+});
+
+test('biome 10 : boss rejouable (Mewtwo) chromatique tiré comme un sauvage', () => {
+  const alwaysShiny: Rng = { int: () => 0 };
+  const waves = makeWaves('boss', 9, 1, 1, alwaysShiny); // biome 10, zone Grotte Bleue (Mewtwo)
+  expect(waves[0][0].mon.shiny).toBe(true);
+});
+
+test('les 151 espèces sont farmables en chromatique une fois les 10 biomes codés : 81 formes de base/sans ' +
+  'évolution, toutes en rencontre sauvage OU boss rejouable (un boss classique n’est jamais chromatique)', () => {
+  const targets = new Set(ALL_SPECIES.filter((s) => s.evolvesTo).map((s) => s.evolvesTo));
+  const mustPlace = ALL_SPECIES.filter((s) => !targets.has(s.id)).map((s) => s.id);
+  const wildPool = new Set(BIOMES.flatMap((b) => b.zones.flatMap((z) => z.pool.map(([id]) => id))));
+  const repeatableBosses = new Set(
+    BIOMES.flatMap((b) => b.zones.filter((z) => z.boss.repeatable).map((z) => z.boss.speciesId)),
+  );
+  const missing = mustPlace.filter((id) => !wildPool.has(id) && !repeatableBosses.has(id));
+  expect(missing).toEqual([]);
 });
 
 test('boss rejouable (légendaire) : chromatique tiré comme un sauvage à chaque tentative ; boss de zone classique jamais chromatique', () => {

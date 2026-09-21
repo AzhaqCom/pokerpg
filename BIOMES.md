@@ -256,8 +256,28 @@ Tests ajoutés : couverture des espèces prévues (hors Métamorph/Porygon, biom
 marqués `repeatable`, tirage chromatique du boss rejouable vs jamais pour un boss classique, offre de
 capture qui reflète le tirage, bouton Défier non verrouillé après une victoire.
 
-## Prochaine étape
+## Biome 10 — fait (2026-09-21) — plan complet des 10 biomes terminé
 
-Biome 10 (Ligue Pokémon, réserve mixte, Champion) — dernier biome du plan : Sulfura, Mewtwo, Mew
-(rejouables), Métamorph, Porygon. Une fois fait, les 151 espèces seront placées et la courbe de niveau
-ira jusqu'au Nv.100.
+**Ligue Pokémon** (`BIOMES[9]`, Nv 90→100, réserve postgame) : Antichambre du Plateau (90-93, boss
+**Sulfura 94, rejouable**), Grotte Bleue (93-96, boss **Mewtwo 97, rejouable**), Antre de Mew (96-99,
+boss **Mew 99, rejouable**), arène du Plateau Indigo — Champion (équipe Florizarre/Dracaufeu/Tortank
+Nv 96-100, les 2 lignées de starters non choisies + un clin d'œil au starter du joueur, écho de la
+sélection du tout début du biome 1). Espèces couvertes en pool : Métamorph, Porygon (dernières
+manquantes), Lokhlass/Ronflex/Amonita/M. Mime/Kabuto/Ptéra réapparaissent à plus haut niveau.
+
+**Correctif découvert en même temps (audit final)** : un nouveau test générique qui vérifie
+automatiquement les 151 espèces sur l'ensemble des 10 biomes a détecté que **Racaillou** (#74, biome 1)
+avait exactement le même bug qu'Onix (#95) début septembre : présent uniquement dans l'équipe de
+l'arène de Pierre, jamais dans un pool, donc incapturable — raté par l'audit manuel de l'époque, qui ne
+vérifiait que la présence du nom dans ce document et pas le code réel. Corrigé : ajouté en rencontre
+rare (poids 10) dans le pool de Clairière, aux côtés d'Onix.
+
+**Plan des 10 biomes terminé** : les 151 espèces sont désormais toutes couvertes (formes de base en
+rencontre sauvage ou boss rejouable, évolutions automatiques en montant de niveau), et la courbe de
+niveau va du Nv.3 (biome 1) au Nv.100 (biome 10) exactement comme calculé en tête de ce document. Reste
+à valider chaque biome en jeu par Arno, et éventuellement retoucher l'équilibrage une fois testé en
+conditions réelles (comme pour le lot du 2026-09-21 sur le biome 1).
+
+Test ajouté : audit exhaustif des 151 espèces (81 formes de base/sans évolution, toutes en rencontre
+sauvage ou boss rejouable) sur l'ensemble des biomes codés — sert de garde-fou pour tout futur ajustement
+de contenu.

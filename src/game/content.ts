@@ -47,7 +47,7 @@ export const BIOMES: BiomeDef[] = [
       },
       {
         name: 'Clairière', minLv: 10, maxLv: 14, biome: 'forest',
-        pool: [[46, 20], [48, 20], [23, 15], [17, 15], [69, 15], [25, 5], [63, 5], [95, 5]],
+        pool: [[46, 20], [48, 20], [23, 15], [17, 15], [69, 10], [74, 10], [25, 5], [63, 5], [95, 5]],
         boss: { speciesId: 15, level: 16, title: 'Dardargnan reine' },
       },
     ],
@@ -263,6 +263,32 @@ export const BIOMES: BiomeDef[] = [
       name: 'Conseil des 4', leader: 'Conseil des 4', type: 'mixte',
       team: [[130, 88], [68, 89], [76, 90]],
       badge: 'Titre de Maître',
+    },
+  },
+  {
+    // Nv.90→100 — voir BIOMES.md : réserve postgame mixte, écart original +6 (Champion + postgame).
+    name: 'Ligue Pokémon',
+    zones: [
+      {
+        name: 'Antichambre du Plateau', minLv: 90, maxLv: 93, biome: 'temple',
+        pool: [[132, 40], [137, 30], [149, 30]],
+        boss: { speciesId: 146, level: 94, title: 'Sulfura', repeatable: true },
+      },
+      {
+        name: 'Grotte Bleue', minLv: 93, maxLv: 96, biome: 'cave',
+        pool: [[131, 40], [143, 30], [138, 30]],
+        boss: { speciesId: 150, level: 97, title: 'Mewtwo', repeatable: true },
+      },
+      {
+        name: 'Antre de Mew', minLv: 96, maxLv: 99, biome: 'meadow',
+        pool: [[122, 40], [140, 30], [142, 30]],
+        boss: { speciesId: 151, level: 99, title: 'Mew', repeatable: true },
+      },
+    ],
+    arena: {
+      name: 'Plateau Indigo', leader: 'Champion', type: 'mixte',
+      team: [[3, 96], [6, 98], [9, 100]],
+      badge: 'Titre de Champion',
     },
   },
 ];
