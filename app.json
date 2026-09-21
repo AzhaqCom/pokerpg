@@ -21,7 +21,11 @@
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO"
       ],
-      "softwareKeyboardLayoutMode": "pan"
+      "softwareKeyboardLayoutMode": "pan",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -35,6 +39,12 @@
           "enableBackgroundPlayback": false
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "ae759981-177a-4ce6-b01f-6957e86e22f9"
+      }
+    },
+    "owner": "azhaq95"
   }
 }
