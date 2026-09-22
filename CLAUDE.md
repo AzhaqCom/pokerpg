@@ -154,3 +154,25 @@ que combattre.
 
 **Reste à faire par Arno** : test manuel dans Expo Go (jouer une vague, fermer l'app quelques minutes,
 revenir, vérifier le résumé et le bouton Récupérer).
+
+---
+
+## À faire — prochaine session (après le gros chantier Gen 2/prestige du 2026-09-22)
+
+Énorme volume de code ajouté en une seule session (251 espèces, 10 biomes Johto, mécanisme de prestige,
+20 panoplies, talents paliers 6-9, Option C, wildMult) sans la relecture approfondie habituelle au fil
+de l'eau — seulement une passe ciblée juste avant le build EAS (qui a déjà trouvé et corrigé un bug
+bloquant : `startPrestige` ne débloquait pas `unlocked[10][0]`, voir commit `4b0bad5`). **Prochaine
+session : pousser une relecture plus complète** de tout ce chantier, en particulier :
+- Le flux complet prestige (`canPrestige`/`startPrestige` dans `game.ts`, `runner.ts`, `App.tsx`,
+  `PrestigeOffer.tsx`) — un seul bug y a déjà été trouvé après coup, il peut y en avoir d'autres du même
+  genre (état qui se resynchronise tout seul en marche normale mais incohérent à un instant T).
+  Note utile pour l'analyse : **le `runner` ne consulte jamais `unlocked`** pour savoir s'il a le droit
+  de lancer un combat (contrairement à `selectStage`/la Carte, qui eux le font) — toute future
+  téléportation directe de `s.biome/zone/stage` (hors `selectStage`) doit explicitement débloquer la
+  zone visée, sinon la Carte affiche un état verrouillé incohérent avec le combat réellement en cours.
+- Le contenu Johto (`content.ts` biomes 10-19) : niveaux d'équipe d'arène approximatifs (jamais vérifiés
+  contre une source, contrairement à la table des types Acier/Ténèbres qui elle l'a été), `wildMult` de
+  base pas encore posé (zones Johto au malus standard Kanto).
+- `balance.test.ts` : le test bout-en-bout ne couvre que Kanto ; Johto reste bloquant au-delà de 10h de
+  simulation sur certaines graines (premier jet non équilibré) — à réintégrer une fois réglé.
