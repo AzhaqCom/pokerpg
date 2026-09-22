@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { BIOMES, BiomeDef, STAGES_PER_ZONE, ZoneDef } from '../../game/content';
+import { BIOMES, BiomeDef, PRESTIGE_BIOME, STAGES_PER_ZONE, ZoneDef } from '../../game/content';
 import { species } from '../../game/data';
 import { GameState, arenaAvailable, biomeAvailable, bossAvailable, canPrestige, selectStage, startPrestige } from '../../game/game';
 import { useGame } from '../../store/game';
@@ -35,7 +35,8 @@ export function MapPanel() {
         </Pressable>
       )}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
-        {BIOMES.map((biome, i) => {
+        {/* les biomes Johto restent une surprise tant que le prestige n'a pas été lancé */}
+        {(s.prestige > 0 ? BIOMES : BIOMES.slice(0, PRESTIGE_BIOME)).map((biome, i) => {
           const unlocked = biomeAvailable(s, i);
           const done = s.arenaBeaten[i];
           return (
