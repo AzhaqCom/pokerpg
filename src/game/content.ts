@@ -24,6 +24,8 @@ export interface ArenaDef {
   type: string;
   team: [number, number][]; // [espèce, niveau]
   badge: string;
+  /** Route Victoire/Ligue : un titre, pas un vrai badge — ne compte pas dans le total (8/8 par région). */
+  grantsBadge?: boolean;
 }
 
 export interface BiomeDef {
@@ -273,6 +275,7 @@ export const BIOMES: BiomeDef[] = [
       name: 'Conseil des 4', leader: 'Conseil des 4', type: 'mixte',
       team: [[130, 88], [68, 89], [76, 90]],
       badge: 'Titre de Maître',
+      grantsBadge: false,
     },
   },
   {
@@ -299,6 +302,7 @@ export const BIOMES: BiomeDef[] = [
       name: 'Plateau Indigo', leader: 'Champion', type: 'mixte',
       team: [[3, 96], [6, 98], [9, 100]],
       badge: 'Titre de Champion',
+      grantsBadge: false,
     },
   },
   // ---------------------------------------------------------------- Johto (Gen 2, 152-251)
@@ -534,6 +538,7 @@ export const BIOMES: BiomeDef[] = [
       name: 'Conseil des 4 (Johto)', leader: 'Conseil des 4', type: 'mixte',
       team: [[229, 85], [197, 86], [248, 87]],
       badge: 'Titre de Maître Johto',
+      grantsBadge: false,
     },
   },
   {
@@ -560,6 +565,7 @@ export const BIOMES: BiomeDef[] = [
       name: 'Plateau Doré', leader: 'Champion Johto', type: 'mixte',
       team: [[154, 96], [157, 97], [160, 98], [248, 100]],
       badge: 'Titre de Champion Johto',
+      grantsBadge: false,
     },
   },
 ];

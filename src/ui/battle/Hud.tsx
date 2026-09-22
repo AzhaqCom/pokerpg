@@ -150,6 +150,36 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
                   g.unlocked[8][0] = Math.max(1, g.unlocked[8][0]);
                   g.biome = 8; g.zone = 0; g.stage = 1;
                 });
+                runner.restart();
+                feedback();
+              }} />
+            )}
+            {__DEV__ && (
+              <Button label="🐛 Debug : Pokédex complet, plus que le Champion à battre (test écran de fin)" color="#37474f" onPress={() => {
+                act((g) => {
+                  for (let id = 1; id <= 151; id++) if (!g.dex.seen.includes(id)) g.dex.seen.push(id);
+                  const team = [6, 9, 65].map((id) => makeMon(id, 100, rng, false, 15));
+                  for (const m of team) {
+                    addMon(g, m);
+                    for (const templateId of ['gantelet-champion', 'cape-champion', 'baie-champion']) {
+                      const item = makeItem(templateId, 6, 100, rng);
+                      g.items[item.uid] = item;
+                      equip(g, m.uid, item.uid);
+                    }
+                  }
+                  setTeam(g, team.map((m) => m.uid));
+                  g.badges = 8; // Route Victoire (Conseil des 4) ne compte pas comme un badge
+                  for (let i = 0; i < 9; i++) {
+                    g.arenaBeaten[i] = true;
+                    g.bossesBeaten[i] = g.bossesBeaten[i].map(() => true);
+                    g.unlocked[i] = g.unlocked[i].map(() => 5);
+                  }
+                  // biome 9 (Ligue Pokémon) entièrement dégagé : ne reste que le Champion à défier
+                  g.bossesBeaten[9] = g.bossesBeaten[9].map(() => true);
+                  g.unlocked[9] = g.unlocked[9].map(() => 5);
+                  g.biome = 9; g.zone = 2; g.stage = 5;
+                });
+                runner.restart();
                 feedback();
               }} />
             )}

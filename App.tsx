@@ -4,13 +4,14 @@ import { AppState, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimen
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { initMusic, setMusicEnabled } from './src/audio/music';
 import { initSfx, setSfxEnabled } from './src/audio/sfx';
-import { canEvolve, explorationReady, fusionBadgeCount, pensionXpReady, touchLastActive } from './src/game/game';
+import { canEvolve, canPrestige, explorationReady, fusionBadgeCount, pensionXpReady, touchLastActive } from './src/game/game';
 import { IdleGains, computeIdleGains } from './src/game/idle';
 import { rng, useGame } from './src/store/game';
 import { useSettings } from './src/store/settings';
 import { Tab, useUi } from './src/store/ui';
 import { CrashView, ErrorBoundary, useCrash, reportError } from './src/ui/CrashScreen';
 import { IdleSummary } from './src/ui/IdleSummary';
+import { PrestigeOffer } from './src/ui/PrestigeOffer';
 import { BattleView } from './src/ui/battle/BattleView';
 import { HudBottom, HudTop } from './src/ui/battle/Hud';
 import { runner } from './src/ui/battle/runner';
@@ -119,16 +120,24 @@ function Main() {
 
 function Root() {
   const [idleGains, setIdleGains] = useState<IdleGains | null>(null);
+  const [prestigeDismissed, setPrestigeDismissed] = useState(false);
   useBoot(setIdleGains);
   const insets = useSafeAreaInsets();
   const s = useGame((g) => g.s);
   useGame((g) => g.rev);
+  // condition remplie -> jeu réellement coupé, quel que soit le chemin qui y a mené (combat normal ou
+  // debug) ; pas seulement au moment précis de la victoire (le runner est un singleton, sa pause doit
+  // suivre l'état du jeu, pas un événement ponctuel qu'un Fast Refresh pourrait manquer).
+  const prestigeReady = !!s && s.starterChosen && canPrestige(s);
+  const offerPrestige = prestigeReady && !prestigeDismissed;
+  useEffect(() => { if (prestigeReady) runner.paused = true; }, [prestigeReady]);
   return (
     <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
       {!s ? <Text style={styles.loading}>Chargement…</Text> : !s.starterChosen ? <StarterScreen /> : <Main />}
       <Toasts />
       <IdleSummary gains={idleGains} onClose={() => setIdleGains(null)} />
+      {offerPrestige && <PrestigeOffer onClose={() => setPrestigeDismissed(true)} />}
     </View>
   );
 }

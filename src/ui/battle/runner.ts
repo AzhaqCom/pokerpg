@@ -5,7 +5,7 @@
  */
 import { sfx } from '../../audio/sfx';
 import { BattleEvent } from '../../game/battle';
-import { BIOMES } from '../../game/content';
+import { BIOMES, PRESTIGE_BIOME } from '../../game/content';
 import { species } from '../../game/data';
 import {
   BETWEEN_WAVES_MS, CaptureOffer, StageKind, StageRun, WaveRewards, arenaAvailable, autoCaptureBall, bestStarsOf, bossAvailable,
@@ -120,7 +120,13 @@ class Runner {
       const s = useGame.getState().s!;
       if (run.result === 'win') {
         if (run.kind === 'boss') { sfx('medal'); toast(`${BIOMES[run.biome].zones[run.zone].boss.title} vaincu !`, '#ffb300'); }
-        else if (run.kind === 'arena') { sfx('evolve'); toast(`${BIOMES[run.biome].arena.badge} obtenu ! Vitesse ×2 débloquée`, '#ffb300'); }
+        else if (run.kind === 'arena') {
+          sfx('evolve');
+          // Champion Kanto : on coupe l'enchaînement automatique vers Johto — le joueur doit d'abord
+          // voir le récap et choisir explicitement le nouveau départ (voir App.tsx/PrestigeOffer).
+          if (run.biome === PRESTIGE_BIOME - 1) this.paused = true;
+          else toast(`${BIOMES[run.biome].arena.badge} obtenu ! Vitesse ×2 débloquée`, '#ffb300');
+        }
       } else if (lost) {
         sfx('deny');
         toast(run.kind === 'stage' ? `Défaite… retour à ${BIOMES[s.biome].zones[s.zone].name} ${s.stage}` : 'Défaite… entraîne-toi et réessaie', '#ff5252');

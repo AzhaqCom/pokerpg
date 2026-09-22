@@ -141,6 +141,15 @@ test('migrateSave : une pension XP déjà en place mais sans taux calculé reço
   expect(migrated.pension).toEqual([{ uid: 'm1', since: 123, xpPerHour: PENSION_XP_FALLBACK_PER_HOUR }]);
 });
 
+test('giveXp : un Pokémon déjà Nv.100 (max) n’accumule plus d’XP — la barre ne doit jamais se remplir dans le vide', () => {
+  const m = makeMon(6, 100, seededRng(1), false, 15);
+  const xpBefore = m.xp;
+  const r = giveXp(m, 100000);
+  expect(r.levels).toBe(0);
+  expect(m.level).toBe(100);
+  expect(m.xp).toBe(xpBefore); // inchangée, pas juste plafonnée après coup
+});
+
 test('prestige : indisponible tant que le Champion Kanto n’est pas battu, puis reset équipe/boîte/objets/badges', () => {
   const s = newGame();
   chooseStarter(s, 4, seededRng(1));
@@ -150,7 +159,9 @@ test('prestige : indisponible tant que le Champion Kanto n’est pas battu, puis
   expect(startPrestige(s)).toBe(false);
   expect(s.team.length).toBe(2); // rien n'a bougé
 
-  s.arenaBeaten[9] = true; // Champion Kanto battu
+  s.arenaBeaten[9] = true; // Champion Kanto battu, mais Pokédex pas complet
+  expect(canPrestige(s)).toBe(false);
+  for (let id = 1; id <= 151; id++) s.dex.seen.push(id);
   expect(canPrestige(s)).toBe(true);
   const before = { caught: [...s.dex.caught] };
   expect(startPrestige(s)).toBe(true);

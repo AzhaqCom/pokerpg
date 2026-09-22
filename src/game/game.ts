@@ -8,7 +8,7 @@ import { PType, learnedMoves, movesAtLevel, species } from './data';
 import { TEMPLATES, berryHeal, fuse, canFuse, makeItem, newUid, recycleValue, rerollCost, rerollSub, rollLoot, rollRarity, slotOf, template, upgrade, upgradeCost } from './items';
 import { BattleBonuses, Item, ItemSlot, MAX_RARITY, Mon, emptyBonuses } from './model';
 import { Rng } from './rng';
-import { auraBonuses, combatPower, finalStats, levelFromXp, monBonuses, monStars, sumBonuses, xpForLevel } from './stats';
+import { MAX_LEVEL, auraBonuses, combatPower, finalStats, levelFromXp, monBonuses, monStars, sumBonuses, xpForLevel } from './stats';
 import { canRankUp, eligibleAffinityTypes, talentTree } from './talents';
 import { primaryType } from './stats';
 
@@ -66,6 +66,8 @@ export interface GameState {
   lastActive: number;
   /** 0 = partie Kanto ; 1 = a lancé le « nouveau départ » Johto (voir `startPrestige`). */
   prestige: number;
+  /** Horodatage (ms) du tout début de la partie — sert au récap affiché avant le prestige. */
+  startedAt: number;
 }
 
 export function newGame(): GameState {
@@ -81,12 +83,13 @@ export function newGame(): GameState {
     totals: { kills: 0, captures: 0, fusions: 0, stagesCleared: 0 },
     lastActive: Date.now(),
     prestige: 0,
+    startedAt: Date.now(),
   };
 }
 
 /** Peut-on lancer le « nouveau départ » Johto ? Une fois, dès le badge du Champion Kanto obtenu. */
 export function canPrestige(s: GameState): boolean {
-  return s.prestige === 0 && s.arenaBeaten[9];
+  return s.prestige === 0 && s.arenaBeaten[9] && s.dex.seen.length >= 151;
 }
 
 /**
@@ -224,6 +227,7 @@ export function lineBase(speciesId: number): number {
 
 /** Ajoute de l'expérience ; retourne les nouvelles capacités apprises. */
 export function giveXp(mon: Mon, xp: number): { levels: number; newMoves: number[] } {
+  if (mon.level >= MAX_LEVEL) return { levels: 0, newMoves: [] }; // XP gagnée en vain à plafonner sans fin
   const before = mon.level;
   mon.xp += xp;
   mon.level = levelFromXp(mon.xp);
@@ -739,8 +743,10 @@ function onStageWon(s: GameState, kind: StageKind, biome: number, zone: number, 
   } else if (kind === 'arena') {
     if (!s.arenaBeaten[biome]) {
       s.arenaBeaten[biome] = true;
-      s.badges++;
-      if (biome + 1 < BIOMES.length) {
+      if (BIOMES[biome].arena.grantsBadge !== false) s.badges++;
+      // Kanto -> Johto : ne pas enchaîner automatiquement, le joueur doit d'abord choisir le prestige
+      // (voir startPrestige) — Johto reste une surprise tant qu'il ne l'a pas lancé.
+      if (biome + 1 < BIOMES.length && biome + 1 !== PRESTIGE_BIOME) {
         s.unlocked[biome + 1][0] = Math.max(1, s.unlocked[biome + 1][0]);
         s.biome = biome + 1;
         s.zone = 0;
