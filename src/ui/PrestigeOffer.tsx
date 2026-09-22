@@ -40,8 +40,8 @@ export function PrestigeOffer({ onClose }: { onClose: () => void }) {
           </View>
           <Text style={styles.sub}>
             Johto t’attend : 100 nouveaux Pokémon, un nouveau starter, une aventure plus corsée. Équipe,
-            boîte et objets repartiront à zéro — ta progression Kanto (Pokédex, bonbons, zones) reste
-            acquise et toujours accessible.
+            boîte, objets et Pokédex repartiront à zéro (1/251 avec ton starter) — seule ta progression
+            de zones Kanto (bonbons, biomes débloqués) reste acquise et toujours accessible.
           </Text>
           <Button label="Nouveau départ à Johto" color="#ffb300" onPress={() => {
             act((g) => startPrestige(g));

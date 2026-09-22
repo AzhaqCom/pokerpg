@@ -93,16 +93,18 @@ export function canPrestige(s: GameState): boolean {
 }
 
 /**
- * « Nouveau départ » (prestige) : équipe/boîte/objets/éclats/Balls/badges repartent à zéro, nouveau
- * starter Johto à choisir (`STARTERS2`, via le même écran que le tout premier départ). La progression
- * Kanto (unlocked/bossesBeaten/arenaBeaten, Pokédex, bonbons, totaux) est conservée — Kanto reste
- * farmable avec la nouvelle équipe (butin recalé sur son niveau, voir `waveRewards`).
+ * « Nouveau départ » (prestige) : équipe/boîte/objets/éclats/Balls/badges/Pokédex repartent à zéro
+ * (1/251 après le starter Johto), nouveau starter à choisir (`STARTERS2`, via le même écran que le
+ * tout premier départ). Seule la progression de zone Kanto (unlocked/bossesBeaten/arenaBeaten, bonbons,
+ * totaux) est conservée — Kanto reste farmable avec la nouvelle équipe (butin recalé sur son niveau,
+ * voir `waveRewards`), juste sans le Pokédex déjà rempli.
  */
 export function startPrestige(s: GameState): boolean {
   if (!canPrestige(s)) return false;
   s.mons = {}; s.team = []; s.pension = []; s.exploration = [];
   s.items = {}; s.shards = 0; s.balls = { poke: 10, super: 0, hyper: 0 };
   s.badges = 0;
+  s.dex = { seen: [], caught: [], shiny: [] };
   s.biome = PRESTIGE_BIOME; s.zone = 0; s.stage = 1;
   s.starterChosen = false;
   s.prestige = 1;

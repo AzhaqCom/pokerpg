@@ -20,10 +20,14 @@ export function DexPanel() {
   const seen = new Set(s.dex.seen);
   const { width } = useWindowDimensions();
   const cellWidth = (width - SCREEN_PADDING - GRID_GAP * (GRID_COLS - 1)) / GRID_COLS;
+  // n'affiche que les espèces des régions déjà débloquées (151 en Kanto, 251 dès Johto) : le Pokédex ne
+  // doit pas trahir la génération suivante avant que le joueur l'ait débloquée.
+  const maxId = s.prestige > 0 ? ALL_SPECIES.length : 151;
+  const species = ALL_SPECIES.filter((sp) => sp.id <= maxId);
   return (
     <View style={{ gap: 10 }}>
       <View style={styles.row}>
-        <Text style={styles.count}>{s.dex.caught.length}<Text style={styles.dim}>/151 capturés</Text></Text>
+        <Text style={styles.count}>{s.dex.caught.length}<Text style={styles.dim}>/{maxId} capturés</Text></Text>
         <Text style={styles.dim}>{s.dex.seen.length} vus · ✨ {s.dex.shiny.length}</Text>
       </View>
       <View style={styles.row}>
@@ -31,7 +35,7 @@ export function DexPanel() {
         <Pressable onPress={() => setShiny(true)} style={[styles.chip, shiny && styles.chipGold]}><Text style={styles.chipTxt}>Chromatiques</Text></Pressable>
       </View>
       <View style={styles.grid}>
-        {ALL_SPECIES.map((sp) => {
+        {species.map((sp) => {
           const got = caught.has(sp.id);
           const saw = seen.has(sp.id);
           return (

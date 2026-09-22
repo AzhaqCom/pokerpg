@@ -163,7 +163,6 @@ test('prestige : indisponible tant que le Champion Kanto n’est pas battu, puis
   expect(canPrestige(s)).toBe(false);
   for (let id = 1; id <= 151; id++) s.dex.seen.push(id);
   expect(canPrestige(s)).toBe(true);
-  const before = { caught: [...s.dex.caught] };
   expect(startPrestige(s)).toBe(true);
   expect(s.mons).toEqual({});
   expect(s.team).toEqual([]);
@@ -173,7 +172,7 @@ test('prestige : indisponible tant que le Champion Kanto n’est pas battu, puis
   expect(s.biome).toBe(10); // 1er biome Johto
   expect(s.starterChosen).toBe(false); // repasse par l'écran de starter (Johto)
   expect(s.prestige).toBe(1);
-  expect(s.dex.caught).toEqual(before.caught); // Pokédex Kanto conservé
+  expect(s.dex).toEqual({ seen: [], caught: [], shiny: [] }); // Pokédex remis à zéro (1/251 après le starter)
   expect(canPrestige(s)).toBe(false); // ne se relance pas une 2e fois
 });
 

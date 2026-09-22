@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { BIOMES, BiomeDef, PRESTIGE_BIOME, STAGES_PER_ZONE, ZoneDef } from '../../game/content';
+import { BIOMES, BiomeDef, REGION_START, STAGES_PER_ZONE, ZoneDef } from '../../game/content';
 import { species } from '../../game/data';
 import { GameState, arenaAvailable, biomeAvailable, bossAvailable, canPrestige, selectStage, startPrestige } from '../../game/game';
 import { useGame } from '../../store/game';
@@ -19,7 +19,11 @@ export function MapPanel() {
   const [openZone, setOpenZone] = useState<ZoneDef | null>(null);
   const [prestigeDialog, setPrestigeDialog] = useState<DialogSpec | null>(null);
   const [sel, setSel] = useState(s.biome);
-  const bi = sel < BIOMES.length ? sel : s.biome;
+  // la Carte ne montre que les biomes de la région courante : les biomes des régions précédentes
+  // (Kanto une fois en Johto) n'ont plus leur place, ceux des régions futures restent une surprise.
+  const regionStart = REGION_START[s.prestige] ?? 0;
+  const regionEnd = REGION_START[s.prestige + 1] ?? BIOMES.length;
+  const bi = sel >= regionStart && sel < regionEnd ? sel : s.biome;
   return (
     <View style={{ gap: 12 }}>
       {canPrestige(s) && (
@@ -35,8 +39,8 @@ export function MapPanel() {
         </Pressable>
       )}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
-        {/* les biomes Johto restent une surprise tant que le prestige n'a pas été lancé */}
-        {(s.prestige > 0 ? BIOMES : BIOMES.slice(0, PRESTIGE_BIOME)).map((biome, i) => {
+        {BIOMES.slice(regionStart, regionEnd).map((biome, localI) => {
+          const i = regionStart + localI;
           const unlocked = biomeAvailable(s, i);
           const done = s.arenaBeaten[i];
           return (

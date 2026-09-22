@@ -42,6 +42,13 @@ export const STARTERS = [1, 4, 7] as const;
 export const STARTERS2 = [152, 155, 158] as const;
 /** Index du 1er biome Johto dans `BIOMES` : le prestige y renvoie le joueur. */
 export const PRESTIGE_BIOME = 10;
+/**
+ * Index du 1er biome de chaque région, dans l'ordre des prestiges (`REGION_START[s.prestige]`) : la
+ * Carte n'affiche que les biomes de la région courante (`REGION_START[p]` à `REGION_START[p+1]`, ou la
+ * fin de `BIOMES`). Étendre ce tableau (ex. `[0, 10, 20]`) suffit à préparer une Gen 3, sans toucher
+ * au code de la Carte.
+ */
+export const REGION_START = [0, PRESTIGE_BIOME] as const;
 
 export const BIOMES: BiomeDef[] = [
   {
