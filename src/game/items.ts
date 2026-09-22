@@ -4,7 +4,8 @@ import {
 import { Rng } from './rng';
 
 /**
- * Catalogue : une panoplie par biome (3 pièces : offensif, défensif, baie), aucun objet générique hors
+ * Catalogue : une panoplie par biome — 20 aujourd'hui (10 Kanto + 10 Johto) — (3 pièces : offensif,
+ * défensif, baie), aucun objet générique hors
  * panoplie — un objet trouvé appartient toujours à la panoplie du biome où il tombe (`rollLoot`, filtré
  * par `SETS[set].biome`). 3 baies (Ceriz/Pêcha/Maron) soignent un statut au lieu de PV, réparties dans
  * les panoplies dont le thème colle (Circuit Survolté = paralysie, Brume Toxique = poison, Troisième
@@ -51,6 +52,46 @@ export const TEMPLATES: ItemTemplate[] = [
   { id: 'gantelet-champion', name: 'Gantelet du Champion', slot: 'offense', main: 'atkPct', base: 9, set: 'champion' },
   { id: 'cape-champion', name: 'Cape du Vainqueur', slot: 'defense', main: 'defPct', base: 8, set: 'champion' },
   { id: 'baie-champion', name: 'Baie du Sacre', slot: 'berry', main: 'hpPct', base: 0, set: 'champion', berry: { heal: 25 } },
+  // biome 11 — Route des Cieux (Johto)
+  { id: 'bec-ciel', name: 'Bec Acéré', slot: 'offense', main: 'critPct', base: 3, set: 'ciel' },
+  { id: 'plume-ciel', name: 'Plume Véloce', slot: 'defense', main: 'spePct', base: 6, set: 'ciel' },
+  { id: 'baie-ciel', name: 'Baie des Cieux', slot: 'berry', main: 'hpPct', base: 0, set: 'ciel', berry: { heal: 25 } },
+  // biome 12 — Forêt Fourmillante (Johto)
+  { id: 'mandibule-ruche', name: 'Mandibule Acérée', slot: 'offense', main: 'atkPct', base: 7, set: 'ruche' },
+  { id: 'carapace-ruche', name: 'Carapace Chitineuse', slot: 'defense', main: 'defPct', base: 6, set: 'ruche' },
+  { id: 'baie-ruche', name: 'Baie Butinée', slot: 'berry', main: 'hpPct', base: 0, set: 'ruche', berry: { heal: 25 } },
+  // biome 13 — Prairies de Doré (Johto)
+  { id: 'corne-prairie', name: 'Corne Robuste', slot: 'offense', main: 'critDmgPct', base: 8, set: 'prairie' },
+  { id: 'toison-prairie', name: 'Toison Épaisse', slot: 'defense', main: 'hpPct', base: 7, set: 'prairie' },
+  { id: 'baie-prairie', name: 'Baie des Prairies', slot: 'berry', main: 'hpPct', base: 0, set: 'prairie', berry: { heal: 25 } },
+  // biome 14 — Tour Hantée (Johto)
+  { id: 'griffe-brume', name: 'Griffe Spectrale', slot: 'offense', main: 'critPct', base: 3, set: 'brume2' },
+  { id: 'voile-brume', name: 'Voile Brumeux', slot: 'defense', main: 'cdrPct', base: 3, set: 'brume2' },
+  { id: 'baie-brume', name: 'Baie Fantomatique', slot: 'berry', main: 'hpPct', base: 0, set: 'brume2', berry: { heal: 25 } },
+  // biome 15 — Dojo d'Ébène (Johto)
+  { id: 'poing-dojo', name: 'Poing de Fer', slot: 'offense', main: 'critDmgPct', base: 9, set: 'dojo' },
+  { id: 'ceinture-dojo', name: 'Ceinture Renforcée', slot: 'defense', main: 'defPct', base: 6, set: 'dojo' },
+  { id: 'baie-dojo', name: 'Baie du Dojo', slot: 'berry', main: 'hpPct', base: 0, set: 'dojo', berry: { heal: 25 } },
+  // biome 16 — Phare d'Olivia (Johto)
+  { id: 'lame-phare', name: "Lame d'Acier", slot: 'offense', main: 'atkPct', base: 8, set: 'phare' },
+  { id: 'armure-phare', name: 'Armure Polie', slot: 'defense', main: 'defPct', base: 7, set: 'phare' },
+  { id: 'baie-phare', name: 'Baie du Phare', slot: 'berry', main: 'hpPct', base: 0, set: 'phare', berry: { heal: 25 } },
+  // biome 17 — Grotte Gelée (Johto)
+  { id: 'croc-givre', name: 'Croc de Glace', slot: 'offense', main: 'critPct', base: 3, set: 'givre' },
+  { id: 'manteau-givre', name: 'Manteau Givré', slot: 'defense', main: 'defPct', base: 6, set: 'givre' },
+  { id: 'baie-givre', name: 'Baie Givrée', slot: 'berry', main: 'hpPct', base: 0, set: 'givre', berry: { heal: 25, cures: 'freeze' } },
+  // biome 18 — Tanière des Dragons (Johto)
+  { id: 'griffe-tanieres', name: 'Griffe Draconique', slot: 'offense', main: 'atkPct', base: 9, set: 'dragon2' },
+  { id: 'ecaille-tanieres', name: 'Écaille Draconique', slot: 'defense', main: 'hpPct', base: 8, set: 'dragon2' },
+  { id: 'baie-tanieres', name: 'Baie du Dragon', slot: 'berry', main: 'hpPct', base: 0, set: 'dragon2', berry: { heal: 25 } },
+  // biome 19 — Grotte Sombre (Johto, Conseil des 4)
+  { id: 'griffe-ombre', name: 'Griffe Sournoise', slot: 'offense', main: 'critDmgPct', base: 10, set: 'ombre' },
+  { id: 'cape-ombre', name: "Cape d'Ombre", slot: 'defense', main: 'defPct', base: 8, set: 'ombre' },
+  { id: 'baie-ombre', name: 'Baie Sombre', slot: 'berry', main: 'hpPct', base: 0, set: 'ombre', berry: { heal: 25 } },
+  // biome 20 — Plateau Doré (Johto, Champion)
+  { id: 'gantelet-plateau', name: 'Gantelet Doré', slot: 'offense', main: 'atkPct', base: 10, set: 'plateau' },
+  { id: 'cape-plateau', name: 'Cape Dorée', slot: 'defense', main: 'defPct', base: 9, set: 'plateau' },
+  { id: 'baie-plateau', name: 'Baie Dorée', slot: 'berry', main: 'hpPct', base: 0, set: 'plateau', berry: { heal: 25 } },
 ];
 
 export const SETS: Record<string, {
@@ -104,6 +145,56 @@ export const SETS: Record<string, {
   },
   champion: {
     name: 'Titre de Champion', biome: 9,
+    two: { stat: 'atkPct', value: 10, label: 'Attaque +10 %' },
+    three: { stat: 'typeDmgPct', value: 10, label: 'Dégâts de son type +10 %' },
+  },
+  ciel: {
+    name: 'Ailes du Zéphyr', biome: 10,
+    two: { stat: 'spePct', value: 6, label: 'Vitesse +6 %' },
+    three: { stat: 'dodgePct', value: 8, label: 'Esquive +8 %' },
+  },
+  ruche: {
+    name: 'Essaim Fourmillant', biome: 11,
+    two: { stat: 'atkPct', value: 8, label: 'Attaque +8 %' },
+    three: { stat: 'critPct', value: 6, label: 'Critique +6 %' },
+  },
+  prairie: {
+    name: 'Robe des Prairies', biome: 12,
+    two: { stat: 'hpPct', value: 7, label: 'PV +7 %' },
+    three: { stat: 'atkPct', value: 8, label: 'Attaque +8 %' },
+  },
+  brume2: {
+    name: 'Voile de la Tour', biome: 13,
+    two: { stat: 'cdrPct', value: 4, label: 'Recharge −4 %' },
+    three: { stat: 'dodgePct', value: 8, label: 'Esquive +8 %' },
+  },
+  dojo: {
+    name: 'Tenue du Dojo', biome: 14,
+    two: { stat: 'atkPct', value: 8, label: 'Attaque +8 %' },
+    three: { stat: 'critDmgPct', value: 12, label: 'Dégâts critiques +12 %' },
+  },
+  phare: {
+    name: 'Alliage du Phare', biome: 15,
+    two: { stat: 'defPct', value: 8, label: 'Défense +8 %' },
+    three: { stat: 'critDmgPct', value: 10, label: 'Dégâts critiques +10 %' },
+  },
+  givre: {
+    name: 'Manteau Givré', biome: 16,
+    two: { stat: 'defPct', value: 6, label: 'Défense +6 %' },
+    three: { stat: 'critDmgPct', value: 10, label: 'Dégâts critiques +10 %' },
+  },
+  dragon2: {
+    name: 'Écailles de la Tanière', biome: 17,
+    two: { stat: 'atkPct', value: 9, label: 'Attaque +9 %' },
+    three: { stat: 'typeDmgPct', value: 10, label: 'Dégâts de son type +10 %' },
+  },
+  ombre: {
+    name: 'Voile des Ombres', biome: 18,
+    two: { stat: 'critPct', value: 7, label: 'Critique +7 %' },
+    three: { stat: 'critDmgPct', value: 12, label: 'Dégâts critiques +12 %' },
+  },
+  plateau: {
+    name: 'Titre de Champion Johto', biome: 19,
     two: { stat: 'atkPct', value: 10, label: 'Attaque +10 %' },
     three: { stat: 'typeDmgPct', value: 10, label: 'Dégâts de son type +10 %' },
   },
@@ -169,7 +260,8 @@ export function rollRarity(rng: Rng, minRarity = 0): number {
 
 /**
  * Butin : objet aléatoire de la panoplie du biome où on le trouve (chaque objet appartient à un biome).
- * Repli sur tout le catalogue si ce biome n'a pas encore de panoplie dédiée (ex. Johto, en attendant).
+ * Repli sur tout le catalogue si un futur biome n'a pas encore de panoplie dédiée (garde-fou, tous les
+ * biomes Kanto et Johto en ont une aujourd'hui).
  */
 export function rollLoot(rng: Rng, level: number, biome: number, minRarity = 0): Item {
   const local = TEMPLATES.filter((t) => SETS[t.set!].biome === biome);
