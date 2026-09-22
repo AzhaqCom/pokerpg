@@ -3,7 +3,7 @@
  * équipe, étapes/vagues, butin, capture, évolutions, pension.
  */
 import { Battle, FighterInit } from './battle';
-import { BADGE_BONUS, BIOMES, STAGES_PER_ZONE, WAVES_PER_STAGE, ZoneDef } from './content';
+import { BADGE_BONUS, BIOMES, PRESTIGE_BIOME, STAGES_PER_ZONE, WAVES_PER_STAGE, ZoneDef } from './content';
 import { PType, learnedMoves, movesAtLevel, species } from './data';
 import { TEMPLATES, berryHeal, fuse, canFuse, makeItem, newUid, recycleValue, rerollCost, rerollSub, rollLoot, rollRarity, slotOf, template, upgrade, upgradeCost } from './items';
 import { BattleBonuses, Item, ItemSlot, MAX_RARITY, Mon, emptyBonuses } from './model';
@@ -64,6 +64,8 @@ export interface GameState {
   totals: { kills: number; captures: number; fusions: number; stagesCleared: number };
   /** Horodatage (ms) de la dernière activité : combat affiché ou passage en arrière-plan. Sert au calcul idle. */
   lastActive: number;
+  /** 0 = partie Kanto ; 1 = a lancé le « nouveau départ » Johto (voir `startPrestige`). */
+  prestige: number;
 }
 
 export function newGame(): GameState {
@@ -78,7 +80,30 @@ export function newGame(): GameState {
     dex: { seen: [], caught: [], shiny: [] }, candies: {},
     totals: { kills: 0, captures: 0, fusions: 0, stagesCleared: 0 },
     lastActive: Date.now(),
+    prestige: 0,
   };
+}
+
+/** Peut-on lancer le « nouveau départ » Johto ? Une fois, dès le badge du Champion Kanto obtenu. */
+export function canPrestige(s: GameState): boolean {
+  return s.prestige === 0 && s.arenaBeaten[9];
+}
+
+/**
+ * « Nouveau départ » (prestige) : équipe/boîte/objets/éclats/Balls/badges repartent à zéro, nouveau
+ * starter Johto à choisir (`STARTERS2`, via le même écran que le tout premier départ). La progression
+ * Kanto (unlocked/bossesBeaten/arenaBeaten, Pokédex, bonbons, totaux) est conservée — Kanto reste
+ * farmable avec la nouvelle équipe (butin recalé sur son niveau, voir `waveRewards`).
+ */
+export function startPrestige(s: GameState): boolean {
+  if (!canPrestige(s)) return false;
+  s.mons = {}; s.team = []; s.pension = []; s.exploration = [];
+  s.items = {}; s.shards = 0; s.balls = { poke: 10, super: 0, hyper: 0 };
+  s.badges = 0;
+  s.biome = PRESTIGE_BIOME; s.zone = 0; s.stage = 1;
+  s.starterChosen = false;
+  s.prestige = 1;
+  return true;
 }
 
 /**

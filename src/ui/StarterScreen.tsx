@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { STARTERS } from '../game/content';
+import { STARTERS, STARTERS2 } from '../game/content';
 import { species } from '../game/data';
 import { chooseStarter } from '../game/game';
 import { AnimatedSprite } from '../sprites/AnimatedSprite';
@@ -9,16 +9,23 @@ import { feedback } from './components/feedback';
 import { C } from './theme';
 
 export function StarterScreen() {
+  const s = useGame((g) => g.s)!;
   const act = useGame((g) => g.act);
   const { width } = useWindowDimensions();
   const w = Math.min(150, (width - 48) / 3);
+  const prestige = s.prestige > 0;
+  const starters = prestige ? STARTERS2 : STARTERS;
   return (
     <View style={styles.root}>
-      <Text style={styles.title}>PokéLoot</Text>
-      <Text style={styles.sub}>Ton équipe se bat seule. À toi de la préparer : capacités, objets, talents, captures… et de lancer les boss.</Text>
+      <Text style={styles.title}>{prestige ? 'Johto' : 'PokéLoot'}</Text>
+      <Text style={styles.sub}>
+        {prestige
+          ? 'Nouveau départ : équipe, boîte et objets repartent à zéro, mais 100 nouveaux Pokémon et une aventure plus corsée t’attendent.'
+          : 'Ton équipe se bat seule. À toi de la préparer : capacités, objets, talents, captures… et de lancer les boss.'}
+      </Text>
       <Text style={styles.pick}>Choisis ton premier Pokémon</Text>
       <View style={styles.row}>
-        {STARTERS.map((id) => {
+        {starters.map((id) => {
           const sp = species(id);
           return (
             <Pressable key={id} style={({ pressed }) => [styles.card, { width: w, opacity: pressed ? 0.8 : 1 }]}

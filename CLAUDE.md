@@ -21,8 +21,18 @@ pool de sauvages de leur zone (`effectivePool` dans `game.ts`, poids 6 = rare) e
 chromatisables comme n'importe quel sauvage. Le jeu s'appelle **PokéLoot** depuis le 2026-09-21.
 8 améliorations codées le 2026-09-21 (voir `AMELIORATIONS.md`) : perf sac, nettoyage doublons boîte,
 tri par type, étoiles de qualité génétique, options de capture auto, pension repensée en XP + nouvel
-onglet Exploration. Reste le test manuel Expo Go par Arno. Voir `BIOMES.md` pour le plan des biomes
-suivants.
+onglet Exploration. Voir `BIOMES.md` pour le plan des biomes suivants.
+
+**Gen 2 (Johto) en chantier, 2026-09-22** : `species.json`/`moves.json` étendus à 251 espèces
+(`tools/gen_data_gen2.py`, les 151 Kanto jamais réécrites), sprites 152-251 récupérés, types
+Acier/Ténèbres opérationnels. 10 biomes Johto codés dans `content.ts` (premier jet, niveaux d'arène
+approximatifs, pas encore de panoplies dédiées — repli sur le catalogue Kanto dans `rollLoot`).
+**Prestige** (`canPrestige`/`startPrestige` dans `game.ts`) : une fois le Champion Kanto battu, une
+bannière dans la Carte propose un « nouveau départ » Johto — équipe/boîte/objets/badges repartent à
+zéro, nouveau starter (`STARTERS2`), Pokédex/bonbons/zones Kanto conservés (farmables à un niveau
+pertinent via `lootLevel`). Palier 6-9 des talents (Spécialité II, saveur du type secondaire, Fureur,
+Précision mortelle) et 10 panoplies par biome codés le même jour (Option C : rareté plafonnée en fin de
+partie). Reste à faire : panoplies Johto, `wildMult` de base sur les zones Johto, test manuel Arno.
 
 ## Commandes
 ```

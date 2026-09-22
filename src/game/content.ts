@@ -36,6 +36,10 @@ export const STAGES_PER_ZONE = 5;
 export const WAVES_PER_STAGE = 3;
 
 export const STARTERS = [1, 4, 7] as const;
+/** Starters Johto (Germignon/Héricendre/Kaiminus), proposés au « nouveau départ » (prestige). */
+export const STARTERS2 = [152, 155, 158] as const;
+/** Index du 1er biome Johto dans `BIOMES` : le prestige y renvoie le joueur. */
+export const PRESTIGE_BIOME = 10;
 
 export const BIOMES: BiomeDef[] = [
   {

@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BIOMES, BiomeDef, STAGES_PER_ZONE, ZoneDef } from '../../game/content';
 import { species } from '../../game/data';
-import { GameState, arenaAvailable, biomeAvailable, bossAvailable, selectStage } from '../../game/game';
+import { GameState, arenaAvailable, biomeAvailable, bossAvailable, canPrestige, selectStage, startPrestige } from '../../game/game';
 import { useGame } from '../../store/game';
 import { Button } from '../components/Button';
+import { Dialog, DialogSpec } from '../components/Dialog';
 import { MonThumb } from '../components/MonThumb';
 import { feedback } from '../components/feedback';
 import { runner } from '../battle/runner';
@@ -16,10 +17,23 @@ export function MapPanel() {
   useGame((g) => g.rev);
   const act = useGame((g) => g.act);
   const [openZone, setOpenZone] = useState<ZoneDef | null>(null);
+  const [prestigeDialog, setPrestigeDialog] = useState<DialogSpec | null>(null);
   const [sel, setSel] = useState(s.biome);
   const bi = sel < BIOMES.length ? sel : s.biome;
   return (
     <View style={{ gap: 12 }}>
+      {canPrestige(s) && (
+        <Pressable style={styles.prestigeBanner} onPress={() => setPrestigeDialog({
+          title: 'Nouveau départ : Johto !',
+          message: 'Tu as vaincu le Champion Kanto. Repars à zéro (équipe, boîte, objets, badges) pour ' +
+            'l’aventure Johto : 100 nouveaux Pokémon, un nouveau starter, une difficulté plus corsée. ' +
+            'Ta progression Kanto (Pokédex, bonbons, zones) reste acquise et farmable.',
+          primary: { label: 'Nouveau départ', color: '#ffb300', onPress: () => { act((g) => startPrestige(g)); feedback('evolve'); } },
+          secondary: { label: 'Plus tard', onPress: () => {} },
+        })}>
+          <Text style={styles.prestigeTxt}>🏆 Champion Kanto vaincu — nouveau départ Johto disponible !</Text>
+        </Pressable>
+      )}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
         {BIOMES.map((biome, i) => {
           const unlocked = biomeAvailable(s, i);
@@ -36,6 +50,7 @@ export function MapPanel() {
       </ScrollView>
       <BiomeSection biome={BIOMES[bi]} bi={bi} s={s} act={act} onOpenZone={setOpenZone} />
       <ZoneDex zone={openZone} s={s} onClose={() => setOpenZone(null)} />
+      <Dialog spec={prestigeDialog} onClose={() => setPrestigeDialog(null)} />
     </View>
   );
 }
@@ -122,6 +137,8 @@ function BiomeSection({ biome, bi, s, act, onOpenZone }: {
 }
 
 const styles = StyleSheet.create({
+  prestigeBanner: { backgroundColor: '#ffb300', borderRadius: 14, padding: 12 },
+  prestigeTxt: { color: '#1b1f2a', fontWeight: '800', fontSize: 13, textAlign: 'center' },
   tabs: { flexDirection: 'row', gap: 8, paddingRight: 4 },
   tab: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 14, backgroundColor: C.panel, maxWidth: 160 },
   tabOn: { backgroundColor: C.accent },

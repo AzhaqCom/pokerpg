@@ -2,9 +2,9 @@ import { BIOMES, STAGES_PER_ZONE } from '../content';
 import { ALL_SPECIES } from '../data';
 import {
   GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, arenaAvailable, assignExploration, assignPension, autoCaptureBall, bestStarsOf, biomeAvailable, bossAvailable,
-  canEvolve, captureChance, captureLevel, chooseStarter, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
+  canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
   harvestExploration, harvestPension, holder, isRareInZone, makeMon, addMon, makeWaves, migrateSave, newGame, pickSpecies, rankUpTalent, recycle, release, releaseExcess,
-  remainingEvolutions, removePension, selectStage, teamMaxLevel, tryCapture, xpGapMult,
+  remainingEvolutions, removePension, selectStage, startPrestige, teamMaxLevel, tryCapture, xpGapMult,
 } from '../game';
 import { makeItem } from '../items';
 import { emptyBonuses } from '../model';
@@ -122,6 +122,31 @@ test('migrateSave : une pension XP déjà en place mais sans taux calculé reço
   const old = { pension: [{ uid: 'm1', since: 123 }] } as unknown as Record<string, unknown>;
   const migrated = migrateSave(old) as unknown as GameState;
   expect(migrated.pension).toEqual([{ uid: 'm1', since: 123, xpPerHour: PENSION_XP_FALLBACK_PER_HOUR }]);
+});
+
+test('prestige : indisponible tant que le Champion Kanto n’est pas battu, puis reset équipe/boîte/objets/badges', () => {
+  const s = newGame();
+  chooseStarter(s, 4, seededRng(1));
+  addMon(s, makeMon(1, 50, seededRng(2), false, 15));
+  s.shards = 500; s.badges = 8;
+  expect(canPrestige(s)).toBe(false); // arène Kanto pas battue
+  expect(startPrestige(s)).toBe(false);
+  expect(s.team.length).toBe(2); // rien n'a bougé
+
+  s.arenaBeaten[9] = true; // Champion Kanto battu
+  expect(canPrestige(s)).toBe(true);
+  const before = { caught: [...s.dex.caught] };
+  expect(startPrestige(s)).toBe(true);
+  expect(s.mons).toEqual({});
+  expect(s.team).toEqual([]);
+  expect(s.items).toEqual({});
+  expect(s.shards).toBe(0);
+  expect(s.badges).toBe(0);
+  expect(s.biome).toBe(10); // 1er biome Johto
+  expect(s.starterChosen).toBe(false); // repasse par l'écran de starter (Johto)
+  expect(s.prestige).toBe(1);
+  expect(s.dex.caught).toEqual(before.caught); // Pokédex Kanto conservé
+  expect(canPrestige(s)).toBe(false); // ne se relance pas une 2e fois
 });
 
 test('migrateSave : nettoie les uid fantômes de l’équipe (Pokémon relâché/supprimé jamais retiré de team)', () => {
