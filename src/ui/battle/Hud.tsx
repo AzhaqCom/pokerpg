@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { BIOMES, STAGES_PER_ZONE } from '../../game/content';
-import { addMon, arenaAvailable, bossAvailable, makeMon } from '../../game/game';
+import { addMon, arenaAvailable, bossAvailable, equip, makeMon, setTeam } from '../../game/game';
+import { makeItem } from '../../game/items';
 import { RARITIES, RARITY_COLOR } from '../../game/model';
 import { rng, useGame } from '../../store/game';
 import { useSettings } from '../../store/settings';
@@ -124,6 +125,31 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
             {__DEV__ && (
               <Button label="🐛 Debug : les 151 Pokémon Nv.100 dans la boîte" color="#37474f" onPress={() => {
                 act((g) => { for (let id = 1; id <= 151; id++) addMon(g, makeMon(id, 100, rng, false, 15)); });
+                feedback();
+              }} />
+            )}
+            {__DEV__ && (
+              <Button label="🐛 Debug : équipe Nv.100 full stuff, 8 badges (test prestige)" color="#37474f" onPress={() => {
+                act((g) => {
+                  const team = [6, 9, 65].map((id) => makeMon(id, 100, rng, false, 15));
+                  for (const m of team) {
+                    addMon(g, m);
+                    for (const templateId of ['gantelet-champion', 'cape-champion', 'baie-champion']) {
+                      const item = makeItem(templateId, 6, 100, rng);
+                      g.items[item.uid] = item;
+                      equip(g, m.uid, item.uid);
+                    }
+                  }
+                  setTeam(g, team.map((m) => m.uid));
+                  g.badges = 8;
+                  for (let i = 0; i < 8; i++) {
+                    g.arenaBeaten[i] = true;
+                    g.bossesBeaten[i] = g.bossesBeaten[i].map(() => true);
+                    g.unlocked[i] = g.unlocked[i].map(() => 5);
+                  }
+                  g.unlocked[8][0] = Math.max(1, g.unlocked[8][0]);
+                  g.biome = 8; g.zone = 0; g.stage = 1;
+                });
                 feedback();
               }} />
             )}
