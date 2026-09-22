@@ -86,7 +86,6 @@
    "normal": 0.0,
    "ghost": 2.0,
    "psychic": 2.0,
-   "steel": 0.5,
    "dark": 0.5
   },
   "fire": {
@@ -105,8 +104,7 @@
    "fire": 2.0,
    "water": 0.5,
    "grass": 0.5,
-   "dragon": 0.5,
-   "steel": 0.5
+   "dragon": 0.5
   },
   "grass": {
    "flying": 0.5,
@@ -126,8 +124,7 @@
    "water": 2.0,
    "grass": 0.5,
    "electric": 0.5,
-   "dragon": 0.5,
-   "steel": 0.5
+   "dragon": 0.5
   },
   "psychic": {
    "fighting": 2.0,

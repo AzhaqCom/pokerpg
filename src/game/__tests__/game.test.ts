@@ -212,8 +212,9 @@ test('un combat de boss n’est jamais chromatique, qu’il rejoigne le pool ens
 
 test('les 151 espèces sont farmables en chromatique une fois les 10 biomes codés : 81 formes de base/sans ' +
   'évolution, toutes en rencontre sauvage OU boss qui rejoint le pool (un boss classique n’est jamais chromatique)', () => {
-  const targets = new Set(ALL_SPECIES.filter((s) => s.evolvesTo).map((s) => s.evolvesTo));
-  const mustPlace = ALL_SPECIES.filter((s) => !targets.has(s.id)).map((s) => s.id);
+  const kanto = ALL_SPECIES.filter((s) => s.id <= 151); // Johto (152-251) n'a pas encore de biomes
+  const targets = new Set(kanto.filter((s) => s.evolvesTo).map((s) => s.evolvesTo));
+  const mustPlace = kanto.filter((s) => !targets.has(s.id)).map((s) => s.id);
   const wildPool = new Set(BIOMES.flatMap((b) => b.zones.flatMap((z) => z.pool.map(([id]) => id))));
   const poolBosses = new Set(
     BIOMES.flatMap((b) => b.zones.filter((z) => z.boss.joinsPool).map((z) => z.boss.speciesId)),

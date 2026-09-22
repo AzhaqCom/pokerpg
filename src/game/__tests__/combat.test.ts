@@ -19,14 +19,16 @@ describe('types', () => {
     expect(species(81).types).toEqual(['electric']);
     expect(species(35).types).toEqual(['normal']);
   });
-  test('Acier et Ténèbres : préparés dans la table des types, mais aucune des 151 espèces ne les porte', () => {
+  test('Acier et Ténèbres : dans la table des types, absents des 151 espèces Kanto, présents en Gen 2', () => {
     expect(typeMultiplier('fighting', ['dark'])).toBe(2);
     expect(typeMultiplier('poison', ['steel'])).toBe(0);
     expect(typeMultiplier('fire', ['steel'])).toBe(2);
     expect(typeMultiplier('psychic', ['dark'])).toBe(0);
-    const used = new Set(ALL_SPECIES.flatMap((s) => s.types));
-    expect(used.has('steel')).toBe(false);
-    expect(used.has('dark')).toBe(false);
+    const kanto = new Set(ALL_SPECIES.filter((s) => s.id <= 151).flatMap((s) => s.types));
+    expect(kanto.has('steel')).toBe(false);
+    expect(kanto.has('dark')).toBe(false);
+    expect(species(208).types).toEqual(['steel', 'ground']); // Steelix
+    expect(species(197).types).toEqual(['dark']); // Noctali
   });
 });
 

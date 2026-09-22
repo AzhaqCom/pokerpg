@@ -176,7 +176,7 @@ async function pack(num: number, shiny: boolean): Promise<[string, SpriteMeta, s
 }
 
 async function main() {
-  const args = process.argv.slice(2).map(Number).filter((n) => n >= 1 && n <= 151);
+  const args = process.argv.slice(2).map(Number).filter((n) => n >= 1 && n <= 251);
   const nums = args.length ? args : Array.from({ length: 151 }, (_, i) => i + 1);
   fs.mkdirSync(OUT_IMG, { recursive: true });
   const manifest: Record<string, SpriteMeta> = fs.existsSync(OUT_JSON) && args.length
@@ -210,12 +210,15 @@ async function main() {
     '/* eslint-disable */\n' +
     'export const SPRITE_ASSETS: Record<string, number> = {\n' +
     keys.map((k) => `  ${k}: require('../../assets/sprites/${k}.png'),`).join('\n') + '\n};\n');
-  if (!args.length) {
-    credits.sort();
-    fs.writeFileSync(OUT_CREDITS,
-      'Sprites : PMD Sprite Collaboration — https://github.com/PMDCollab/SpriteCollab\n' +
-      'Licence CC BY-NC 4.0. Pokémon © Nintendo / Game Freak / The Pokémon Company.\n\n' + credits.join('\n'));
-  }
+  // fusionne avec les crédits déjà enregistrés (identifiés par leur en-tête "#NNN") pour ne jamais en
+  // perdre lors d'un run partiel (numéros explicites) ; un run complet régénère tout depuis zéro.
+  const prevBlocks = !args.length || !fs.existsSync(OUT_CREDITS) ? [] : fs.readFileSync(OUT_CREDITS, 'utf8')
+    .split(/\n(?=#\d+\n)/).slice(1).map((b) => b.trimEnd());
+  const newNums = new Set(credits.map((c) => c.match(/^#(\d+)/)?.[1]));
+  const merged = [...prevBlocks.filter((b) => !newNums.has(b.match(/^#(\d+)/)?.[1])), ...credits].sort();
+  fs.writeFileSync(OUT_CREDITS,
+    'Sprites : PMD Sprite Collaboration — https://github.com/PMDCollab/SpriteCollab\n' +
+    'Licence CC BY-NC 4.0. Pokémon © Nintendo / Game Freak / The Pokémon Company.\n\n' + merged.join('\n'));
   console.log(`\n${keys.length} sprites écrits.`);
   if (failures.length) console.log('Manquants :', failures.join(', '));
 }

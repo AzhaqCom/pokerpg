@@ -1307,5 +1307,500 @@
 "power": 70,
 "aoe": false,
 "cd": 5.0
+},
+"235": {
+"id": 235,
+"slug": "synthesis",
+"name": "Synthèse",
+"type": "grass",
+"kind": "heal",
+"heal": 50,
+"cd": 12.0,
+"aoe": false
+},
+"172": {
+"id": 172,
+"slug": "flame-wheel",
+"name": "Roue de Feu",
+"type": "fire",
+"kind": "damage",
+"power": 60,
+"aoe": false,
+"cd": 4.0,
+"ailment": "burn",
+"chance": 10
+},
+"184": {
+"id": 184,
+"slug": "scary-face",
+"name": "Grimace",
+"type": "normal",
+"kind": "debuff",
+"stat": "spe",
+"stages": -2,
+"cd": 10.0,
+"aoe": false
+},
+"175": {
+"id": 175,
+"slug": "flail",
+"name": "Gigotage",
+"type": "normal",
+"kind": "damage",
+"power": 50,
+"aoe": false,
+"cd": 3.0
+},
+"209": {
+"id": 209,
+"slug": "spark",
+"name": "Étincelle",
+"type": "electric",
+"kind": "damage",
+"power": 65,
+"aoe": false,
+"cd": 4.5,
+"ailment": "paralysis",
+"chance": 30
+},
+"204": {
+"id": 204,
+"slug": "charm",
+"name": "Charme",
+"type": "normal",
+"kind": "debuff",
+"stat": "atk",
+"stages": -2,
+"cd": 10.0,
+"aoe": false
+},
+"248": {
+"id": 248,
+"slug": "future-sight",
+"name": "Prescience",
+"type": "psychic",
+"kind": "damage",
+"power": 120,
+"aoe": false,
+"cd": 10.0
+},
+"178": {
+"id": 178,
+"slug": "cotton-spore",
+"name": "Spore Coton",
+"type": "grass",
+"kind": "debuff",
+"stat": "spe",
+"stages": -2,
+"cd": 10.0,
+"aoe": true
+},
+"205": {
+"id": 205,
+"slug": "rollout",
+"name": "Roulade",
+"type": "rock",
+"kind": "damage",
+"power": 30,
+"aoe": false,
+"cd": 2.0
+},
+"61": {
+"id": 61,
+"slug": "bubble-beam",
+"name": "Bulles d’O",
+"type": "water",
+"kind": "damage",
+"power": 65,
+"aoe": false,
+"cd": 4.5,
+"stat": {
+"stat": "spe",
+"stages": -1,
+"self": false,
+"chance": 10
+}
+},
+"157": {
+"id": 157,
+"slug": "rock-slide",
+"name": "Éboulement",
+"type": "rock",
+"kind": "damage",
+"power": 75,
+"aoe": true,
+"cd": 8.5
+},
+"185": {
+"id": 185,
+"slug": "feint-attack",
+"name": "Feinte",
+"type": "dark",
+"kind": "damage",
+"power": 60,
+"aoe": false,
+"cd": 4.0
+},
+"72": {
+"id": 72,
+"slug": "mega-drain",
+"name": "Méga-Sangsue",
+"type": "grass",
+"kind": "damage",
+"power": 40,
+"aoe": false,
+"cd": 2.0,
+"drain": 50
+},
+"202": {
+"id": 202,
+"slug": "giga-drain",
+"name": "Giga-Sangsue",
+"type": "grass",
+"kind": "damage",
+"power": 75,
+"aoe": false,
+"cd": 5.5,
+"drain": 50
+},
+"234": {
+"id": 234,
+"slug": "morning-sun",
+"name": "Aurore",
+"type": "normal",
+"kind": "heal",
+"heal": 50,
+"cd": 12.0,
+"aoe": false
+},
+"228": {
+"id": 228,
+"slug": "pursuit",
+"name": "Poursuite",
+"type": "dark",
+"kind": "damage",
+"power": 40,
+"aoe": false,
+"cd": 2.0
+},
+"236": {
+"id": 236,
+"slug": "moonlight",
+"name": "Rayon Lune",
+"type": "normal",
+"kind": "heal",
+"heal": 50,
+"cd": 12.0,
+"aoe": false
+},
+"149": {
+"id": 149,
+"slug": "psywave",
+"name": "Vague Psy",
+"type": "psychic",
+"kind": "damage",
+"power": 50,
+"aoe": false,
+"cd": 3.0
+},
+"237": {
+"id": 237,
+"slug": "hidden-power",
+"name": "Puissance Cachée",
+"type": "normal",
+"kind": "damage",
+"power": 60,
+"aoe": false,
+"cd": 4.0
+},
+"243": {
+"id": 243,
+"slug": "mirror-coat",
+"name": "Voile Miroir",
+"type": "psychic",
+"kind": "damage",
+"power": 50,
+"aoe": false,
+"cd": 3.0
+},
+"242": {
+"id": 242,
+"slug": "crunch",
+"name": "Mâchouille",
+"type": "dark",
+"kind": "damage",
+"power": 80,
+"aoe": false,
+"cd": 6.0,
+"stat": {
+"stat": "def",
+"stages": -1,
+"self": false,
+"chance": 20
+}
+},
+"229": {
+"id": 229,
+"slug": "rapid-spin",
+"name": "Tour Rapide",
+"type": "normal",
+"kind": "damage",
+"power": 50,
+"aoe": false,
+"cd": 3.0,
+"stat": {
+"stat": "spe",
+"stages": 1,
+"self": true,
+"chance": 100
+}
+},
+"117": {
+"id": 117,
+"slug": "bide",
+"name": "Patience",
+"type": "normal",
+"kind": "damage",
+"power": 50,
+"aoe": false,
+"cd": 3.0
+},
+"206": {
+"id": 206,
+"slug": "false-swipe",
+"name": "Faux-Chage",
+"type": "normal",
+"kind": "damage",
+"power": 40,
+"aoe": false,
+"cd": 2.0
+},
+"232": {
+"id": 232,
+"slug": "metal-claw",
+"name": "Griffe Acier",
+"type": "steel",
+"kind": "damage",
+"power": 50,
+"aoe": false,
+"cd": 3.0,
+"stat": {
+"stat": "atk",
+"stages": 1,
+"self": true,
+"chance": 10
+}
+},
+"179": {
+"id": 179,
+"slug": "reversal",
+"name": "Contre",
+"type": "fighting",
+"kind": "damage",
+"power": 50,
+"aoe": false,
+"cd": 3.0
+},
+"224": {
+"id": 224,
+"slug": "megahorn",
+"name": "Mégacorne",
+"type": "bug",
+"kind": "damage",
+"power": 120,
+"aoe": false,
+"cd": 10.0
+},
+"251": {
+"id": 251,
+"slug": "beat-up",
+"name": "Baston",
+"type": "dark",
+"kind": "damage",
+"power": 300,
+"aoe": false,
+"cd": 12.0
+},
+"173": {
+"id": 173,
+"slug": "snore",
+"name": "Ronflement",
+"type": "normal",
+"kind": "damage",
+"power": 50,
+"aoe": false,
+"cd": 3.0
+},
+"181": {
+"id": 181,
+"slug": "powder-snow",
+"name": "Poudreuse",
+"type": "ice",
+"kind": "damage",
+"power": 40,
+"aoe": true,
+"cd": 5.0,
+"ailment": "freeze",
+"chance": 10
+},
+"246": {
+"id": 246,
+"slug": "ancient-power",
+"name": "Pouvoir Antique",
+"type": "rock",
+"kind": "damage",
+"power": 60,
+"aoe": false,
+"cd": 4.0,
+"stat": {
+"stat": "atk",
+"stages": 1,
+"self": true,
+"chance": 10
+}
+},
+"190": {
+"id": 190,
+"slug": "octazooka",
+"name": "Octazooka",
+"type": "water",
+"kind": "damage",
+"power": 65,
+"aoe": false,
+"cd": 4.5
+},
+"217": {
+"id": 217,
+"slug": "present",
+"name": "Cadeau",
+"type": "normal",
+"kind": "damage",
+"power": 50,
+"aoe": false,
+"cd": 3.0
+},
+"211": {
+"id": 211,
+"slug": "steel-wing",
+"name": "Ailes d’Acier",
+"type": "steel",
+"kind": "damage",
+"power": 70,
+"aoe": false,
+"cd": 5.0,
+"stat": {
+"stat": "def",
+"stages": 1,
+"self": true,
+"chance": 10
+}
+},
+"239": {
+"id": 239,
+"slug": "twister",
+"name": "Ouragan",
+"type": "dragon",
+"kind": "damage",
+"power": 40,
+"aoe": true,
+"cd": 5.0
+},
+"192": {
+"id": 192,
+"slug": "zap-cannon",
+"name": "Élecanon",
+"type": "electric",
+"kind": "damage",
+"power": 120,
+"aoe": false,
+"cd": 10.0,
+"ailment": "paralysis",
+"chance": 100
+},
+"167": {
+"id": 167,
+"slug": "triple-kick",
+"name": "Triple Pied",
+"type": "fighting",
+"kind": "damage",
+"power": 30,
+"aoe": false,
+"cd": 2.0
+},
+"85": {
+"id": 85,
+"slug": "thunderbolt",
+"name": "Tonnerre",
+"type": "electric",
+"kind": "damage",
+"power": 90,
+"aoe": false,
+"cd": 7.0,
+"ailment": "paralysis",
+"chance": 10
+},
+"126": {
+"id": 126,
+"slug": "fire-blast",
+"name": "Déflagration",
+"type": "fire",
+"kind": "damage",
+"power": 110,
+"aoe": false,
+"cd": 9.0,
+"ailment": "burn",
+"chance": 10
+},
+"208": {
+"id": 208,
+"slug": "milk-drink",
+"name": "Lait à Boire",
+"type": "normal",
+"kind": "heal",
+"heal": 50,
+"cd": 12.0,
+"aoe": false
+},
+"135": {
+"id": 135,
+"slug": "soft-boiled",
+"name": "E-Coque",
+"type": "normal",
+"kind": "heal",
+"heal": 50,
+"cd": 12.0,
+"aoe": false
+},
+"121": {
+"id": 121,
+"slug": "egg-bomb",
+"name": "Bombe Œuf",
+"type": "normal",
+"kind": "damage",
+"power": 100,
+"aoe": false,
+"cd": 8.0
+},
+"177": {
+"id": 177,
+"slug": "aeroblast",
+"name": "Aéroblast",
+"type": "flying",
+"kind": "damage",
+"power": 100,
+"aoe": false,
+"cd": 8.0
+},
+"221": {
+"id": 221,
+"slug": "sacred-fire",
+"name": "Feu Sacré",
+"type": "fire",
+"kind": "damage",
+"power": 100,
+"aoe": false,
+"cd": 8.0,
+"ailment": "burn",
+"chance": 50
 }
 }
