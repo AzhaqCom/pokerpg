@@ -1,14 +1,21 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { STAT_LABEL, berryHeal, mainValue, template } from '../../game/items';
+import { SETS, STAT_LABEL, berryHeal, mainValue, template } from '../../game/items';
 import { Item, RARITIES, RARITY_COLOR } from '../../game/model';
 import { C } from '../theme';
 
 const SLOT_ICON = { offense: '⚔', defense: '🛡', berry: '🍒' } as const;
+const CURE_LABEL: Record<string, string> = {
+  paralysis: 'la paralysie', poison: 'le poison', sleep: 'le sommeil', burn: 'la brûlure', freeze: 'le gel',
+};
 
 export function itemMainText(it: Item) {
   const t = template(it.templateId);
-  if (t.berry?.heal) return `Soigne ${berryHeal(it)} % des PV sous 30 %`;
-  if (t.berry?.cures) return `Soigne ${({ paralysis: 'la paralysie', poison: 'le poison', sleep: 'le sommeil' } as Record<string, string>)[t.berry.cures] ?? t.berry.cures}`;
+  if (t.berry?.heal || t.berry?.cures) {
+    const parts: string[] = [];
+    if (t.berry.heal) parts.push(`Soigne ${berryHeal(it)} % des PV sous 30 %`);
+    if (t.berry.cures) parts.push(`Soigne ${CURE_LABEL[t.berry.cures] ?? t.berry.cures}`);
+    return parts.join(' · ');
+  }
   return `${STAT_LABEL[t.main]} +${mainValue(it)} %`;
 }
 
@@ -28,7 +35,7 @@ export function ItemCard({ item, onPress, selected, wornBy, compare }: {
         <Text style={styles.lv}>Nv.{item.level}</Text>
       </View>
       {wornBy && <View style={styles.wornBadge}><Text style={styles.wornTxt}>⚠ Déjà porté par {wornBy}</Text></View>}
-      <Text style={styles.rarity}>{RARITIES[item.rarity]}{t.set ? ' · Panoplie Sylvestre' : ''}</Text>
+      <Text style={styles.rarity}>{RARITIES[item.rarity]}{t.set ? ` · ${SETS[t.set].name}` : ''}</Text>
       <Text style={styles.main}>{itemMainText(item)}</Text>
       {item.subs.map((s, i) => <Text key={i} style={styles.sub}>{STAT_LABEL[s.stat]} +{s.value} %</Text>)}
     </Pressable>

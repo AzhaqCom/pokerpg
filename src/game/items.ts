@@ -26,7 +26,7 @@ export const TEMPLATES: ItemTemplate[] = [
   // biome 4 — Biome Verdoyant
   { id: 'feuille-chloro', name: 'Feuille Tranchante', slot: 'offense', main: 'typeDmgPct', base: 7, set: 'chloro' },
   { id: 'ecorce-chloro', name: 'Écorce Vivace', slot: 'defense', main: 'hpPct', base: 7, set: 'chloro' },
-  { id: 'baie-chloro', name: 'Baie Feuillue', slot: 'berry', main: 'hpPct', base: 0, set: 'chloro', berry: { heal: 25 } },
+  { id: 'baie-chloro', name: 'Baie Feuillue', slot: 'berry', main: 'hpPct', base: 0, set: 'chloro', berry: { heal: 25, cures: 'sleep' } },
   // biome 5 — Marais Toxique
   { id: 'piquant-brume', name: 'Piquant Empoisonné', slot: 'offense', main: 'critPct', base: 3, set: 'brume' },
   { id: 'carapace-brume', name: 'Carapace Visqueuse', slot: 'defense', main: 'defPct', base: 6, set: 'brume' },
@@ -34,11 +34,11 @@ export const TEMPLATES: ItemTemplate[] = [
   // biome 6 — Sanctuaire Psy
   { id: 'amulette-oeil', name: 'Amulette Prescience', slot: 'offense', main: 'critPct', base: 3, set: 'oeil' },
   { id: 'voile-oeil', name: 'Voile Mental', slot: 'defense', main: 'cdrPct', base: 3, set: 'oeil' },
-  { id: 'maron', name: 'Baie Maron', slot: 'berry', main: 'hpPct', base: 0, set: 'oeil', berry: { heal: 25, cures: 'sleep' } },
+  { id: 'maron', name: 'Baie Maron', slot: 'berry', main: 'hpPct', base: 0, set: 'oeil', berry: { heal: 25 } },
   // biome 7 — Terres de Feu
   { id: 'griffe-cendres', name: 'Griffe Incandescente', slot: 'offense', main: 'atkPct', base: 7, set: 'cendres' },
   { id: 'armure-cendres', name: 'Armure Ignifugée', slot: 'defense', main: 'defPct', base: 6, set: 'cendres' },
-  { id: 'baie-cendres', name: 'Baie Braisée', slot: 'berry', main: 'hpPct', base: 0, set: 'cendres', berry: { heal: 25 } },
+  { id: 'baie-cendres', name: 'Baie Braisée', slot: 'berry', main: 'hpPct', base: 0, set: 'cendres', berry: { heal: 25, cures: 'burn' } },
   // biome 8 — Plaines Rocheuses
   { id: 'poing-aride', name: 'Poing Tellurique', slot: 'offense', main: 'atkPct', base: 8, set: 'aride' },
   { id: 'plastron-aride', name: 'Plastron Rocheux', slot: 'defense', main: 'defPct', base: 7, set: 'aride' },
@@ -46,7 +46,7 @@ export const TEMPLATES: ItemTemplate[] = [
   // biome 9 — Route Victoire
   { id: 'lame-epreuve', name: 'Lame du Sage', slot: 'offense', main: 'critDmgPct', base: 9, set: 'epreuve' },
   { id: 'manteau-epreuve', name: "Manteau d'Ascension", slot: 'defense', main: 'hpPct', base: 8, set: 'epreuve' },
-  { id: 'baie-epreuve', name: "Baie de l'Épreuve", slot: 'berry', main: 'hpPct', base: 0, set: 'epreuve', berry: { heal: 25 } },
+  { id: 'baie-epreuve', name: "Baie de l'Épreuve", slot: 'berry', main: 'hpPct', base: 0, set: 'epreuve', berry: { heal: 25, cures: 'freeze' } },
   // biome 10 — Ligue Pokémon
   { id: 'gantelet-champion', name: 'Gantelet du Champion', slot: 'offense', main: 'atkPct', base: 9, set: 'champion' },
   { id: 'cape-champion', name: 'Cape du Vainqueur', slot: 'defense', main: 'defPct', base: 8, set: 'champion' },

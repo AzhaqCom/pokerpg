@@ -49,6 +49,8 @@ const SPECIALTY: Record<PType, Specialty> = {
   ghost: { name: 'Intangible', stat: 'dodgePct', perRank: 4, describe: (v) => `${v} % d'esquive` },
   psychic: { name: 'Prescience', stat: 'cdrPct', perRank: 4, describe: (v) => `Recharge −${v} %` },
   dragon: { name: 'Sang draconique', stat: 'atkPct', perRank: 4, describe: (v) => `Attaque +${v} %` },
+  steel: { name: 'Blindage', stat: 'defPct', perRank: 6, describe: (v) => `Défense +${v} %` },
+  dark: { name: 'Coup bas', stat: 'critDmgPct', perRank: 10, describe: (v) => `Dégâts critiques +${v} %` },
 };
 
 /** Palier 6 : une 2e saveur par type, différente de celle du palier 3 (`SPECIALTY`). */
@@ -68,6 +70,8 @@ const SPECIALTY2: Record<PType, Specialty> = {
   psychic: { name: 'Clairvoyance', stat: 'critPct', perRank: 1.5, describe: (v) => `Critique +${v} %` },
   poison: { name: 'Infection', stat: 'dmgVsStatusPct', perRank: 4, describe: (v) => `+${v} % de dégâts contre les cibles sous statut` },
   dragon: { name: 'Rage draconique', stat: 'critDmgPct', perRank: 5, describe: (v) => `Dégâts critiques +${v} %` },
+  steel: { name: 'Alliage renforcé', stat: 'critDmgPct', perRank: 5, describe: (v) => `Dégâts critiques +${v} %` },
+  dark: { name: 'Ombre portée', stat: 'dodgePct', perRank: 2, describe: (v) => `${v} % d'esquive` },
 };
 
 /**
@@ -174,4 +178,6 @@ export const AURA: Record<PType, { stat: NumericBonusStat; value: number; label:
   rock: { stat: 'defPct', value: 4, label: 'Défense' },
   ghost: { stat: 'dodgePct', value: 2, label: 'Esquive' },
   dragon: { stat: 'atkPct', value: 4, label: 'Attaque' },
+  steel: { stat: 'defPct', value: 4, label: 'Défense' },
+  dark: { stat: 'critDmgPct', value: 6, label: 'Dégâts critiques' },
 };

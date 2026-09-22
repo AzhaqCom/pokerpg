@@ -4,7 +4,7 @@ import typesRaw from '../data/types.json';
 
 export type PType =
   | 'normal' | 'fighting' | 'flying' | 'poison' | 'ground' | 'rock' | 'bug' | 'ghost'
-  | 'fire' | 'water' | 'grass' | 'electric' | 'psychic' | 'ice' | 'dragon';
+  | 'fire' | 'water' | 'grass' | 'electric' | 'psychic' | 'ice' | 'dragon' | 'steel' | 'dark';
 export type Ailment = 'burn' | 'poison' | 'paralysis' | 'sleep' | 'freeze';
 export type StatKey = 'hp' | 'atk' | 'def' | 'spe';
 

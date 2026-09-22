@@ -6,7 +6,8 @@ CSV : https://github.com/PokeAPI/pokeapi/tree/master/data/v2/csv
 Sorties : src/data/species.json, moves.json, types.json
 
 Choix de simplification (document de conception) :
-- 1re génération : types Acier / Ténèbres / Fée retirés (Magnéti = Électrik pur, Mélofée = Normal).
+- 1re génération : type Fée retiré (Mélofée reste Normal). Acier et Ténèbres sont conservés dans la
+  table des types (aucune espèce Gen 1 ne les porte, mais le moteur est prêt pour une Gen 2+ future).
 - Une seule stat d'attaque : max(Attaque, Atq. Spé.) ; Défense = moyenne(Défense, Déf. Spé.).
 - Capacités : apprises par niveau dans Rouge/Bleu ; celles dont l'effet n'est pas géré sont écartées.
 """
@@ -22,8 +23,9 @@ def rows(name):
         return list(csv.DictReader(f))
 
 TYPES = {1: 'normal', 2: 'fighting', 3: 'flying', 4: 'poison', 5: 'ground', 6: 'rock', 7: 'bug', 8: 'ghost',
-         10: 'fire', 11: 'water', 12: 'grass', 13: 'electric', 14: 'psychic', 15: 'ice', 16: 'dragon'}
-DROPPED = {9, 17, 18}  # acier, ténèbres, fée
+         9: 'steel', 10: 'fire', 11: 'water', 12: 'grass', 13: 'electric', 14: 'psychic', 15: 'ice',
+         16: 'dragon', 17: 'dark'}
+DROPPED = {18}  # fée
 
 # --- types : noms FR + table d'efficacité (attaquant -> défenseur -> multiplicateur)
 type_fr = {TYPES[int(r['type_id'])]: r['name'] for r in rows('type_names')

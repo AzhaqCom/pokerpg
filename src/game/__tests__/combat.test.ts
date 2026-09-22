@@ -1,5 +1,5 @@
 import { Battle } from '../battle';
-import { species, typeMultiplier } from '../data';
+import { ALL_SPECIES, species, typeMultiplier } from '../data';
 import { BIOMES } from '../content';
 import { makeMon, makeWaves, wildFighter, WILD_MALUS } from '../game';
 import { seededRng } from '../rng';
@@ -18,6 +18,15 @@ describe('types', () => {
     expect(species(6).types).toEqual(['fire', 'flying']);
     expect(species(81).types).toEqual(['electric']);
     expect(species(35).types).toEqual(['normal']);
+  });
+  test('Acier et Ténèbres : préparés dans la table des types, mais aucune des 151 espèces ne les porte', () => {
+    expect(typeMultiplier('fighting', ['dark'])).toBe(2);
+    expect(typeMultiplier('poison', ['steel'])).toBe(0);
+    expect(typeMultiplier('fire', ['steel'])).toBe(2);
+    expect(typeMultiplier('psychic', ['dark'])).toBe(0);
+    const used = new Set(ALL_SPECIES.flatMap((s) => s.types));
+    expect(used.has('steel')).toBe(false);
+    expect(used.has('dark')).toBe(false);
   });
 });
 

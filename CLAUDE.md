@@ -55,9 +55,11 @@ Modules natifs : toujours `npx expo install <pkg>`. Skia 2.6.2 (épinglé) **exi
     `xpForLevel = 30·N²`), `data.ts` (accès typé aux JSON), `rng.ts`, `bot.ts` (joueur automatique pour
     la simulation d'équilibrage).
 - `src/data/` : `species.json`, `moves.json`, `types.json` **générés** par `tools/gen_data.py` depuis les CSV
-  PokéAPI (capacités Rouge/Bleu, noms FR ; types Acier/Ténèbres/Fée retirés ; Atq = max(Atq, Atq Spé),
-  Déf = moyenne ; recharge = `clamp(2,12,(puissance−20)/10)` +3 s si zone). Retoucher un JSON à la main est
-  écrasé si on relance le script.
+  PokéAPI (capacités Rouge/Bleu, noms FR ; type Fée retiré ; Atq = max(Atq, Atq Spé), Déf = moyenne ;
+  recharge = `clamp(2,12,(puissance−20)/10)` +3 s si zone). Retoucher un JSON à la main est écrasé si on
+  relance le script. **Acier et Ténèbres sont dans le moteur** (`PType`, table des types, 4 tables de
+  talents `SPECIALTY`/`SPECIALTY2`/`AURA`/`TYPE_COLOR`) en préparation d'une Gen 2 future, mais aucune des
+  151 espèces actuelles ne les porte (inexistants avant la Gen 2 dans les jeux d'origine).
 - Sprites : atlas PMD par espèce (`assets/sprites/p025.png`, `ps025.png` chromatique), manifeste
   `src/data/sprites.json` + `spriteAssets.ts` (require statiques). Directions de combat `idleR/L`,
   `attackR/L`, `hurtR/L`. Pipeline `tools/fetch-sprites.ts`, miniatures `tools/make_thumbs.py`.
