@@ -109,6 +109,23 @@ test('migrateSave : une arène déjà battue (ancienne save à plat) débloque l
   expect(migrated.unlocked[1][0]).toBeGreaterThanOrEqual(1); // biome 2, zone 1 : débloqué a posteriori
 });
 
+test('migrateSave : une save d’avant Johto (10 biomes) complète unlocked/bossesBeaten/arenaBeaten à 20, sans planter en battant le Champion Kanto', () => {
+  const old = {
+    unlocked: BIOMES.slice(0, 10).map((b, i) => b.zones.map(() => (i === 0 ? 1 : 0))),
+    bossesBeaten: BIOMES.slice(0, 10).map((b) => b.zones.map(() => false)),
+    arenaBeaten: Array(9).fill(true).concat([false]), // les 9 premiers badges Kanto en poche
+    biome: 9, zone: 2, stage: 5,
+  } as unknown as Record<string, unknown>;
+  const migrated = { ...newGame(), ...migrateSave(old) } as unknown as GameState;
+  expect(migrated.unlocked.length).toBe(BIOMES.length);
+  expect(migrated.bossesBeaten.length).toBe(BIOMES.length);
+  expect(migrated.arenaBeaten.length).toBe(BIOMES.length);
+  // ne doit pas planter : le Champion Kanto vient d'être battu, onStageWon débloque le biome Johto suivant
+  expect(() => {
+    migrated.unlocked[10][0] = Math.max(1, migrated.unlocked[10][0]);
+  }).not.toThrow();
+});
+
 test('migrateSave : l’ancienne pension (à job) devient l’exploration, la nouvelle pension démarre vide', () => {
   const old = {
     pension: [{ uid: 'm1', job: 'orchard', since: 123 }],

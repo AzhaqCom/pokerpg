@@ -123,6 +123,17 @@ export function migrateSave(raw: Record<string, unknown>): Record<string, unknow
     raw.arenaBeaten = BIOMES.map((_, i) => (i === 0 ? raw.arenaBeaten as boolean : false));
   }
   if (typeof raw.biome !== 'number') raw.biome = 0;
+  // sauvegarde d'avant l'ajout d'un biome (ex. Johto) : complète les tableaux trop courts avec les
+  // valeurs par défaut des nouveaux biomes, sinon onStageWon plante en tentant d'y accéder.
+  if (Array.isArray(raw.unlocked) && raw.unlocked.length < BIOMES.length) {
+    for (let i = raw.unlocked.length; i < BIOMES.length; i++) raw.unlocked.push(zoneCounts[i] ? Array(zoneCounts[i]).fill(0) : []);
+  }
+  if (Array.isArray(raw.bossesBeaten) && raw.bossesBeaten.length < BIOMES.length) {
+    for (let i = raw.bossesBeaten.length; i < BIOMES.length; i++) raw.bossesBeaten.push(zoneCounts[i] ? Array(zoneCounts[i]).fill(false) : []);
+  }
+  if (Array.isArray(raw.arenaBeaten) && raw.arenaBeaten.length < BIOMES.length) {
+    for (let i = raw.arenaBeaten.length; i < BIOMES.length; i++) raw.arenaBeaten.push(false);
+  }
   // une arène déjà battue (avant l'existence du multi-biome) doit débloquer le biome suivant a posteriori
   const arenaBeaten = raw.arenaBeaten as boolean[] | undefined;
   const unlocked = raw.unlocked as number[][] | undefined;
