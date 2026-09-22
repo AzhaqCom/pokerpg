@@ -15,9 +15,10 @@ testés (Jest)** (voir `BIOMES.md`) : les 151 espèces sont toutes couvertes, co
 **Simulation d'équilibrage bout en bout ajoutée** (`balance.test.ts`) : un joueur efficace termine les
 10 biomes en 3h30-6h50 de combat simulé, sans blocage — biomes 6-8 anormalement rapides (~3 min
 chacun), à surveiller au test manuel (voir `BIOMES.md`). Biomes 2-10 pas encore validés en jeu par
-Arno (haut niveau requis). Boss **rejouables** (`repeatable: true` sur `ZoneDef.boss`, biomes 9-10)
-pour les légendaires — chromatique tiré à chaque tentative, contrairement à un boss de zone classique
-(jamais chromatique). Le jeu s'appelle **PokéLoot** depuis le 2026-09-21.
+Arno (haut niveau requis). Boss légendaires (biomes 9-10, `joinsPool: true` sur `ZoneDef.boss`) :
+une fois vaincus (capture garantie, jamais chromatique au combat de boss lui-même), ils rejoignent le
+pool de sauvages de leur zone (`effectivePool` dans `game.ts`, poids 6 = rare) et deviennent farmables/
+chromatisables comme n'importe quel sauvage. Le jeu s'appelle **PokéLoot** depuis le 2026-09-21.
 8 améliorations codées le 2026-09-21 (voir `AMELIORATIONS.md`) : perf sac, nettoyage doublons boîte,
 tri par type, étoiles de qualité génétique, options de capture auto, pension repensée en XP + nouvel
 onglet Exploration. Reste le test manuel Expo Go par Arno. Voir `BIOMES.md` pour le plan des biomes
@@ -73,12 +74,18 @@ Modules natifs : toujours `npx expo install <pkg>`. Skia 2.6.2 (épinglé) **exi
 - XP : chaque sauvage vaincu = 2 × son niveau (×5 boss), total de la vague partagé à parts égales
   entre les membres de l'équipe, puis pondéré par Pokémon via `xpGapMult(niveauDuPokémon,
   niveauMoyenEnnemis)` = `clamp(0.5, 2, 1 + 0.2 × écart)` (`waveRewards`).
-- Niveau des sauvages : niveau de l'étape ou −1 ; `WILD_MALUS` PV/Atq ×0,85.
+- Niveau des sauvages : niveau de l'étape ou −1 ; `WILD_MALUS` PV/Atq ×0,85. Zones où la simulation
+  d'équilibrage montre que le joueur roule sur le contenu sans jamais perdre (`ZoneDef.wildMult`,
+  biomes 3/4/6/7/8/9) : remplace `WILD_MALUS` par un multiplicateur propre à la zone (1 à 2,6 selon
+  combien de retard le joueur y a habituellement pris), calé empiriquement via `bot.ts`/`simulate()`
+  plutôt que recalculer toute la courbe de niveau.
 - Capture : après une vague gagnée d'étape normale, 35 % d'offre (`CAPTURE_OFFER_CHANCE`) ; chromatique
   (1/256) toujours proposé et garanti ; boss vaincu capturé d'office. Taux : Poké 30 %, Super 55 %,
   Hyper 80 %, ×0,5 pour une espèce rare de la zone. L'offre expire après la vague suivante. Niveau du
   capturé plafonné au meilleur Pokémon de l'équipe (`captureLevel`/`teamMaxLevel`, jamais en dessous de 2).
-- Butin : 11 %/sauvage (`LOOT_CHANCE`), boss 3 objets. Recyclage = `recycleValue()` en éclats.
+- Butin : 11 %/sauvage (`LOOT_CHANCE`), boss 3 objets. Niveau du butin = `max(niveau de l'ennemi, meilleur
+  Pokémon de l'équipe)` (`waveRewards`/`sampleWaves`) — jamais en dessous du niveau de l'équipe, pour que
+  farmer un ancien biome (chromatique, gènes parfaits) reste pertinent. Recyclage = `recycleValue()` en éclats.
 - Hors ligne (`src/game/idle.ts`) : farm auto de l'étape 1 de la zone en cours pendant l'absence (plafond
   8 h, `IDLE_CAP_MS`), même règles d'XP/butin qu'en jouant, sans offre de capture sauf chromatique
   (capturé d'office, niveau plafonné). Calcul par échantillon réel (`computeIdleGains`, pur, ne modifie

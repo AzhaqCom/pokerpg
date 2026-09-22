@@ -6,17 +6,21 @@ import { BattleBonuses, NumericBonusStat } from './model';
  * 6 talents à rang fixe (5 max) sur 3 paliers (5 et 10 points dépensés pour débloquer
  * les paliers 2 et 3), + 2 talents « Affinité » à rang 15 sur les paliers 4 et 5
  * (20 et 40 points) : le joueur choisit un type hors des siens, présent dans son
- * movepool complet, pour booster ses dégâts. 1 point par niveau à partir du niveau 2,
+ * movepool complet, pour booster ses dégâts, + 4 talents à rang 10 sur les paliers 6 à 9
+ * (60/70/80/90 points, chacun exige d'avoir fini le précédent) : 2e saveur par type, saveur
+ * classique du type secondaire (ou 2e saveur à nouveau pour un mono-type), Fureur (attaque)
+ * et Précision mortelle (critique), génériques. 1 point par niveau à partir du niveau 2,
  * +1 bonus au niveau 100 (100 points max, de quoi tout maxer pile à Nv.100).
  */
 export const MAX_RANK = 5;
 export const AFFINITY_MAX_RANK = 15;
-export const TIER_REQ = [0, 5, 10, 20, 40];
+export const TIER2_MAX_RANK = 10;
+export const TIER_REQ = [0, 5, 10, 20, 40, 60, 70, 80, 90];
 
 export interface TalentDef {
   id: string;
   name: string;
-  tier: 0 | 1 | 2 | 3 | 4;
+  tier: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
   stat: NumericBonusStat;
   perRank: number;
   maxRank: number;
@@ -47,6 +51,25 @@ const SPECIALTY: Record<PType, Specialty> = {
   dragon: { name: 'Sang draconique', stat: 'atkPct', perRank: 4, describe: (v) => `Attaque +${v} %` },
 };
 
+/** Palier 6 : une 2e saveur par type, différente de celle du palier 3 (`SPECIALTY`). */
+const SPECIALTY2: Record<PType, Specialty> = {
+  fire: { name: 'Fournaise', stat: 'ailmentChancePct', perRank: 6, describe: (v) => `+${v} % de chances d'infliger un statut` },
+  water: { name: 'Courant vital', stat: 'lifestealPct', perRank: 2, describe: (v) => `Vol de vie ${v} %` },
+  grass: { name: 'Spores', stat: 'aoeDmgPct', perRank: 5, describe: (v) => `Capacités de zone +${v} %` },
+  electric: { name: 'Surcharge', stat: 'critDmgPct', perRank: 5, describe: (v) => `Dégâts critiques +${v} %` },
+  ice: { name: 'Banquise', stat: 'defPct', perRank: 3, describe: (v) => `Défense +${v} %` },
+  normal: { name: 'Ruée', stat: 'spePct', perRank: 2, describe: (v) => `Vitesse +${v} %` },
+  fighting: { name: 'Poigne de fer', stat: 'atkPct', perRank: 2, describe: (v) => `Attaque +${v} %` },
+  flying: { name: 'Vent arrière', stat: 'spePct', perRank: 2, describe: (v) => `Vitesse +${v} %` },
+  ground: { name: 'Terre battue', stat: 'defPct', perRank: 3, describe: (v) => `Défense +${v} %` },
+  rock: { name: 'Éboulement', stat: 'critDmgPct', perRank: 5, describe: (v) => `Dégâts critiques +${v} %` },
+  bug: { name: 'Piqûre', stat: 'ailmentChancePct', perRank: 6, describe: (v) => `+${v} % de chances d'infliger un statut` },
+  ghost: { name: 'Malédiction', stat: 'dmgVsStatusPct', perRank: 4, describe: (v) => `+${v} % de dégâts contre les cibles sous statut` },
+  psychic: { name: 'Clairvoyance', stat: 'critPct', perRank: 1.5, describe: (v) => `Critique +${v} %` },
+  poison: { name: 'Infection', stat: 'dmgVsStatusPct', perRank: 4, describe: (v) => `+${v} % de dégâts contre les cibles sous statut` },
+  dragon: { name: 'Rage draconique', stat: 'critDmgPct', perRank: 5, describe: (v) => `Dégâts critiques +${v} %` },
+};
+
 /**
  * `types` : les 1 ou 2 types du Pokémon (`species(id).types`). Le premier détermine le nom de l'arbre et
  * la Spécialité (palier 3), mais le bonus de « Puissance » profite réellement aux deux types en combat
@@ -55,7 +78,12 @@ const SPECIALTY: Record<PType, Specialty> = {
  */
 export function talentTree(types: PType[]): TalentDef[] {
   const primary = types[0];
+  const secondary = types[1];
   const sp = SPECIALTY[primary];
+  const sp2 = SPECIALTY2[primary];
+  // palier 7 : bi-type → saveur classique du type secondaire (identité jamais exploitée sinon) ;
+  // mono-type → pas de 2e type à exploiter, la 2e saveur (palier 6) est reprise pour doubler son rang.
+  const sp3 = secondary ? SPECIALTY[secondary] : sp2;
   const typeLabel = types.map((t) => TYPE_NAME[t]).join(' et ');
   return [
     { id: 'power', name: `Puissance ${TYPE_NAME[primary]}`, tier: 0, stat: 'typeDmgPct', perRank: 4, maxRank: MAX_RANK, describe: pct(`Dégâts ${typeLabel}`) },
@@ -66,25 +94,34 @@ export function talentTree(types: PType[]): TalentDef[] {
     { id: 'mastery', name: 'Maîtrise', tier: 2, stat: 'cdrPct', perRank: 3, maxRank: MAX_RANK, describe: (v) => `Recharge −${v} %` },
     { id: 'affinity1', name: 'Affinité I', tier: 3, stat: 'typeDmgPct', perRank: 3, maxRank: AFFINITY_MAX_RANK, describe: pct('Dégâts du type choisi'), chooseType: true },
     { id: 'affinity2', name: 'Affinité II', tier: 4, stat: 'typeDmgPct', perRank: 3, maxRank: AFFINITY_MAX_RANK, describe: pct('Dégâts du type choisi'), chooseType: true },
+    { id: 'spec2', name: sp2.name, tier: 5, stat: sp2.stat, perRank: sp2.perRank, maxRank: TIER2_MAX_RANK, describe: sp2.describe },
+    { id: 'spec3', name: sp3.name, tier: 6, stat: sp3.stat, perRank: sp3.perRank, maxRank: TIER2_MAX_RANK, describe: sp3.describe },
+    { id: 'fury', name: 'Fureur', tier: 7, stat: 'atkPct', perRank: 2, maxRank: TIER2_MAX_RANK, describe: pct('Attaque') },
+    { id: 'deadly', name: 'Précision mortelle', tier: 8, stat: 'critPct', perRank: 1.5, maxRank: TIER2_MAX_RANK, describe: pct('Critique') },
   ];
 }
 
 /**
- * Types éligibles pour un talent « au choix » : présents dans le movepool complet de l'espèce, hors de
- * ses propres types (déjà couverts par « Puissance »). `exclude` retire en plus les types déjà choisis
- * dans un *autre* emplacement d'Affinité du même Pokémon — pour éviter de cumuler deux fois le même
- * type (le but des 2 emplacements est de diversifier) — sauf si ça ne laisserait plus aucune option, où
- * autant permettre la reprise que de bloquer purement et simplement l'emplacement.
+ * Types éligibles pour un talent « au choix » : types des attaques *offensives* (`kind === 'damage'`)
+ * du movepool complet de l'espèce, hors de ses propres types (déjà couverts par « Puissance ») — un
+ * type dont la seule présence vient d'une capacité de statut/soin/buff (ex. Hâte, Psy, sur un Pokémon
+ * Normal/Vol) ne ferait aucun dégât, donc n'a rien à gagner à être boosté. `exclude` retire en plus les
+ * types déjà choisis dans un *autre* emplacement d'Affinité du même Pokémon — pour éviter de cumuler
+ * deux fois le même type (le but des 2 emplacements est de diversifier) — sauf si ça ne laisserait plus
+ * aucune option, où autant permettre la reprise que de bloquer purement et simplement l'emplacement.
+ * Si l'espèce n'a aucune attaque offensive hors de ses propres types (mouvepool étroit type Rondoudou,
+ * Rattata, Abra…), l'emplacement se rabat sur ses propres types : mieux vaut booster encore ses dégâts
+ * réels que de laisser le talent inutilisable.
  */
 export function eligibleAffinityTypes(speciesId: number, exclude: PType[] = []): PType[] {
   const sp = species(speciesId);
   const own = new Set(sp.types);
   const types = new Set<PType>();
   for (const [, moveId] of sp.learnset) {
-    const t = move(moveId).type;
-    if (!own.has(t)) types.add(t);
+    const m = move(moveId);
+    if (m.kind === 'damage' && !own.has(m.type)) types.add(m.type);
   }
-  const all = [...types];
+  const all = types.size ? [...types] : [...own];
   const filtered = all.filter((t) => !exclude.includes(t));
   return filtered.length ? filtered : all;
 }

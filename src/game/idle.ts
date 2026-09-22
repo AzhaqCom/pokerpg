@@ -65,18 +65,18 @@ function sampleWaves(s: GameState, rng: Rng, target: number): WaveSample {
   for (const uid of s.team) xpShareSum[uid] = 0;
 
   while (sampled < target) {
-    const waves = makeWaves('stage', s.biome, s.zone, 1, rng, s.team.length);
+    const waves = makeWaves('stage', s.biome, s.zone, 1, rng, s.team.length, s.bossesBeaten[s.biome][s.zone]);
     const hp: Record<string, number | undefined> = {};
     for (const wave of waves) {
       if (sampled >= target) break;
       const allies = s.team.map((u) => allyFighter(s, u, hp[u]));
-      const enemies = wave.map((e, j) => wildFighter(`idle${sampled}-${j}`, e.mon, { boss: e.boss, hpMult: e.hpMult, wild: e.wild }));
+      const enemies = wave.map((e, j) => wildFighter(`idle${sampled}-${j}`, e.mon, { boss: e.boss, hpMult: e.hpMult, wild: e.wild, wildMult: e.wildMult }));
       const battle = new Battle([...allies, ...enemies], rng);
       battle.runToEnd();
       totalMs += battle.t * 1000 + BETWEEN_WAVES_MS;
       sampled++;
       const enemyAvgLevel = wave.reduce((a, e) => a + e.mon.level, 0) / wave.length;
-      lootLevelSum += Math.max(1, Math.round(enemyAvgLevel));
+      lootLevelSum += Math.max(1, Math.round(enemyAvgLevel), teamMaxLevel(s));
       if (battle.result === 'win') {
         wins++;
         killsWon += wave.length;
@@ -161,7 +161,7 @@ export function computeIdleGains(
   let shardsFromRecycle = 0;
   for (let i = 0; i < kills; i++) {
     if (rng.int(100) < LOOT_CHANCE) {
-      const it = rollLoot(rng, sample.lootLevel);
+      const it = rollLoot(rng, sample.lootLevel, s.biome);
       if (autoRecycle && it.rarity <= recycleMaxRarity) shardsFromRecycle += recycleValue(it);
       else bagItems.push(it);
     }

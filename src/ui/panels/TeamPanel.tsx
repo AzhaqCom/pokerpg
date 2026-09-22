@@ -24,8 +24,8 @@ const TYPE_ORDER = Object.keys(TYPE_COLOR);
 
 type SortMode = 'type' | 'level' | 'dex' | 'stars';
 const SORTS: { key: SortMode; label: string }[] = [
-  { key: 'type', label: 'Type' }, { key: 'level', label: 'Niveau' },
-  { key: 'dex', label: 'Ordre Pokédex' }, { key: 'stars', label: 'Rang' },
+  { key: 'dex', label: 'Ordre Pokédex' }, { key: 'type', label: 'Type' },
+  { key: 'level', label: 'Niveau' }, { key: 'stars', label: 'Rang' },
 ];
 const SORTERS: Record<SortMode, (a: Mon, b: Mon) => number> = {
   type: (a, b) => TYPE_ORDER.indexOf(primaryType(a.speciesId)) - TYPE_ORDER.indexOf(primaryType(b.speciesId))
@@ -41,7 +41,7 @@ export function TeamPanel() {
   const act = useGame((g) => g.act);
   const openMon = useUi((u) => u.openMon);
   const [cleanup, setCleanup] = useState<DialogSpec | null>(null);
-  const [sort, setSort] = useState<SortMode>('type');
+  const [sort, setSort] = useState<SortMode>('dex');
   const [evolveOnly, setEvolveOnly] = useState(false);
   const box = Object.values(s.mons)
     .filter((m) => !s.team.includes(m.uid) && (!evolveOnly || canEvolve(m)))

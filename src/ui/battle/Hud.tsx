@@ -46,8 +46,7 @@ export function HudBottom() {
   useFrameClock(4);
   const s = useGame((g) => g.s)!;
   const run = runner.run;
-  const zoneBoss = BIOMES[s.biome].zones[s.zone].boss;
-  const canBoss = bossAvailable(s) && (zoneBoss.repeatable || !s.bossesBeaten[s.biome][s.zone]) && run?.kind !== 'boss';
+  const canBoss = bossAvailable(s) && !s.bossesBeaten[s.biome][s.zone] && run?.kind !== 'boss';
   const canArena = arenaAvailable(s) && !s.arenaBeaten[s.biome] && run?.kind !== 'arena';
   return (
     <View style={{ gap: 6 }}>
@@ -119,6 +118,12 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
             {__DEV__ && (
               <Button label="🐛 Debug : +10 Pokémon dans la boîte" color="#37474f" onPress={() => {
                 act((g) => { for (let i = 0; i < 10; i++) addMon(g, makeMon(1 + Math.floor(rng.int(151)), 5 + rng.int(20), rng, rng.int(20) === 0, 8)); });
+                feedback();
+              }} />
+            )}
+            {__DEV__ && (
+              <Button label="🐛 Debug : les 151 Pokémon Nv.100 dans la boîte" color="#37474f" onPress={() => {
+                act((g) => { for (let id = 1; id <= 151; id++) addMon(g, makeMon(id, 100, rng, false, 15)); });
                 feedback();
               }} />
             )}

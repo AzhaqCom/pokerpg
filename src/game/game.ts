@@ -5,8 +5,8 @@
 import { Battle, FighterInit } from './battle';
 import { BADGE_BONUS, BIOMES, STAGES_PER_ZONE, WAVES_PER_STAGE, ZoneDef } from './content';
 import { PType, learnedMoves, movesAtLevel, species } from './data';
-import { berryHeal, fuse, canFuse, makeItem, newUid, recycleValue, rerollCost, rerollSub, rollLoot, slotOf, template, upgrade, upgradeCost } from './items';
-import { BattleBonuses, Item, ItemSlot, Mon, emptyBonuses } from './model';
+import { TEMPLATES, berryHeal, fuse, canFuse, makeItem, newUid, recycleValue, rerollCost, rerollSub, rollLoot, rollRarity, slotOf, template, upgrade, upgradeCost } from './items';
+import { BattleBonuses, Item, ItemSlot, MAX_RARITY, Mon, emptyBonuses } from './model';
 import { Rng } from './rng';
 import { auraBonuses, combatPower, finalStats, levelFromXp, monBonuses, monStars, sumBonuses, xpForLevel } from './stats';
 import { canRankUp, eligibleAffinityTypes, talentTree } from './talents';
@@ -153,7 +153,7 @@ export function makeMon(speciesId: number, level: number, rng: Rng, shiny = fals
 }
 
 /** Objets offerts au starter (1 par emplacement, rareté commune) : un peu de marge pour le début. */
-const STARTER_ITEMS = ['lunettes', 'echarpe', 'oran'] as const;
+const STARTER_ITEMS = ['griffe-sylve', 'cape-sylve', 'baie-sylve'] as const;
 
 export function chooseStarter(s: GameState, speciesId: number, rng: Rng) {
   const mon = makeMon(speciesId, 5, rng, false, 8);
@@ -390,9 +390,15 @@ export function rerollItemSub(s: GameState, uid: string, index: number, rng: Rng
 }
 
 /** Fusionne 3 objets ; l'objet obtenu reprend l'emplacement d'un des trois s'il était porté. */
+/** Fusionner vers Chromatique (le tout dernier palier) exige d'avoir déjà ce nombre de badges — un
+ * joueur au rythme normal ne l'atteint jamais avant, ça ne mord que sur un farm très agressif d'un seul
+ * biome (voir `genesMinForBadges`, même principe en plafond plutôt qu'en plancher). */
+export const CHROMATIC_BADGE_REQ = 6;
+
 export function fuseItems(s: GameState, uids: string[], rng: Rng): Item | null {
   const items = uids.map((u) => s.items[u]);
   if (items.some((i) => !i) || !canFuse(items)) return null;
+  if (items[0].rarity === MAX_RARITY - 1 && s.badges < CHROMATIC_BADGE_REQ) return null;
   const wearer = uids.map((u) => holder(s, u)).find(Boolean);
   for (const u of uids) {
     const h = holder(s, u);
@@ -421,7 +427,7 @@ export function fuseItems(s: GameState, uids: string[], rng: Rng): Item | null {
 export function fusionBadgeCount(s: GameState): number {
   const counts = new Map<string, number>();
   for (const it of Object.values(s.items)) {
-    if (it.locked || it.rarity >= 6) continue;
+    if (it.locked || it.rarity >= MAX_RARITY || (it.rarity === MAX_RARITY - 1 && s.badges < CHROMATIC_BADGE_REQ)) continue;
     const k = `${it.templateId}:${it.rarity}`;
     counts.set(k, (counts.get(k) ?? 0) + 1);
   }
@@ -434,7 +440,7 @@ export function fusionCandidates(s: GameState): Item[][] {
   const heldMap = heldBy(s);
   const groups = new Map<string, Item[]>();
   for (const it of Object.values(s.items)) {
-    if (it.locked || it.rarity >= 6) continue;
+    if (it.locked || it.rarity >= MAX_RARITY || (it.rarity === MAX_RARITY - 1 && s.badges < CHROMATIC_BADGE_REQ)) continue;
     const k = `${it.templateId}:${it.rarity}`;
     groups.set(k, [...(groups.get(k) ?? []), it]);
   }
@@ -483,10 +489,11 @@ export const SOLO_MALUS: Record<number, number> = { 1: 0.8, 2: 0.9, 3: 1 };
 
 export function wildFighter(
   id: string, mon: Mon,
-  opts: { boss?: boolean; hpMult?: number; wild?: boolean; teamSize?: number } = {},
+  opts: { boss?: boolean; hpMult?: number; wild?: boolean; wildMult?: number; teamSize?: number } = {},
 ): FighterInit {
   const stats = finalStats(mon, emptyBonuses());
-  const w = opts.wild ? WILD_MALUS : { hp: 1, atk: 1 };
+  const m = opts.wildMult ?? WILD_MALUS.hp;
+  const w = opts.wild ? { hp: m, atk: m } : { hp: 1, atk: 1 };
   const solo = opts.wild ? SOLO_MALUS[Math.min(3, Math.max(1, opts.teamSize ?? 3))] : 1;
   return {
     id, side: 1, speciesId: mon.speciesId, level: mon.level, shiny: mon.shiny,
@@ -499,34 +506,47 @@ export function wildFighter(
   };
 }
 
-export function pickSpecies(zone: ZoneDef, rng: Rng): number {
-  const total = zone.pool.reduce((a, [, w]) => a + w, 0);
-  let r = rng.int(total);
-  for (const [id, w] of zone.pool) { if (r < w) return id; r -= w; }
-  return zone.pool[0][0];
+/** Poids du boss une fois qu'il a rejoint le pool sauvage de sa zone (`joinsPool`) : aussi rare qu'une
+ * espèce rare classique (poids < 10 dans `isRareInZone`). */
+const BOSS_POOL_WEIGHT = 6;
+
+/** Pool réellement tiré au sort : le pool statique de la zone, + son boss si `joinsPool` et déjà vaincu. */
+export function effectivePool(zone: ZoneDef, bossBeaten: boolean): [number, number][] {
+  if (!zone.boss.joinsPool || !bossBeaten) return zone.pool;
+  return [...zone.pool, [zone.boss.speciesId, BOSS_POOL_WEIGHT]];
 }
 
-export function isRareInZone(zone: ZoneDef, speciesId: number) {
-  return (zone.pool.find(([id]) => id === speciesId)?.[1] ?? 0) < 10;
+export function pickSpecies(zone: ZoneDef, rng: Rng, bossBeaten = false): number {
+  const pool = effectivePool(zone, bossBeaten);
+  const total = pool.reduce((a, [, w]) => a + w, 0);
+  let r = rng.int(total);
+  for (const [id, w] of pool) { if (r < w) return id; r -= w; }
+  return pool[0][0];
+}
+
+export function isRareInZone(zone: ZoneDef, speciesId: number, bossBeaten = false) {
+  return (effectivePool(zone, bossBeaten).find(([id]) => id === speciesId)?.[1] ?? 0) < 10;
 }
 
 export type StageKind = 'stage' | 'boss' | 'arena';
 
-export interface WaveEnemy { mon: Mon; boss?: boolean; hpMult?: number; /** sauvage ordinaire : un peu plus faible que le joueur */ wild?: boolean }
+export interface WaveEnemy {
+  mon: Mon; boss?: boolean; hpMult?: number;
+  /** sauvage ordinaire : un peu plus faible que le joueur (`WILD_MALUS`), sauf `wildMult` (zone en avance) */
+  wild?: boolean; wildMult?: number;
+}
 
 /** Génère les vagues d'une étape. */
-export function makeWaves(kind: StageKind, biomeIndex: number, zoneIndex: number, stage: number, rng: Rng, teamSize = 3): WaveEnemy[][] {
+export function makeWaves(kind: StageKind, biomeIndex: number, zoneIndex: number, stage: number, rng: Rng, teamSize = 3, bossBeaten = false): WaveEnemy[][] {
   const biome = BIOMES[biomeIndex];
   if (kind === 'arena') {
     return biome.arena.team.map(([id, lv]) => [{ mon: makeMon(id, lv, rng, false, 12), hpMult: 2, boss: true }]);
   }
   const zone = biome.zones[zoneIndex];
   if (kind === 'boss') {
-    const b = zone.boss;
-    // boss de zone classique : jamais chromatique (ne pas trivialiser le farm d'un boss unique) ;
-    // boss rejouable (légendaire) : tiré comme un sauvage à chaque tentative, sinon infarmable en chromatique.
-    const shiny = b.repeatable ? rng.int(SHINY_ODDS) === 0 : false;
-    return [[{ mon: makeMon(b.speciesId, b.level, rng, shiny, 10), boss: true, hpMult: 5 }]];
+    // le combat de boss lui-même n'est jamais chromatique (ne pas trivialiser sa capture garantie) ;
+    // une fois vaincu, il rejoint le pool sauvage (`joinsPool`) et peut y être chromatique comme les autres.
+    return [[{ mon: makeMon(zone.boss.speciesId, zone.boss.level, rng, false, 10), boss: true, hpMult: 5 }]];
   }
   const lv = zone.minLv + Math.floor(((zone.maxLv - zone.minLv) * (stage - 1)) / (STAGES_PER_ZONE - 1));
   const waves: WaveEnemy[][] = [];
@@ -537,7 +557,7 @@ export function makeWaves(kind: StageKind, biomeIndex: number, zoneIndex: number
     const wave: WaveEnemy[] = [];
     for (let i = 0; i < n; i++) {
       const shiny = rng.int(SHINY_ODDS) === 0;
-      wave.push({ mon: makeMon(pickSpecies(zone, rng), Math.max(2, lv - 1 + rng.int(2)), rng, shiny), wild: true });
+      wave.push({ mon: makeMon(pickSpecies(zone, rng, bossBeaten), Math.max(2, lv - 1 + rng.int(2)), rng, shiny), wild: true, wildMult: zone.wildMult });
     }
     waves.push(wave);
   }
@@ -573,7 +593,7 @@ export class StageRun {
     this.biome = s.biome;
     this.zone = s.zone;
     this.stage = s.stage;
-    this.waves = makeWaves(kind, s.biome, s.zone, s.stage, rng, s.team.length);
+    this.waves = makeWaves(kind, s.biome, s.zone, s.stage, rng, s.team.length, s.bossesBeaten[s.biome][s.zone]);
     this.battle = this.makeBattle();
   }
 
@@ -581,7 +601,7 @@ export class StageRun {
     const allies = this.s.team.map((u) => allyFighter(this.s, u, this.hp[u]));
     const enemies = this.waves[this.waveIndex].map((e, i) => {
       addUnique(this.s.dex.seen, e.mon.speciesId);
-      return wildFighter(`w${this.waveIndex}-${i}`, e.mon, { boss: e.boss, hpMult: e.hpMult, wild: e.wild, teamSize: this.s.team.length });
+      return wildFighter(`w${this.waveIndex}-${i}`, e.mon, { boss: e.boss, hpMult: e.hpMult, wild: e.wild, wildMult: e.wildMult, teamSize: this.s.team.length });
     });
     return new Battle([...allies, ...enemies], this.rng2);
   }
@@ -639,13 +659,20 @@ function waveRewards(s: GameState, kind: StageKind, biomeIndex: number, zoneInde
     if (r.levels) out.levelUps.push({ uid: u, level: mon.level, newMoves: r.newMoves });
   }
   s.totals.kills += enemies.length;
-  const lootLevel = Math.max(1, Math.round(enemies.reduce((a, e) => a + e.mon.level, 0) / enemies.length));
+  // niveau du butin : jamais en dessous du meilleur Pokémon de l'équipe (farmer un ancien biome reste
+  // pertinent), jamais en dessous de l'ennemi affronté non plus (une zone plus dure que l'équipe garde
+  // un butin à sa hauteur) — max() couvre les deux cas à la fois.
+  const lootLevel = Math.max(1, Math.round(enemyAvgLevel), teamMaxLevel(s));
   for (let i = 0; i < enemies.length; i++) {
-    if (rng.int(100) < LOOT_CHANCE) out.loot.push(rollLoot(rng, lootLevel));
+    if (rng.int(100) < LOOT_CHANCE) out.loot.push(rollLoot(rng, lootLevel, biomeIndex));
   }
   if (kind === 'boss' || kind === 'arena') {
     // boss : 3 objets dont 1 Rare minimum (arène : Épique minimum)
-    out.loot.push(rollLoot(rng, lootLevel, kind === 'arena' ? 3 : 2), rollLoot(rng, lootLevel), rollLoot(rng, lootLevel));
+    out.loot.push(
+      rollLoot(rng, lootLevel, biomeIndex, kind === 'arena' ? 3 : 2),
+      rollLoot(rng, lootLevel, biomeIndex),
+      rollLoot(rng, lootLevel, biomeIndex),
+    );
   }
   for (const it of out.loot) s.items[it.uid] = it;
   // occasion de capture
@@ -655,7 +682,7 @@ function waveRewards(s: GameState, kind: StageKind, biomeIndex: number, zoneInde
     out.capture = { speciesId: b.speciesId, level: b.level, shiny: b.shiny, rare: false, guaranteed: true };
   } else if (kind === 'stage' && (shiny || rng.int(100) < CAPTURE_OFFER_CHANCE)) {
     const e = shiny ?? enemies[rng.int(enemies.length)];
-    out.capture = { speciesId: e.mon.speciesId, level: e.mon.level, shiny: e.mon.shiny, rare: isRareInZone(zone, e.mon.speciesId), guaranteed: e.mon.shiny };
+    out.capture = { speciesId: e.mon.speciesId, level: e.mon.level, shiny: e.mon.shiny, rare: isRareInZone(zone, e.mon.speciesId, s.bossesBeaten[biomeIndex][zoneIndex]), guaranteed: e.mon.shiny };
   }
   return out;
 }
@@ -873,10 +900,10 @@ export function harvestExploration(s: GameState, rng: Rng, now = Date.now()): Ex
       if (p.job === 'orchard') {
         const types = species(mon.speciesId).types;
         const n = types.includes('grass') || types.includes('water') ? 2 : 1;
+        const berryIds = TEMPLATES.filter((t) => t.slot === 'berry').map((t) => t.id);
         for (let i = 0; i < n; i++) {
-          const ids = ['oran', 'ceriz', 'pecha', 'maron'];
-          const it = { ...rollLoot(rng, mon.level), templateId: ids[rng.int(ids.length)], subs: [] as Item['subs'] };
-          it.rarity = Math.min(it.rarity, 2);
+          const id = berryIds[rng.int(berryIds.length)];
+          const it = { ...makeItem(id, Math.min(rollRarity(rng), 2), Math.max(1, mon.level), rng), subs: [] as Item['subs'] };
           s.items[it.uid] = it;
           out.berries.push(it);
         }

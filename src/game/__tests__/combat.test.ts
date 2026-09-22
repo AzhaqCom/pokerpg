@@ -1,6 +1,7 @@
 import { Battle } from '../battle';
 import { species, typeMultiplier } from '../data';
-import { makeMon, wildFighter } from '../game';
+import { BIOMES } from '../content';
+import { makeMon, makeWaves, wildFighter, WILD_MALUS } from '../game';
 import { seededRng } from '../rng';
 import { finalStats } from '../stats';
 import { emptyBonuses } from '../model';
@@ -17,6 +18,27 @@ describe('types', () => {
     expect(species(6).types).toEqual(['fire', 'flying']);
     expect(species(81).types).toEqual(['electric']);
     expect(species(35).types).toEqual(['normal']);
+  });
+});
+
+describe('wildMult : zones où le joueur roule sur le contenu, sauvages renforcés', () => {
+  test('wildFighter : sans wildMult, malus standard (-15 %) ; avec, le multiplicateur donné remplace le malus', () => {
+    const mon = makeMon(25, 30, seededRng(1), false, 8);
+    const base = finalStats(mon, emptyBonuses());
+    const normal = wildFighter('a', mon, { wild: true });
+    expect(normal.stats.hp).toBe(Math.round(base.hp * WILD_MALUS.hp));
+    const full = wildFighter('b', mon, { wild: true, wildMult: 1 });
+    expect(full.stats.hp).toBe(base.hp);
+    const buffed = wildFighter('c', mon, { wild: true, wildMult: 1.4 });
+    expect(buffed.stats.atk).toBe(Math.round(base.atk * 1.4));
+  });
+
+  test('makeWaves : une zone marquée wildMult transmet bien la valeur à ses sauvages', () => {
+    const zoneIdx = BIOMES[2].zones.findIndex((z) => z.wildMult !== undefined); // Biome Électrique
+    expect(zoneIdx).toBeGreaterThanOrEqual(0);
+    const waves = makeWaves('stage', 2, zoneIdx, 3, seededRng(1));
+    const enemy = waves.flat()[0];
+    expect(enemy.wildMult).toBe(BIOMES[2].zones[zoneIdx].wildMult);
   });
 });
 
@@ -69,6 +91,36 @@ describe('combat automatique', () => {
     const b = new Battle([pika, fighter('b', 1, 19, 30)], seededRng(5));
     b.step(3);
     expect(b.drain().some((e) => e.kind === 'status' && e.ailment === 'paralysis')).toBe(true);
+  });
+
+  test('aoeDmgPct (ex. Spores) : ne boost que les capacités de zone (`aoe: true`), pas les attaques ciblées', () => {
+    const b = new Battle([fighter('a', 0, 4, 20), fighter('b', 1, 1, 20)], seededRng(1));
+    const [a, t] = b.fighters;
+    a.bonuses = { ...emptyBonuses(), aoeDmgPct: 50 };
+    const single = { id: 33, slug: 'x', name: 'X', type: 'normal' as const, cd: 4, aoe: false, kind: 'damage' as const, power: 40 };
+    const aoe = { ...single, aoe: true };
+    const avg = (m: typeof single) => { let s = 0; for (let i = 0; i < 300; i++) s += b.damage(a, m, t).amount; return s / 300; };
+    const single1 = avg(single);
+    const aoe1 = avg(aoe);
+    expect(aoe1 / single1).toBeGreaterThan(1.4); // +50 % attendu sur la capacité de zone
+    expect(aoe1 / single1).toBeLessThan(1.6);
+    // sans bonus, les deux capacités infligent le même dégât moyen (aoe ne change que le nombre de cibles, pas la puissance)
+    a.bonuses = emptyBonuses();
+    const single0 = avg(single);
+    const aoe0 = avg(aoe);
+    expect(aoe0 / single0).toBeGreaterThan(0.9);
+    expect(aoe0 / single0).toBeLessThan(1.1);
+  });
+
+  test('lifestealPct (ex. Courant vital) : soigne l’attaquant après chaque coup qui inflige des dégâts, en combat réel', () => {
+    const run = (steal: number) => {
+      const a = { ...fighter('a', 0, 4, 30, 7), bonuses: { ...emptyBonuses(), lifestealPct: steal } };
+      const bb = fighter('b', 1, 12, 30, 8);
+      const battle = new Battle([a, bb], seededRng(3));
+      battle.step(15);
+      return battle.fighters[0].hp;
+    };
+    expect(run(150)).toBeGreaterThan(run(0)); // le vol de vie maintient l'attaquant bien plus en vie à combat égal
   });
 
   test('pas de combat infini', () => {

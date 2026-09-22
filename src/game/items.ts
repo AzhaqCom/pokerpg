@@ -3,29 +3,109 @@ import {
 } from './model';
 import { Rng } from './rng';
 
-/** Catalogue V1 (biome 1). */
+/**
+ * Catalogue : une panoplie par biome (3 pièces : offensif, défensif, baie), aucun objet générique hors
+ * panoplie — un objet trouvé appartient toujours à la panoplie du biome où il tombe (`rollLoot`, filtré
+ * par `SETS[set].biome`). 3 baies (Ceriz/Pêcha/Maron) soignent un statut au lieu de PV, réparties dans
+ * les panoplies dont le thème colle (Circuit Survolté = paralysie, Brume Toxique = poison, Troisième
+ * Œil = sommeil) ; les 7 autres soignent toutes 25 % des PV avant multiplicateur de rareté (`berryHeal`).
+ */
 export const TEMPLATES: ItemTemplate[] = [
-  { id: 'griffe', name: 'Griffe Rasoir', slot: 'offense', main: 'critPct', base: 3 },
-  { id: 'lunettes', name: 'Lunettes Choix', slot: 'offense', main: 'atkPct', base: 6 },
-  { id: 'mouchoir', name: 'Mouchoir Soie', slot: 'offense', main: 'typeDmgPct', base: 8 },
-  { id: 'echarpe', name: 'Écharpe Vitalité', slot: 'defense', main: 'hpPct', base: 8 },
-  { id: 'carapace', name: 'Carapace Dure', slot: 'defense', main: 'defPct', base: 6 },
-  { id: 'poudre', name: 'Poudre Vite', slot: 'defense', main: 'spePct', base: 6 },
-  { id: 'oran', name: 'Baie Oran', slot: 'berry', main: 'hpPct', base: 0, berry: { heal: 25 } },
-  { id: 'ceriz', name: 'Baie Ceriz', slot: 'berry', main: 'hpPct', base: 0, berry: { cures: 'paralysis' } },
-  { id: 'pecha', name: 'Baie Pêcha', slot: 'berry', main: 'hpPct', base: 0, berry: { cures: 'poison' } },
-  { id: 'maron', name: 'Baie Maron', slot: 'berry', main: 'hpPct', base: 0, berry: { cures: 'sleep' } },
-  // panoplie du biome 1
+  // biome 1 — Forêt de Jade
   { id: 'griffe-sylve', name: 'Griffe Sylvestre', slot: 'offense', main: 'atkPct', base: 6, set: 'sylve' },
   { id: 'cape-sylve', name: 'Cape Sylvestre', slot: 'defense', main: 'hpPct', base: 8, set: 'sylve' },
-  { id: 'baie-sylve', name: 'Baie Sylvestre', slot: 'berry', main: 'hpPct', base: 0, set: 'sylve', berry: { heal: 30 } },
+  { id: 'baie-sylve', name: 'Baie Sylvestre', slot: 'berry', main: 'hpPct', base: 0, set: 'sylve', berry: { heal: 25 } },
+  // biome 2 — Biome Aquatique
+  { id: 'nageoire-maree', name: 'Nageoire Rapide', slot: 'offense', main: 'spePct', base: 6, set: 'maree' },
+  { id: 'ecaille-maree', name: 'Écaille Robuste', slot: 'defense', main: 'defPct', base: 6, set: 'maree' },
+  { id: 'baie-maree', name: 'Baie Aquatique', slot: 'berry', main: 'hpPct', base: 0, set: 'maree', berry: { heal: 25 } },
+  // biome 3 — Biome Électrique
+  { id: 'bobine-circuit', name: 'Bobine Tesla', slot: 'offense', main: 'critDmgPct', base: 8, set: 'circuit' },
+  { id: 'semelle-circuit', name: 'Semelle Isolante', slot: 'defense', main: 'spePct', base: 6, set: 'circuit' },
+  { id: 'ceriz', name: 'Baie Ceriz', slot: 'berry', main: 'hpPct', base: 0, set: 'circuit', berry: { heal: 25, cures: 'paralysis' } },
+  // biome 4 — Biome Verdoyant
+  { id: 'feuille-chloro', name: 'Feuille Tranchante', slot: 'offense', main: 'typeDmgPct', base: 7, set: 'chloro' },
+  { id: 'ecorce-chloro', name: 'Écorce Vivace', slot: 'defense', main: 'hpPct', base: 7, set: 'chloro' },
+  { id: 'baie-chloro', name: 'Baie Feuillue', slot: 'berry', main: 'hpPct', base: 0, set: 'chloro', berry: { heal: 25 } },
+  // biome 5 — Marais Toxique
+  { id: 'piquant-brume', name: 'Piquant Empoisonné', slot: 'offense', main: 'critPct', base: 3, set: 'brume' },
+  { id: 'carapace-brume', name: 'Carapace Visqueuse', slot: 'defense', main: 'defPct', base: 6, set: 'brume' },
+  { id: 'pecha', name: 'Baie Pêcha', slot: 'berry', main: 'hpPct', base: 0, set: 'brume', berry: { heal: 25, cures: 'poison' } },
+  // biome 6 — Sanctuaire Psy
+  { id: 'amulette-oeil', name: 'Amulette Prescience', slot: 'offense', main: 'critPct', base: 3, set: 'oeil' },
+  { id: 'voile-oeil', name: 'Voile Mental', slot: 'defense', main: 'cdrPct', base: 3, set: 'oeil' },
+  { id: 'maron', name: 'Baie Maron', slot: 'berry', main: 'hpPct', base: 0, set: 'oeil', berry: { heal: 25, cures: 'sleep' } },
+  // biome 7 — Terres de Feu
+  { id: 'griffe-cendres', name: 'Griffe Incandescente', slot: 'offense', main: 'atkPct', base: 7, set: 'cendres' },
+  { id: 'armure-cendres', name: 'Armure Ignifugée', slot: 'defense', main: 'defPct', base: 6, set: 'cendres' },
+  { id: 'baie-cendres', name: 'Baie Braisée', slot: 'berry', main: 'hpPct', base: 0, set: 'cendres', berry: { heal: 25 } },
+  // biome 8 — Plaines Rocheuses
+  { id: 'poing-aride', name: 'Poing Tellurique', slot: 'offense', main: 'atkPct', base: 8, set: 'aride' },
+  { id: 'plastron-aride', name: 'Plastron Rocheux', slot: 'defense', main: 'defPct', base: 7, set: 'aride' },
+  { id: 'baie-aride', name: 'Baie Minérale', slot: 'berry', main: 'hpPct', base: 0, set: 'aride', berry: { heal: 25 } },
+  // biome 9 — Route Victoire
+  { id: 'lame-epreuve', name: 'Lame du Sage', slot: 'offense', main: 'critDmgPct', base: 9, set: 'epreuve' },
+  { id: 'manteau-epreuve', name: "Manteau d'Ascension", slot: 'defense', main: 'hpPct', base: 8, set: 'epreuve' },
+  { id: 'baie-epreuve', name: "Baie de l'Épreuve", slot: 'berry', main: 'hpPct', base: 0, set: 'epreuve', berry: { heal: 25 } },
+  // biome 10 — Ligue Pokémon
+  { id: 'gantelet-champion', name: 'Gantelet du Champion', slot: 'offense', main: 'atkPct', base: 9, set: 'champion' },
+  { id: 'cape-champion', name: 'Cape du Vainqueur', slot: 'defense', main: 'defPct', base: 8, set: 'champion' },
+  { id: 'baie-champion', name: 'Baie du Sacre', slot: 'berry', main: 'hpPct', base: 0, set: 'champion', berry: { heal: 25 } },
 ];
 
-export const SETS: Record<string, { name: string; two: { stat: NumericBonusStat; value: number; label: string }; three: { stat: NumericBonusStat; value: number; label: string } }> = {
+export const SETS: Record<string, {
+  name: string; biome: number;
+  two: { stat: NumericBonusStat; value: number; label: string }; three: { stat: NumericBonusStat; value: number; label: string };
+}> = {
   sylve: {
-    name: 'Tenue Sylvestre',
+    name: 'Tenue Sylvestre', biome: 0,
     two: { stat: 'atkPct', value: 8, label: 'Attaque +8 %' },
     three: { stat: 'lifestealPct', value: 8, label: 'Vol de vie 8 %' },
+  },
+  maree: {
+    name: 'Marée Vivante', biome: 1,
+    two: { stat: 'defPct', value: 6, label: 'Défense +6 %' },
+    three: { stat: 'lifestealPct', value: 6, label: 'Vol de vie 6 %' },
+  },
+  circuit: {
+    name: 'Circuit Survolté', biome: 2,
+    two: { stat: 'spePct', value: 6, label: 'Vitesse +6 %' },
+    three: { stat: 'critDmgPct', value: 10, label: 'Dégâts critiques +10 %' },
+  },
+  chloro: {
+    name: 'Chlorophylle Ancienne', biome: 3,
+    two: { stat: 'hpPct', value: 6, label: 'PV +6 %' },
+    three: { stat: 'lifestealPct', value: 6, label: 'Vol de vie 6 %' },
+  },
+  brume: {
+    name: 'Brume Toxique', biome: 4,
+    two: { stat: 'ailmentChancePct', value: 8, label: 'Chance de statut +8 %' },
+    three: { stat: 'dmgVsStatusPct', value: 10, label: 'Dégâts vs statut +10 %' },
+  },
+  oeil: {
+    name: 'Troisième Œil', biome: 5,
+    two: { stat: 'cdrPct', value: 4, label: 'Recharge −4 %' },
+    three: { stat: 'critPct', value: 6, label: 'Critique +6 %' },
+  },
+  cendres: {
+    name: 'Cendres Ardentes', biome: 6,
+    two: { stat: 'atkPct', value: 8, label: 'Attaque +8 %' },
+    three: { stat: 'dmgVsStatusPct', value: 10, label: 'Dégâts vs statut +10 %' },
+  },
+  aride: {
+    name: 'Poussière Aride', biome: 7,
+    two: { stat: 'defPct', value: 8, label: 'Défense +8 %' },
+    three: { stat: 'aoeDmgPct', value: 10, label: 'Dégâts de zone +10 %' },
+  },
+  epreuve: {
+    name: 'Épreuve du Sage', biome: 8,
+    two: { stat: 'hpPct', value: 7, label: 'PV +7 %' },
+    three: { stat: 'critDmgPct', value: 12, label: 'Dégâts critiques +12 %' },
+  },
+  champion: {
+    name: 'Titre de Champion', biome: 9,
+    two: { stat: 'atkPct', value: 10, label: 'Attaque +10 %' },
+    three: { stat: 'typeDmgPct', value: 10, label: 'Dégâts de son type +10 %' },
   },
 };
 
@@ -87,9 +167,9 @@ export function rollRarity(rng: Rng, minRarity = 0): number {
   return Math.max(rar, minRarity);
 }
 
-/** Butin : objet aléatoire du catalogue (panoplie : 1 chance sur 6). */
-export function rollLoot(rng: Rng, level: number, minRarity = 0): Item {
-  const pool = TEMPLATES.filter((t) => (rng.int(6) === 0 ? !!t.set : !t.set));
+/** Butin : objet aléatoire de la panoplie du biome où on le trouve (chaque objet appartient à un biome). */
+export function rollLoot(rng: Rng, level: number, biome: number, minRarity = 0): Item {
+  const pool = TEMPLATES.filter((t) => SETS[t.set!].biome === biome);
   const t = pool[rng.int(pool.length)];
   return makeItem(t.id, rollRarity(rng, minRarity), Math.max(1, level), rng);
 }

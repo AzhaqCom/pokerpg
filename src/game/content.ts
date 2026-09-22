@@ -6,10 +6,16 @@ export interface ZoneDef {
   maxLv: number;
   /** [espèce, poids] ; poids < 10 = espèce rare (capture 2× plus dure) */
   pool: [number, number][];
-  /** `repeatable` : boss rejouable après la 1re victoire (légendaires en fin de jeu), jamais le cas pour un boss de zone classique. */
-  boss: { speciesId: number; level: number; title: string; repeatable?: boolean };
+  /** `joinsPool` : une fois vaincu, le boss rejoint le pool de sauvages de la zone (légendaires en fin de
+   * jeu, seule façon de les farmer/chromatiser) ; jamais le cas pour un boss de zone classique, qui ne se
+   * bat qu'une fois. */
+  boss: { speciesId: number; level: number; title: string; joinsPool?: boolean };
   /** fond de combat */
   biome: 'forest' | 'meadow' | 'cave' | 'water' | 'electric' | 'swamp' | 'temple' | 'volcano' | 'desert';
+  /** zone traversée sans perte mesurée en simulation (joueur largement en avance à ce stade) :
+   * multiplicateur de stats des sauvages, remplace `WILD_MALUS` (-15 %) au lieu de s'y ajouter — 1 =
+   * pleines stats, > 1 = plus fort que la normale (calé empiriquement par simulation, voir bot.ts). */
+  wildMult?: number;
 }
 
 export interface ArenaDef {
@@ -88,17 +94,17 @@ export const BIOMES: BiomeDef[] = [
     name: 'Biome Électrique',
     zones: [
       {
-        name: 'Sous-station', minLv: 30, maxLv: 31, biome: 'electric',
+        name: 'Sous-station', minLv: 30, maxLv: 31, biome: 'electric', wildMult: 1,
         pool: [[81, 30], [39, 30], [98, 25], [100, 15]],
         boss: { speciesId: 99, level: 32, title: 'Krabboss cuirassé' },
       },
       {
-        name: 'Salle des Générateurs', minLv: 31, maxLv: 33, biome: 'electric',
+        name: 'Salle des Générateurs', minLv: 31, maxLv: 33, biome: 'electric', wildMult: 1,
         pool: [[81, 20], [100, 20], [40, 20], [98, 15], [125, 10], [83, 15]],
         boss: { speciesId: 82, level: 33, title: 'Magnéton triple charge' },
       },
       {
-        name: 'Centrale Principale', minLv: 33, maxLv: 34, biome: 'electric',
+        name: 'Centrale Principale', minLv: 33, maxLv: 34, biome: 'electric', wildMult: 1,
         pool: [[81, 15], [40, 20], [99, 15], [125, 15], [83, 10], [135, 15], [133, 10]],
         boss: { speciesId: 101, level: 34, title: 'Électrode explosif' },
       },
@@ -114,17 +120,17 @@ export const BIOMES: BiomeDef[] = [
     name: 'Biome Verdoyant',
     zones: [
       {
-        name: 'Clos Fleuri', minLv: 35, maxLv: 37, biome: 'meadow',
+        name: 'Clos Fleuri', minLv: 35, maxLv: 37, biome: 'meadow', wildMult: 1,
         pool: [[35, 30], [52, 30], [102, 25], [108, 15]],
         boss: { speciesId: 53, level: 38, title: 'Persian félin' },
       },
       {
-        name: 'Ronce Profonde', minLv: 37, maxLv: 39, biome: 'forest',
+        name: 'Ronce Profonde', minLv: 37, maxLv: 39, biome: 'forest', wildMult: 1,
         pool: [[102, 20], [108, 15], [114, 20], [123, 15], [118, 10], [35, 10], [52, 10]],
         boss: { speciesId: 103, level: 40, title: 'Noadkoko sage' },
       },
       {
-        name: 'Canopée Verdoyante', minLv: 39, maxLv: 42, biome: 'forest',
+        name: 'Canopée Verdoyante', minLv: 39, maxLv: 42, biome: 'forest', wildMult: 1,
         pool: [[114, 15], [123, 15], [127, 15], [118, 15], [108, 10], [102, 15], [35, 15]],
         boss: { speciesId: 119, level: 42, title: 'Poissoroy royal' },
       },
@@ -166,17 +172,17 @@ export const BIOMES: BiomeDef[] = [
     name: 'Sanctuaire Psy',
     zones: [
       {
-        name: 'Torii Embrumé', minLv: 61, maxLv: 62, biome: 'temple',
+        name: 'Torii Embrumé', minLv: 61, maxLv: 62, biome: 'temple', wildMult: 1.15,
         pool: [[96, 30], [56, 30], [66, 25], [128, 15]],
         boss: { speciesId: 57, level: 63, title: 'Colossinge déchaîné' },
       },
       {
-        name: 'Dojo de la Prévoyance', minLv: 62, maxLv: 64, biome: 'temple',
+        name: 'Dojo de la Prévoyance', minLv: 62, maxLv: 64, biome: 'temple', wildMult: 1.15,
         pool: [[96, 15], [56, 15], [66, 20], [106, 15], [107, 15], [115, 10], [128, 10]],
         boss: { speciesId: 97, level: 65, title: 'Hypnomade mystique' },
       },
       {
-        name: 'Sanctuaire Intérieur', minLv: 64, maxLv: 65, biome: 'temple',
+        name: 'Sanctuaire Intérieur', minLv: 64, maxLv: 65, biome: 'temple', wildMult: 1.15,
         pool: [[106, 20], [107, 20], [115, 15], [128, 15], [66, 10], [56, 10], [96, 10]],
         boss: { speciesId: 68, level: 65, title: 'Mackogneur titan' },
       },
@@ -192,17 +198,17 @@ export const BIOMES: BiomeDef[] = [
     name: 'Terres de Feu',
     zones: [
       {
-        name: 'Contrefort Cendré', minLv: 66, maxLv: 68, biome: 'volcano',
+        name: 'Contrefort Cendré', minLv: 66, maxLv: 68, biome: 'volcano', wildMult: 1.7,
         pool: [[37, 30], [58, 30], [77, 25], [124, 15]],
         boss: { speciesId: 38, level: 69, title: 'Feunard ardent' },
       },
       {
-        name: 'Champ de Lave', minLv: 68, maxLv: 70, biome: 'volcano',
+        name: 'Champ de Lave', minLv: 68, maxLv: 70, biome: 'volcano', wildMult: 1.7,
         pool: [[37, 15], [58, 15], [77, 15], [116, 20], [126, 15], [124, 10], [136, 10]],
         boss: { speciesId: 59, level: 71, title: 'Arcanin flamboyant' },
       },
       {
-        name: 'Caldeira Ardente', minLv: 70, maxLv: 72, biome: 'volcano',
+        name: 'Caldeira Ardente', minLv: 70, maxLv: 72, biome: 'volcano', wildMult: 1.7,
         pool: [[116, 15], [117, 10], [126, 15], [136, 15], [124, 15], [77, 15], [37, 15]],
         boss: { speciesId: 78, level: 72, title: 'Galopa fulgurant' },
       },
@@ -218,17 +224,17 @@ export const BIOMES: BiomeDef[] = [
     name: 'Plaines Rocheuses',
     zones: [
       {
-        name: 'Carrière Aride', minLv: 73, maxLv: 74, biome: 'desert',
+        name: 'Carrière Aride', minLv: 73, maxLv: 74, biome: 'desert', wildMult: 2.6,
         pool: [[27, 30], [50, 30], [104, 25], [84, 15]],
         boss: { speciesId: 28, level: 75, title: 'Sablaireau ensablé' },
       },
       {
-        name: 'Crevasse Rocheuse', minLv: 74, maxLv: 76, biome: 'desert',
+        name: 'Crevasse Rocheuse', minLv: 74, maxLv: 76, biome: 'desert', wildMult: 2.6,
         pool: [[27, 15], [50, 15], [104, 15], [111, 20], [84, 15], [129, 20]],
         boss: { speciesId: 51, level: 76, title: 'Triopikeur foreur' },
       },
       {
-        name: 'Plateau Desséché', minLv: 76, maxLv: 77, biome: 'desert',
+        name: 'Plateau Desséché', minLv: 76, maxLv: 77, biome: 'desert', wildMult: 2.6,
         pool: [[111, 20], [129, 20], [104, 15], [84, 15], [50, 15], [27, 15]],
         boss: { speciesId: 105, level: 77, title: 'Ossatueur osseux' },
       },
@@ -244,19 +250,19 @@ export const BIOMES: BiomeDef[] = [
     name: 'Route Victoire',
     zones: [
       {
-        name: 'Entrée de la Route Victoire', minLv: 78, maxLv: 82, biome: 'cave',
+        name: 'Entrée de la Route Victoire', minLv: 78, maxLv: 82, biome: 'cave', wildMult: 1.4,
         pool: [[147, 40], [142, 30], [131, 30]],
         boss: { speciesId: 149, level: 84, title: 'Dracolosse gardien' },
       },
       {
-        name: 'Passage Rocheux', minLv: 82, maxLv: 86, biome: 'cave',
+        name: 'Passage Rocheux', minLv: 82, maxLv: 86, biome: 'cave', wildMult: 1.4,
         pool: [[140, 40], [143, 30], [147, 30]],
-        boss: { speciesId: 144, level: 87, title: 'Artikodin', repeatable: true },
+        boss: { speciesId: 144, level: 87, title: 'Artikodin', joinsPool: true },
       },
       {
-        name: 'Sommet Balayé par les Vents', minLv: 86, maxLv: 89, biome: 'cave',
+        name: 'Sommet Balayé par les Vents', minLv: 86, maxLv: 89, biome: 'cave', wildMult: 1.4,
         pool: [[138, 40], [122, 30], [143, 30]],
-        boss: { speciesId: 145, level: 90, title: 'Électhor', repeatable: true },
+        boss: { speciesId: 145, level: 90, title: 'Électhor', joinsPool: true },
       },
     ],
     arena: {
@@ -272,17 +278,17 @@ export const BIOMES: BiomeDef[] = [
       {
         name: 'Antichambre du Plateau', minLv: 90, maxLv: 93, biome: 'temple',
         pool: [[132, 40], [137, 30], [149, 30]],
-        boss: { speciesId: 146, level: 94, title: 'Sulfura', repeatable: true },
+        boss: { speciesId: 146, level: 94, title: 'Sulfura', joinsPool: true },
       },
       {
         name: 'Grotte Bleue', minLv: 93, maxLv: 96, biome: 'cave',
         pool: [[131, 40], [143, 30], [138, 30]],
-        boss: { speciesId: 150, level: 97, title: 'Mewtwo', repeatable: true },
+        boss: { speciesId: 150, level: 97, title: 'Mewtwo', joinsPool: true },
       },
       {
         name: 'Antre de Mew', minLv: 96, maxLv: 99, biome: 'meadow',
         pool: [[122, 40], [140, 30], [142, 30]],
-        boss: { speciesId: 151, level: 99, title: 'Mew', repeatable: true },
+        boss: { speciesId: 151, level: 99, title: 'Mew', joinsPool: true },
       },
     ],
     arena: {

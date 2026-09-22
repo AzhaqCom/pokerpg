@@ -27,7 +27,7 @@ export function PensionPanel() {
   const ready = pensionXpReady(s, now);
   const free = Object.values(s.mons)
     .filter((m) => !s.team.includes(m.uid) && !s.pension.some((p) => p.uid === m.uid) && !s.exploration.some((p) => p.uid === m.uid))
-    .sort((a, b) => monStars(b) - monStars(a)); // les Pokémon à fort potentiel (étoiles) en avant
+    .sort((a, b) => a.speciesId - b.speciesId);
   // les postes en cours suivent le même ordre : meilleur potentiel d'abord
   const starsOf = (uid: string) => (s.mons[uid] ? monStars(s.mons[uid]) : 0);
   const posted = [...s.pension].sort((a, b) => starsOf(b.uid) - starsOf(a.uid));

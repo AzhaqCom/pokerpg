@@ -77,6 +77,9 @@ function BiomeSection({ biome, bi, s, act, onOpenZone }: {
               {z.pool.map(([id]) => (
                 <MonThumb key={id} speciesId={id} size={30} silhouette={!s.dex.seen.includes(id)} />
               ))}
+              {z.boss.joinsPool && s.bossesBeaten[bi][zi] && (
+                <MonThumb key={z.boss.speciesId} speciesId={z.boss.speciesId} size={30} silhouette={!s.dex.seen.includes(z.boss.speciesId)} />
+              )}
             </View>
             <View style={styles.row}>
               {Array.from({ length: STAGES_PER_ZONE }, (_, i) => i + 1).map((st) => {
@@ -89,7 +92,7 @@ function BiomeSection({ biome, bi, s, act, onOpenZone }: {
                   </Pressable>
                 );
               })}
-              {(z.boss.repeatable || !s.bossesBeaten[bi][zi]) && (
+              {!s.bossesBeaten[bi][zi] && (
                 <Button small label={`Boss : ${species(z.boss.speciesId).name} Nv.${z.boss.level}`} color={bossAvailable(s, bi, zi) ? '#c62828' : C.panel2}
                   disabled={!bossAvailable(s, bi, zi)} onPress={() => { feedback('tap', true); act((g) => selectStage(g, bi, zi, STAGES_PER_ZONE)); runner.request('boss'); }} />
               )}

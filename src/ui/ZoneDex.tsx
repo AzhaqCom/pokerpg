@@ -8,13 +8,13 @@ import { C } from './theme';
 
 /**
  * Espèces « de » une zone pour le Pokédex/Chromatique-Dex : son pool de sauvages, plus son boss
- * seulement s'il est rejouable (`repeatable`). Un boss de zone classique ne se bat qu'une fois et n'est
- * jamais chromatique : l'indiquer comme « chromatique manquant » serait trompeur puisqu'il n'est pas
- * farmable (sa pré-évolution, elle, l'est généralement via le pool sauvage).
+ * seulement s'il rejoint le pool une fois vaincu (`joinsPool`). Un boss de zone classique ne se bat
+ * qu'une fois et n'est jamais chromatique : l'indiquer comme « chromatique manquant » serait trompeur
+ * puisqu'il n'est pas farmable (sa pré-évolution, elle, l'est généralement via le pool sauvage).
  */
 export function zoneSpecies(zone: ZoneDef): number[] {
   const ids = zone.pool.map(([id]) => id);
-  if (zone.boss.repeatable) ids.push(zone.boss.speciesId);
+  if (zone.boss.joinsPool) ids.push(zone.boss.speciesId);
   return [...new Set(ids)];
 }
 

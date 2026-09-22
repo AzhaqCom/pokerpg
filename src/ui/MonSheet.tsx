@@ -26,7 +26,10 @@ import { C } from './theme';
 const SLOTS: { slot: ItemSlot; label: string }[] = [
   { slot: 'offense', label: 'Offensif' }, { slot: 'defense', label: 'Défensif' }, { slot: 'berry', label: 'Baie' },
 ];
-const TIER_NAME = ['Palier 1', 'Palier 2 (5 points)', 'Palier 3 (10 points)', 'Palier 4 (20 points)', 'Palier 5 (40 points)'];
+const TIER_NAME = [
+  'Palier 1', 'Palier 2 (5 points)', 'Palier 3 (10 points)', 'Palier 4 (20 points)', 'Palier 5 (40 points)',
+  'Palier 6 (60 points)', 'Palier 7 (70 points)', 'Palier 8 (80 points)', 'Palier 9 (90 points)',
+];
 
 function moveInfo(m: Move) {
   switch (m.kind) {
@@ -165,7 +168,7 @@ export function MonSheet() {
 
           <Text style={styles.section}>Talents {sp.types[0] && `· ${pts} point${pts > 1 ? 's' : ''} disponible${pts > 1 ? 's' : ''}`}</Text>
           <View style={styles.panel}>
-            {[0, 1, 2, 3, 4].map((tier) => (
+            {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((tier) => (
               <View key={tier} style={{ gap: 6 }}>
                 <Text style={[styles.sub, spent < TIER_REQ[tier] && { color: C.dim }]}>{TIER_NAME[tier]}</Text>
                 {tree.filter((t) => t.tier === tier).map((t) => {

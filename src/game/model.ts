@@ -29,8 +29,10 @@ export type NumericBonusStat = Exclude<keyof BattleBonuses, 'affinities'>;
 
 export const RARITIES = ['Commun', 'Peu commun', 'Rare', 'Épique', 'Légendaire', 'Mythique', 'Chromatique'] as const;
 export const RARITY_COLOR = ['#9aa0a6', '#4caf50', '#3d8bfd', '#a259ff', '#ff9800', '#e53935', '#ff5ec4'];
-/** multiplicateur de la stat principale par rareté */
-export const RARITY_MULT = [1, 1.25, 1.5, 1.8, 2.2, 2.7, 3.3];
+/** multiplicateur de la stat principale par rareté : 0-3 inchangés (jeu tôt/moyen déjà équilibré),
+ * seul le sommet (Légendaire/Mythique/Chromatique) est compressé pour freiner l'explosion de fin de
+ * partie sans toucher au reste de la courbe. */
+export const RARITY_MULT = [1, 1.25, 1.5, 1.8, 2.0, 2.2, 2.4];
 /** nombre de bonus secondaires par rareté */
 export const RARITY_SUBS = [0, 1, 1, 2, 2, 3, 3];
 export const MAX_RARITY = RARITIES.length - 1;

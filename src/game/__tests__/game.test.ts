@@ -2,14 +2,14 @@ import { BIOMES, STAGES_PER_ZONE } from '../content';
 import { ALL_SPECIES } from '../data';
 import {
   GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, arenaAvailable, assignExploration, assignPension, autoCaptureBall, bestStarsOf, biomeAvailable, bossAvailable,
-  canEvolve, captureChance, captureLevel, chooseStarter, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
-  harvestExploration, harvestPension, holder, makeMon, addMon, makeWaves, migrateSave, newGame, rankUpTalent, recycle, release, releaseExcess, remainingEvolutions,
-  removePension, selectStage, teamMaxLevel, tryCapture, xpGapMult,
+  canEvolve, captureChance, captureLevel, chooseStarter, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
+  harvestExploration, harvestPension, holder, isRareInZone, makeMon, addMon, makeWaves, migrateSave, newGame, pickSpecies, rankUpTalent, recycle, release, releaseExcess,
+  remainingEvolutions, removePension, selectStage, teamMaxLevel, tryCapture, xpGapMult,
 } from '../game';
 import { makeItem } from '../items';
 import { emptyBonuses } from '../model';
 import { Rng, seededRng } from '../rng';
-import { spentPoints } from '../talents';
+import { spentPoints, talentPoints } from '../talents';
 import { combatPower, finalStats, monStars } from '../stats';
 
 const H = 3600_000;
@@ -193,62 +193,47 @@ test('biomes 9-10 : fossiles/Ronflex/Lokhlass/Minidraco/M. Mime/Métamorph/Poryg
   for (const id of required) expect(inSomePool(id)).toBe(true);
 });
 
-test('biomes 9-10 : Artikodin/Électhor/Sulfura/Mewtwo/Mew sont des boss rejouables (farmables sans être en pool)', () => {
+test('biomes 9-10 : Artikodin/Électhor/Sulfura/Mewtwo/Mew rejoignent le pool de leur zone une fois vaincus', () => {
   const legendaries = [144, 145, 146, 150, 151];
   const bosses = [...BIOMES[8].zones, ...BIOMES[9].zones].map((z) => z.boss);
   for (const id of legendaries) {
     const boss = bosses.find((b) => b.speciesId === id);
-    expect(boss?.repeatable).toBe(true);
+    expect(boss?.joinsPool).toBe(true);
   }
 });
 
-test('biome 10 : boss rejouable (Mewtwo) chromatique tiré comme un sauvage', () => {
+test('un combat de boss n’est jamais chromatique, qu’il rejoigne le pool ensuite ou non', () => {
   const alwaysShiny: Rng = { int: () => 0 };
-  const waves = makeWaves('boss', 9, 1, 1, alwaysShiny); // biome 10, zone Grotte Bleue (Mewtwo)
-  expect(waves[0][0].mon.shiny).toBe(true);
-});
-
-test('les 151 espèces sont farmables en chromatique une fois les 10 biomes codés : 81 formes de base/sans ' +
-  'évolution, toutes en rencontre sauvage OU boss rejouable (un boss classique n’est jamais chromatique)', () => {
-  const targets = new Set(ALL_SPECIES.filter((s) => s.evolvesTo).map((s) => s.evolvesTo));
-  const mustPlace = ALL_SPECIES.filter((s) => !targets.has(s.id)).map((s) => s.id);
-  const wildPool = new Set(BIOMES.flatMap((b) => b.zones.flatMap((z) => z.pool.map(([id]) => id))));
-  const repeatableBosses = new Set(
-    BIOMES.flatMap((b) => b.zones.filter((z) => z.boss.repeatable).map((z) => z.boss.speciesId)),
-  );
-  const missing = mustPlace.filter((id) => !wildPool.has(id) && !repeatableBosses.has(id));
-  expect(missing).toEqual([]);
-});
-
-test('boss rejouable (légendaire) : chromatique tiré comme un sauvage à chaque tentative ; boss de zone classique jamais chromatique', () => {
-  const alwaysShiny: Rng = { int: () => 0 };
-  const repeatableWaves = makeWaves('boss', 8, 1, 1, alwaysShiny); // biome 9, zone Artikodin (repeatable)
-  expect(repeatableWaves[0][0].mon.shiny).toBe(true);
+  const joinsPoolWaves = makeWaves('boss', 8, 1, 1, alwaysShiny); // biome 9, zone Artikodin (joinsPool)
+  expect(joinsPoolWaves[0][0].mon.shiny).toBe(false);
   const classicWaves = makeWaves('boss', 0, 0, 1, alwaysShiny); // biome 1, zone Lisière (boss classique)
   expect(classicWaves[0][0].mon.shiny).toBe(false);
 });
 
-test('boss rejouable : l’offre de capture reflète le tirage chromatique (jamais garanti false comme un boss classique)', () => {
-  // seed 307 : le tout premier tirage (le jet chromatique du boss, dans makeWaves) tombe à 0 → chromatique.
-  // Rng séparé pour la mise en place (équipe écrasante, indépendante du seed de combat) et pour le combat.
-  const overpowered = makeMon(4, 1000, seededRng(1), false, 15);
-  const s = newGame();
-  addMon(s, overpowered);
-  s.biome = 8; s.zone = 1; // biome 9, zone Artikodin (repeatable)
-  const run = new StageRun(s, 'boss', seededRng(307));
-  run.battle.runToEnd();
-  const rewards = run.finishWave();
-  expect(run.result).toBe('win');
-  expect(rewards?.capture?.guaranteed).toBe(true);
-  expect(rewards?.capture?.shiny).toBe(true);
+test('les 151 espèces sont farmables en chromatique une fois les 10 biomes codés : 81 formes de base/sans ' +
+  'évolution, toutes en rencontre sauvage OU boss qui rejoint le pool (un boss classique n’est jamais chromatique)', () => {
+  const targets = new Set(ALL_SPECIES.filter((s) => s.evolvesTo).map((s) => s.evolvesTo));
+  const mustPlace = ALL_SPECIES.filter((s) => !targets.has(s.id)).map((s) => s.id);
+  const wildPool = new Set(BIOMES.flatMap((b) => b.zones.flatMap((z) => z.pool.map(([id]) => id))));
+  const poolBosses = new Set(
+    BIOMES.flatMap((b) => b.zones.filter((z) => z.boss.joinsPool).map((z) => z.boss.speciesId)),
+  );
+  const missing = mustPlace.filter((id) => !wildPool.has(id) && !poolBosses.has(id));
+  expect(missing).toEqual([]);
 });
 
-test('boss rejouable : le bouton Défier reste actif après une 1re victoire (jamais verrouillé côté carte)', () => {
-  const s = newGame();
-  expect(BIOMES[8].zones[1].boss.repeatable).toBe(true); // Artikodin
-  expect(BIOMES[0].zones[0].boss.repeatable).toBeUndefined(); // boss de zone classique
-  s.bossesBeaten[8][1] = true; // déjà battu une fois
-  expect(BIOMES[8].zones[1].boss.repeatable || !s.bossesBeaten[8][1]).toBe(true); // reste défiable
+test('effectivePool : le boss rejoint le pool sauvage une fois vaincu, pas avant', () => {
+  const zone = BIOMES[8].zones[1]; // Artikodin (joinsPool)
+  expect(effectivePool(zone, false)).toEqual(zone.pool);
+  expect(effectivePool(zone, true)).toEqual([...zone.pool, [144, 6]]);
+  expect(isRareInZone(zone, 144, true)).toBe(true); // rejoint le pool avec un poids < 10 → rare
+});
+
+test('pickSpecies peut tirer le boss vaincu comme un sauvage ordinaire de sa zone, pas avant', () => {
+  const zone = BIOMES[8].zones[1]; // Artikodin, pool de poids total 100 ([140,40][143,30][147,30])
+  const landOnBoss: Rng = { int: () => 100 }; // 106 avec le boss (poids 6) : 100..105 → Artikodin
+  expect(pickSpecies(zone, landOnBoss, false)).toBe(140); // sans le boss (total 100) : retombe sur le pool
+  expect(pickSpecies(zone, landOnBoss, true)).toBe(144); // avec le boss dans le pool : peut le tirer
 });
 
 test('remainingEvolutions : 0 pour une forme finale, 1/2 pour Paras/Aspicot', () => {
@@ -444,9 +429,9 @@ test('rankUpTalent : palier 4 (talent « au choix ») exige un type éligible au
 
 test('rankUpTalent : le palier 5 ne propose pas un type déjà pris au palier 4 s’il en reste un autre', () => {
   const s = newGame();
-  const pikachu = makeMon(25, 60, seededRng(9)); // Nv.60, 2 types éligibles (normal, psychic)
-  addMon(s, pikachu);
-  const uid = pikachu.uid;
+  const sabelette = makeMon(27, 60, seededRng(9)); // Nv.60, 2 types éligibles (normal, poison)
+  addMon(s, sabelette);
+  const uid = sabelette.uid;
   const m = s.mons[uid];
   for (let i = 0; i < 5; i++) rankUpTalent(s, uid, 'power');
   for (let i = 0; i < 5; i++) rankUpTalent(s, uid, 'vigor');
@@ -457,22 +442,57 @@ test('rankUpTalent : le palier 5 ne propose pas un type déjà pris au palier 4 
   expect(spentPoints(m.talents)).toBe(40);
   expect(m.talentTypeChoices.affinity1).toBe('normal');
 
-  expect(rankUpTalent(s, uid, 'affinity2', 'normal')).toBe(false); // déjà pris au palier 4, psychic dispo
-  expect(rankUpTalent(s, uid, 'affinity2', 'psychic')).toBe(true);
-  expect(m.talentTypeChoices.affinity2).toBe('psychic');
+  expect(rankUpTalent(s, uid, 'affinity2', 'normal')).toBe(false); // déjà pris au palier 4, poison dispo
+  expect(rankUpTalent(s, uid, 'affinity2', 'poison')).toBe(true);
+  expect(m.talentTypeChoices.affinity2).toBe('poison');
+});
+
+test('rankUpTalent : un Pokémon Nv.100 peut maxer les 12 talents (paliers 1 à 9), pile 100 points dépensés', () => {
+  const s = newGame();
+  const dracaufeu = makeMon(6, 100, seededRng(9)); // bi-type Feu/Vol → palier 7 (spec3) = Esquive aérienne (Vol)
+  addMon(s, dracaufeu);
+  const uid = dracaufeu.uid;
+  const m = s.mons[uid];
+  expect(talentPoints(m.level)).toBe(100);
+
+  for (const id of ['power', 'vigor', 'guard', 'reflex', 'spec', 'mastery']) {
+    for (let i = 0; i < 5; i++) expect(rankUpTalent(s, uid, id)).toBe(true);
+  }
+  expect(spentPoints(m.talents)).toBe(30);
+  for (let i = 0; i < 15; i++) expect(rankUpTalent(s, uid, 'affinity1', 'normal')).toBe(true);
+  for (let i = 0; i < 15; i++) expect(rankUpTalent(s, uid, 'affinity2', 'normal')).toBe(true);
+  expect(spentPoints(m.talents)).toBe(60);
+  for (const id of ['spec2', 'spec3', 'fury', 'deadly']) {
+    for (let i = 0; i < 10; i++) expect(rankUpTalent(s, uid, id)).toBe(true);
+  }
+  expect(spentPoints(m.talents)).toBe(100);
+  expect(rankUpTalent(s, uid, 'fury')).toBe(false); // rang max et plus aucun point à dépenser
+});
+
+test('lootLevel : farmer un ancien biome donne du butin au niveau de l’équipe, pas au niveau (bas) de la zone', () => {
+  const s = newGame();
+  const overpowered = makeMon(4, 100, seededRng(1), false, 15); // Salamèche Nv.100
+  addMon(s, overpowered);
+  s.biome = 0; s.zone = 0; s.stage = STAGES_PER_ZONE; // Lisière (Nv.3-6), boss Nv.8 — très en dessous
+  const run = new StageRun(s, 'boss', seededRng(2));
+  run.battle.runToEnd();
+  const rewards = run.finishWave();
+  expect(run.result).toBe('win');
+  expect(rewards!.loot.length).toBeGreaterThan(0); // butin garanti sur un boss
+  for (const it of rewards!.loot) expect(it.level).toBeGreaterThanOrEqual(90); // niveau de l'équipe (100), pas celui du boss (8)
 });
 
 test('fusionBadgeCount : compte les groupes fusionnables, sans se soucier des porteurs (approximation pour le badge)', () => {
   const s = strongGame();
   const rng = seededRng(2);
   expect(fusionBadgeCount(s)).toBe(0);
-  const lunettes = [0, 1, 2].map(() => makeItem('lunettes', 0, 3, rng));
+  const lunettes = [0, 1, 2].map(() => makeItem('griffe-sylve', 0, 3, rng));
   for (const it of lunettes) s.items[it.uid] = it;
   expect(fusionBadgeCount(s)).toBe(1);
   // objets portés ou d'un gabarit différent : comptés/exclus comme fusionCandidates, juste sans le détail des porteurs
   equip(s, s.team[0], lunettes[0].uid);
   expect(fusionBadgeCount(s)).toBe(1); // toujours 3 exemplaires du même gabarit, peu importe qui les porte
-  const griffe = [0, 1].map(() => makeItem('griffe', 1, 3, rng));
+  const griffe = [0, 1].map(() => makeItem('cape-sylve', 1, 3, rng));
   for (const it of griffe) s.items[it.uid] = it; // seulement 2 : pas encore fusionnable
   expect(fusionBadgeCount(s)).toBe(1);
 });
@@ -480,8 +500,8 @@ test('fusionBadgeCount : compte les groupes fusionnables, sans se soucier des po
 test('fusion depuis l’inventaire : l’objet porté reste porté', () => {
   const s = strongGame();
   const rng = seededRng(2);
-  const before = Object.keys(s.items); // objets du starter (griffe/écharpe/oran), déjà équipés
-  const items = [0, 1, 2].map(() => makeItem('lunettes', 0, 3, rng));
+  const before = Object.keys(s.items); // objets du starter (Tenue Sylvestre), déjà équipés
+  const items = [0, 1, 2].map(() => makeItem('griffe-sylve', 0, 3, rng));
   for (const it of items) s.items[it.uid] = it;
   equip(s, s.team[0], items[0].uid); // remplace la griffe du starter en offense
   expect(fusionCandidates(s)).toHaveLength(1);
@@ -498,14 +518,14 @@ test('fusion : jamais les objets équipés de deux Pokémon différents dans le 
   const second = makeMon(1, 5, seededRng(2));
   addMon(s, second); // rejoint l'équipe (2 membres)
   const rng = seededRng(3);
-  const items = [0, 1, 2].map(() => makeItem('lunettes', 0, 3, rng));
+  const items = [0, 1, 2].map(() => makeItem('griffe-sylve', 0, 3, rng));
   for (const it of items) s.items[it.uid] = it;
   equip(s, s.team[0], items[0].uid);
   equip(s, s.team[1], items[1].uid); // porté par un AUTRE Pokémon que items[0]
   // 3 exemplaires mais 2 porteurs différents : aucune fusion tant qu'un 4e n'est pas libre
   expect(fusionCandidates(s)).toHaveLength(0);
 
-  const extra = makeItem('lunettes', 0, 1, rng);
+  const extra = makeItem('griffe-sylve', 0, 1, rng);
   s.items[extra.uid] = extra;
   const groups = fusionCandidates(s);
   expect(groups).toHaveLength(1);
@@ -521,7 +541,7 @@ test('fusion : jamais les objets équipés de deux Pokémon différents dans le 
 test('recyclage : jamais un objet porté', () => {
   const s = strongGame();
   const rng = seededRng(2);
-  const a = makeItem('griffe', 2, 3, rng), b = makeItem('griffe', 2, 3, rng);
+  const a = makeItem('griffe-sylve', 2, 3, rng), b = makeItem('griffe-sylve', 2, 3, rng);
   s.items[a.uid] = a; s.items[b.uid] = b;
   equip(s, s.team[0], a.uid);
   const gain = recycle(s, [a.uid, b.uid]);
