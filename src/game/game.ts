@@ -106,6 +106,7 @@ export function startPrestige(s: GameState): boolean {
   s.badges = 0;
   s.dex = { seen: [], caught: [], shiny: [] };
   s.biome = PRESTIGE_BIOME; s.zone = 0; s.stage = 1;
+  s.unlocked[PRESTIGE_BIOME][0] = Math.max(1, s.unlocked[PRESTIGE_BIOME][0]); // sinon la 1re zone Johto reste verrouillée
   s.starterChosen = false;
   s.prestige = 1;
   return true;

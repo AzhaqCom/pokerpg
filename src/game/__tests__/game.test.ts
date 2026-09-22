@@ -170,6 +170,7 @@ test('prestige : indisponible tant que le Champion Kanto n’est pas battu, puis
   expect(s.shards).toBe(0);
   expect(s.badges).toBe(0);
   expect(s.biome).toBe(10); // 1er biome Johto
+  expect(s.unlocked[10][0]).toBeGreaterThanOrEqual(1); // sa 1re zone doit être jouable, pas verrouillée
   expect(s.starterChosen).toBe(false); // repasse par l'écran de starter (Johto)
   expect(s.prestige).toBe(1);
   expect(s.dex).toEqual({ seen: [], caught: [], shiny: [] }); // Pokédex remis à zéro (1/251 après le starter)
