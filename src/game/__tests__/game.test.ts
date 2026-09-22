@@ -139,6 +139,9 @@ test('migrateSave : nettoie les uid fantômes de l’équipe (Pokémon relâché
  * démarrer pile là où le précédent finit — sinon toute la suite de la courbe dérive.
  */
 const DOCUMENTED_END_LEVELS = [18, 30, 35, 43, 61, 66, 73, 78, 90, 100];
+/** Indices de biome qui redémarrent une courbe de niveau à zéro (repartir en Johto « prestige » après
+ * avoir fini Kanto) : la continuité avec le biome précédent ne s'applique pas à ceux-là. */
+const RESET_BOUNDARIES = new Set([10]);
 
 test('courbe de niveau : chaque biome codé monte jusqu’au niveau documenté dans BIOMES.md, sans rupture avec le suivant', () => {
   BIOMES.forEach((b, i) => {
@@ -147,7 +150,9 @@ test('courbe de niveau : chaque biome codé monte jusqu’au niveau documenté d
     const arenaMaxLv = Math.max(...b.arena.team.map(([, lv]) => lv));
     expect(arenaMaxLv).toBeGreaterThanOrEqual(b.zones[2].maxLv);
     if (i < DOCUMENTED_END_LEVELS.length) expect(arenaMaxLv).toBe(DOCUMENTED_END_LEVELS[i]);
-    if (i > 0) expect(b.zones[0].minLv).toBe(Math.max(...BIOMES[i - 1].arena.team.map(([, lv]) => lv)));
+    if (i > 0 && !RESET_BOUNDARIES.has(i)) {
+      expect(b.zones[0].minLv).toBe(Math.max(...BIOMES[i - 1].arena.team.map(([, lv]) => lv)));
+    }
   });
 });
 

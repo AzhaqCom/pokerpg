@@ -167,9 +167,13 @@ export function rollRarity(rng: Rng, minRarity = 0): number {
   return Math.max(rar, minRarity);
 }
 
-/** Butin : objet aléatoire de la panoplie du biome où on le trouve (chaque objet appartient à un biome). */
+/**
+ * Butin : objet aléatoire de la panoplie du biome où on le trouve (chaque objet appartient à un biome).
+ * Repli sur tout le catalogue si ce biome n'a pas encore de panoplie dédiée (ex. Johto, en attendant).
+ */
 export function rollLoot(rng: Rng, level: number, biome: number, minRarity = 0): Item {
-  const pool = TEMPLATES.filter((t) => SETS[t.set!].biome === biome);
+  const local = TEMPLATES.filter((t) => SETS[t.set!].biome === biome);
+  const pool = local.length ? local : TEMPLATES;
   const t = pool[rng.int(pool.length)];
   return makeItem(t.id, rollRarity(rng, minRarity), Math.max(1, level), rng);
 }
