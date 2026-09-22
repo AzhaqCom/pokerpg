@@ -120,24 +120,23 @@ function Main() {
 
 function Root() {
   const [idleGains, setIdleGains] = useState<IdleGains | null>(null);
-  const [prestigeDismissed, setPrestigeDismissed] = useState(false);
   useBoot(setIdleGains);
   const insets = useSafeAreaInsets();
   const s = useGame((g) => g.s);
   useGame((g) => g.rev);
   // condition remplie -> jeu réellement coupé, quel que soit le chemin qui y a mené (combat normal ou
   // debug) ; pas seulement au moment précis de la victoire (le runner est un singleton, sa pause doit
-  // suivre l'état du jeu, pas un événement ponctuel qu'un Fast Refresh pourrait manquer).
-  const prestigeReady = !!s && s.starterChosen && canPrestige(s);
-  const offerPrestige = prestigeReady && !prestigeDismissed;
-  useEffect(() => { if (prestigeReady) runner.paused = true; }, [prestigeReady]);
+  // suivre l'état du jeu, pas un événement ponctuel qu'un Fast Refresh pourrait manquer). Aucun moyen de
+  // fermer l'écran sans accepter le nouveau départ : un vrai palier de fin, pas une simple bannière.
+  const offerPrestige = !!s && s.starterChosen && canPrestige(s);
+  useEffect(() => { if (offerPrestige) runner.paused = true; }, [offerPrestige]);
   return (
     <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
       {!s ? <Text style={styles.loading}>Chargement…</Text> : !s.starterChosen ? <StarterScreen /> : <Main />}
       <Toasts />
       <IdleSummary gains={idleGains} onClose={() => setIdleGains(null)} />
-      {offerPrestige && <PrestigeOffer onClose={() => setPrestigeDismissed(true)} />}
+      {offerPrestige && <PrestigeOffer onClose={() => {}} />}
     </View>
   );
 }

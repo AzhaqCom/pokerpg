@@ -16,8 +16,8 @@ function formatDuration(ms: number): string {
 
 /**
  * Récap de fin de Kanto, affiché à la place du combat dès le badge du Champion obtenu (le runner se
- * met en pause, voir runner.ts). Bouton « Nouveau départ » -> startPrestige, ou fermeture pour continuer
- * à jouer/farmer Kanto (accessible plus tard via la bannière de la Carte).
+ * met en pause, voir runner.ts). Pas de bouton « continuer sur Kanto » : un vrai palier de fin, la
+ * seule sortie est d'accepter le nouveau départ.
  */
 export function PrestigeOffer({ onClose }: { onClose: () => void }) {
   const s = useGame((g) => g.s) as GameState | null;
@@ -26,7 +26,6 @@ export function PrestigeOffer({ onClose }: { onClose: () => void }) {
   const dex = s.dex.caught.length;
   const shiny = s.dex.shiny.length;
   const elapsed = formatDuration(Date.now() - s.startedAt);
-  const close = () => { runner.paused = false; onClose(); };
   return (
     <Modal visible transparent animationType="fade" onRequestClose={() => {}}>
       <View style={styles.backdrop}>
@@ -49,7 +48,6 @@ export function PrestigeOffer({ onClose }: { onClose: () => void }) {
             feedback('evolve');
             onClose();
           }} />
-          <Button label="Continuer à jouer sur Kanto" color={C.panel2} onPress={close} />
         </View>
       </View>
     </Modal>
