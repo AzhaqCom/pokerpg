@@ -28,7 +28,7 @@ export function CrashView() {
   const error = useCrash((s) => s.error);
   return (
     <View style={styles.root}>
-      <Text style={styles.title}>Oups, TamaPoké a rencontré une erreur</Text>
+      <Text style={styles.title}>Oups, Pokeloot a rencontré une erreur</Text>
       <Text style={styles.sub}>Fais une capture de cet écran pour la corriger.</Text>
       <ScrollView style={styles.box}><Text selectable style={styles.err}>{error ?? 'Erreur inconnue'}</Text></ScrollView>
     </View>
