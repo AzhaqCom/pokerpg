@@ -1,7 +1,7 @@
 import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { move, species } from '../game/data';
 import { GameState } from '../game/game';
-import { IdleGains, applyIdleGains } from '../game/idle';
+import { IdleGains } from '../game/idle';
 import { template } from '../game/items';
 import { RARITIES, RARITY_COLOR } from '../game/model';
 import { useGame } from '../store/game';
@@ -17,12 +17,11 @@ function formatDuration(ms: number): string {
   return `${h} h ${String(m).padStart(2, '0')}`;
 }
 
+/** Résumé purement informatif : les gains sont déjà encaissés au calcul (voir `checkIdle` dans App.tsx). */
 export function IdleSummary({ gains, onClose }: { gains: IdleGains | null; onClose: () => void }) {
   const s = useGame((g) => g.s) as GameState | null;
-  const act = useGame((g) => g.act);
   if (!gains || !s) return null;
   const collect = () => {
-    act((st) => applyIdleGains(st, gains));
     runner.paused = false;
     onClose();
   };
@@ -58,7 +57,7 @@ export function IdleSummary({ gains, onClose }: { gains: IdleGains | null; onClo
               </>
             )}
           </ScrollView>
-          <Button label="Récupérer" color={C.accent} onPress={collect} />
+          <Button label="OK" color={C.accent} onPress={collect} />
         </View>
       </View>
     </Modal>

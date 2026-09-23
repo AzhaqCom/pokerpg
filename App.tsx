@@ -5,7 +5,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { initMusic, setMusicEnabled } from './src/audio/music';
 import { initSfx, setSfxEnabled } from './src/audio/sfx';
 import { canEvolve, canPrestige, explorationReady, fusionBadgeCount, pensionXpReady, touchLastActive } from './src/game/game';
-import { IdleGains, computeIdleGains } from './src/game/idle';
+import { IdleGains, applyIdleGains, computeIdleGains } from './src/game/idle';
 import { rng, useGame } from './src/store/game';
 import { useSettings } from './src/store/settings';
 import { Tab, useUi } from './src/store/ui';
@@ -35,15 +35,23 @@ const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'dex', label: 'Pokédex', icon: '📕' },
 ];
 
-/** Calcule les gains hors ligne depuis `lastActive`, marque l'instant présent comme nouvelle activité. */
+/**
+ * Calcule les gains hors ligne depuis `lastActive` et les encaisse aussitôt, dans la même action que la
+ * remise à zéro de `lastActive` : le résumé n'est qu'informatif. Avant, l'encaissement attendait le bouton
+ * « Récupérer » alors que `lastActive` était déjà remis à zéro — app fermée ou nouveau résumé calculé
+ * entre-temps (téléphone verrouillé pendant le résumé), et tout le lot était perdu, chromatiques compris.
+ */
 function checkIdle(onGains: (g: IdleGains) => void) {
   const s = useGame.getState().s;
   if (!s || !s.starterChosen) return;
   const now = Date.now();
   const { idleAutoRecycle, idleRecycleMaxRarity, skipOwnedShiny } = useSettings.getState();
   const gains = computeIdleGains(s, now - s.lastActive, rng, { autoRecycle: idleAutoRecycle, recycleMaxRarity: idleRecycleMaxRarity, skipOwnedShiny });
-  useGame.getState().act((g) => touchLastActive(g, now));
-  if (gains) { runner.paused = true; onGains(gains); }
+  useGame.getState().act((g) => {
+    if (gains) applyIdleGains(g, gains);
+    touchLastActive(g, now);
+  });
+  if (gains) { runner.restart(); runner.paused = true; onGains(gains); }
 }
 
 function useBoot(onIdleGains: (g: IdleGains) => void) {

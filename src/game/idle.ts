@@ -177,7 +177,8 @@ export function computeIdleGains(
   const cap = teamMaxLevel(s);
   for (let i = 0; i < kills; i++) {
     if (rng.int(SHINY_ODDS) === 0) {
-      const speciesId = pickSpecies(zone, rng);
+      // même tirage qu'en combat (`makeWaves`) : un légendaire `joinsPool` vaincu fait partie du pool
+      const speciesId = pickSpecies(zone, rng, s.bossesBeaten[farmBiome][farmZone]);
       if (skipOwnedShiny && s.dex.shiny.includes(speciesId)) continue;
       const level = Math.min(Math.max(2, zone.minLv - 1 + rng.int(2)), cap);
       shinies.push(makeMon(speciesId, level, rng, true, genesMinForBadges(s.badges)));
