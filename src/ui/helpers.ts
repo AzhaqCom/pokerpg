@@ -15,7 +15,7 @@ export const monName = (m: Mon) => species(m.speciesId).name;
 
 export function monStats(s: GameState, uid: string) {
   const f = allyFighter(s, uid);
-  return { ...f.stats, cp: combatPower(f.stats) };
+  return { ...f.stats, cp: combatPower(f.stats), bonuses: f.bonuses };
 }
 
 export function xpProgress(m: Mon) {

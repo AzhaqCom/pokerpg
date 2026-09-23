@@ -34,9 +34,8 @@ export function ExplorationPanel() {
   return (
     <View style={{ gap: 10 }}>
       <Text style={styles.hint}>
-        Les Pokémon hors équipe explorent ici, chacun sur sa propre horloge (8 h d'accumulation maximum) et
-        rapportent {SHARDS_PER_MIN} éclats/min ({SHARDS_PER_MIN * 60}/h). Ils donnent aussi la moitié de leur
-        aura à l'équipe.
+        Les Pokémon explorent ici ! (8 h max) et
+        rapportent {SHARDS_PER_MIN} éclats/min ({SHARDS_PER_MIN * 60}/h).
       </Text>
       <Button label={ready ? `Récolter (+${ready} éclats)` : 'Rien à récolter pour l’instant'} color={ready ? '#2e7d32' : C.panel2} disabled={!ready} onPress={() => {
         const gained = act((g) => harvestExploration(g));

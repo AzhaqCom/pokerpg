@@ -5,7 +5,7 @@
 import { Battle, FighterInit } from './battle';
 import { BADGE_BONUS, BIOMES, PRESTIGE_BIOME, REGION_START, STAGES_PER_ZONE, WAVES_PER_STAGE, ZoneDef } from './content';
 import { PType, learnedMoves, movesAtLevel, species } from './data';
-import { SETS, TEMPLATES, berryHeal, fuse, canFuse, makeItem, newUid, recycleValue, rerollCost, rerollSub, rollLoot, rollRarity, slotOf, template, upgrade, upgradeCost } from './items';
+import { SETS, STAT_WEIGHT, TEMPLATES, berryHeal, fuse, canFuse, itemScore, makeItem, newUid, recycleValue, rerollCost, rerollSub, rollLoot, rollRarity, slotOf, template, upgrade, upgradeCost } from './items';
 import { BattleBonuses, Item, ItemSlot, MAX_RARITY, Mon, emptyBonuses } from './model';
 import { Rng } from './rng';
 import { MAX_LEVEL, auraBonuses, combatPower, finalStats, levelFromXp, monBonuses, monStars, sumBonuses, xpForLevel } from './stats';
@@ -433,8 +433,10 @@ function maxReachableStage(mon: Mon): number {
  * exploration ou boîte) est toujours conservé à son étage — seuls des exemplaires de la boîte en trop
  * (au-delà du premier gardé à chaque étage déjà possédé) servent de matière pour grimper la lignée
  * jusqu'aux étages manquants. Retourne le nombre d'évolutions effectuées.
+ * `dryRun: true` ne modifie jamais `s` et s'arrête dès la 1re évolution possible trouvée (utile pour
+ * savoir si le bouton a quelque chose à faire, voir `canCompleteDex`).
  */
-export function completeDex(s: GameState): number {
+export function completeDex(s: GameState, dryRun = false): number {
   const maxId = s.prestige > 0 ? 251 : 151;
   const bases = new Set<number>();
   for (let id = 1; id <= maxId; id++) bases.add(lineBase(id));
@@ -465,12 +467,18 @@ export function completeDex(s: GameState): number {
         const ti = chain.indexOf(target);
         const idx = freeSpares.findIndex((m) => chain.indexOf(m.speciesId) < ti && chain.indexOf(maxReachableStage(m)) >= ti);
         if (idx < 0) continue;
+        if (dryRun) return 1;
         const [mon] = freeSpares.splice(idx, 1);
         while (mon.speciesId !== target) { evolve(s, mon.uid); count++; }
       }
     }
   }
   return count;
+}
+
+/** Le bouton « Compléter le Pokédex » a-t-il quelque chose à faire ? Ne modifie jamais `s`. */
+export function canCompleteDex(s: GameState): boolean {
+  return completeDex(s, true) > 0;
 }
 
 export function feedCandy(s: GameState, uid: string, n = 1) {
@@ -525,6 +533,66 @@ export function equip(s: GameState, monUid: string, itemUid: string) {
 
 export function unequip(s: GameState, monUid: string, slot: ItemSlot) {
   delete s.mons[monUid].items[slot];
+}
+
+/**
+ * Équipe automatiquement les 3 emplacements avec la meilleure combinaison disponible dans le sac (jamais
+ * un objet porté par un autre Pokémon) : compare le total « 3 meilleurs objets indépendants » à celui de
+ * chaque panoplie complétable (2 ou 3 pièces du même set parmi les objets disponibles), bonus de
+ * panoplie inclus dans le total (converti sur la même échelle que `itemScore` via `STAT_WEIGHT`) — la
+ * panoplie ne l'emporte que si elle rapporte vraiment plus, aucune règle spéciale liée au type du
+ * Pokémon (les panoplies ne sont pas réservées à un type). Retourne le nombre d'emplacements changés.
+ */
+export function autoEquipBest(s: GameState, uid: string): number {
+  const mon = s.mons[uid];
+  if (!mon) return 0;
+  const held = heldBy(s);
+  const available = (it: Item) => !held.has(it.uid) || held.get(it.uid) === mon;
+  const SLOTS: ItemSlot[] = ['offense', 'defense', 'berry'];
+  const bySlot: Record<ItemSlot, Item[]> = { offense: [], defense: [], berry: [] };
+  for (const it of Object.values(s.items)) if (available(it)) bySlot[slotOf(it)].push(it);
+  const bestOf = (items: Item[]) => items.reduce<Item | undefined>((best, it) => (!best || itemScore(it) > itemScore(best) ? it : best), undefined);
+
+  type Combo = Partial<Record<ItemSlot, Item>>;
+  const independent: Combo = { offense: bestOf(bySlot.offense), defense: bestOf(bySlot.defense), berry: bestOf(bySlot.berry) };
+
+  const scoreCombo = (combo: Combo): number => {
+    let total = 0;
+    const setCount: Record<string, number> = {};
+    for (const slot of SLOTS) {
+      const it = combo[slot];
+      if (!it) continue;
+      total += itemScore(it);
+      const set = template(it.templateId).set;
+      if (set) setCount[set] = (setCount[set] ?? 0) + 1;
+    }
+    for (const [key, n] of Object.entries(setCount)) {
+      const set = SETS[key];
+      if (!set) continue;
+      if (n >= 2) total += STAT_WEIGHT[set.two.stat] * set.two.value;
+      if (n >= 3) total += STAT_WEIGHT[set.three.stat] * set.three.value;
+    }
+    return total;
+  };
+
+  let bestCombo = independent;
+  let bestScore = scoreCombo(independent);
+  for (const key of Object.keys(SETS)) {
+    const combo: Combo = { ...independent };
+    for (const slot of SLOTS) {
+      const setItem = bestOf(bySlot[slot].filter((it) => template(it.templateId).set === key));
+      if (setItem) combo[slot] = setItem;
+    }
+    const sc = scoreCombo(combo);
+    if (sc > bestScore) { bestScore = sc; bestCombo = combo; }
+  }
+
+  let n = 0;
+  for (const slot of SLOTS) {
+    const pick = bestCombo[slot];
+    if (pick && pick.uid !== mon.items[slot]) { equip(s, uid, pick.uid); n++; }
+  }
+  return n;
 }
 
 export function recycle(s: GameState, itemUids: string[]): number {

@@ -1,8 +1,8 @@
 import { BIOMES, STAGES_PER_ZONE } from '../content';
 import { ALL_SPECIES } from '../data';
 import {
-  GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, arenaAvailable, assignExploration, assignPension, autoCaptureBall, bestStarsOf, biomeAvailable, bossAvailable,
-  canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
+  GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, arenaAvailable, assignExploration, assignPension, autoCaptureBall, autoEquipBest, bestStarsOf, biomeAvailable, bossAvailable,
+  canCompleteDex, canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
   harvestExploration, harvestPension, holder, isRareInZone, makeMon, addMon, makeWaves, migrateSave, monsBelowStars, monsNotShiny, newGame, pickSpecies, rankUpTalent, recycle, release, releaseBelowStars, SHARDS_PER_MIN,
   releaseExcess, releaseNotShiny, remainingEvolutions, removePension, selectStage, startPrestige, teamMaxLevel, tryCapture, unequipBox, xpGapMult,
 } from '../game';
@@ -424,6 +424,57 @@ test('unequipBox : retire les objets des Pokémon de la boîte, jamais de l’é
   expect(s.items[item.uid]).toBeDefined(); // reste dans le sac
 });
 
+test('autoEquipBest : équipe le meilleur objet libre par emplacement, ne vole jamais un objet porté par un autre Pokémon', () => {
+  const s = newGame();
+  chooseStarter(s, 4, seededRng(1)); // starter déjà équipé de la panoplie sylve (rareté 0)
+  const teammate = makeMon(1, 5, seededRng(50)); addMon(s, teammate);
+  addMon(s, makeMon(7, 5, seededRng(51))); // équipe complète à 3
+  const starterUid = s.team[0];
+
+  // objet offensif bien plus fort (rareté 5), mais porté par un coéquipier : jamais volé
+  const stolenCandidate = makeItem('gantelet-champion', 5, 50, seededRng(2));
+  s.items[stolenCandidate.uid] = stolenCandidate;
+  equip(s, teammate.uid, stolenCandidate.uid);
+
+  // objet offensif libre, meilleur que celui du starter mais moins bon que le volé
+  const freeUpgrade = makeItem('griffe-cendres', 3, 30, seededRng(3));
+  s.items[freeUpgrade.uid] = freeUpgrade;
+
+  const n = autoEquipBest(s, starterUid);
+  expect(n).toBeGreaterThan(0);
+  expect(s.mons[starterUid].items.offense).toBe(freeUpgrade.uid);
+  expect(s.mons[teammate.uid].items.offense).toBe(stolenCandidate.uid); // jamais volé
+});
+
+test('autoEquipBest : rien à faire → 0 emplacement modifié', () => {
+  const s = newGame();
+  chooseStarter(s, 4, seededRng(1));
+  expect(autoEquipBest(s, s.team[0])).toBe(0); // rien d'autre dans le sac que ce qu'il porte déjà
+});
+
+test('autoEquipBest : privilégie une panoplie complète si son total (objets + bonus de set) dépasse le meilleur combo dépareillé', () => {
+  const s = newGame();
+  chooseStarter(s, 4, seededRng(1));
+  addMon(s, makeMon(1, 5, seededRng(50)));
+  addMon(s, makeMon(7, 5, seededRng(51))); // équipe complète à 3
+  const lone = makeMon(10, 5, seededRng(4)); addMon(s, lone); // en boîte, sans objet
+
+  // panoplie Sylvestre (3 pièces) : Attaque plus faible à l'offensif que Marée Vivante, mais bien
+  // meilleure en défense — le total (dont le bonus 3 pièces) doit l'emporter sur le mélange dépareillé.
+  for (const id of ['griffe-sylve', 'cape-sylve', 'baie-sylve']) {
+    const it = makeItem(id, 0, 1, seededRng(10));
+    s.items[it.uid] = it;
+  }
+  for (const id of ['nageoire-maree', 'ecaille-maree', 'baie-maree']) {
+    const it = makeItem(id, 0, 1, seededRng(20));
+    s.items[it.uid] = it;
+  }
+
+  autoEquipBest(s, lone.uid);
+  const wornSets = Object.values(lone.items).map((u) => TEMPLATES.find((t) => t.id === s.items[u!].templateId)?.set);
+  expect(wornSets).toEqual(['sylve', 'sylve', 'sylve']);
+});
+
 test('releaseBelowStars / releaseNotShiny : ne gardent que le critère demandé dans la boîte', () => {
   const s = newGame();
   chooseStarter(s, 4, seededRng(1));
@@ -462,6 +513,20 @@ test('completeDex : évolue le minimum de doublons pour compléter une lignée, 
   expect(own(18)).toBe(true); // Roucarnage
   // relancer ne fait plus rien : la lignée est déjà complète
   expect(completeDex(s)).toBe(0);
+});
+
+test('canCompleteDex : ne modifie jamais s, reflète si completeDex aurait quelque chose à faire', () => {
+  const s = newGame();
+  chooseStarter(s, 4, seededRng(1));
+  addMon(s, makeMon(1, 5, seededRng(50)));
+  addMon(s, makeMon(7, 5, seededRng(51)));
+  expect(canCompleteDex(s)).toBe(false); // rien à évoluer
+  for (let i = 0; i < 3; i++) addMon(s, makeMon(16, 70, seededRng(100 + i))); // 3 Roucool
+  const before = JSON.stringify(s.mons);
+  expect(canCompleteDex(s)).toBe(true);
+  expect(JSON.stringify(s.mons)).toBe(before); // dryRun : aucune mutation
+  completeDex(s);
+  expect(canCompleteDex(s)).toBe(false); // lignée désormais complète
 });
 
 test('bestStarsOf : 0 si jamais capturé, sinon le meilleur exemplaire possédé', () => {

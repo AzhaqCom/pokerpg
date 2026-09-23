@@ -19,12 +19,13 @@ const FILTERS: { key: ItemSlot | 'all'; label: string }[] = [
   { key: 'all', label: 'Tout' }, { key: 'offense', label: 'Offensif' }, { key: 'defense', label: 'Défensif' }, { key: 'berry', label: 'Baies' },
 ];
 
-/** Achat d'1 Ball au tap, achat répété tant qu'on maintient le bouton (fin de partie : des milliers d'éclats à dépenser). */
-function BuyBallButton({ kind }: { kind: BallKind }) {
+/** Icône de Ball = bouton d'achat direct : tap = +1, appui long = achat en rafale (fin de partie : des
+ * milliers d'éclats à dépenser). Fusionne l'état actuel et l'achat en une seule ligne compacte. */
+function BuyBallIcon({ kind }: { kind: BallKind }) {
   const act = useGame((g) => g.act);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const s = useGame((g) => g.s)!;
   useGame((g) => g.rev);
+  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const stop = () => { if (timer.current) { clearInterval(timer.current); timer.current = null; } };
   useEffect(() => stop, []);
   const buyOne = () => { if (act((g) => buyBall(g, kind))) feedback(); };
@@ -32,9 +33,14 @@ function BuyBallButton({ kind }: { kind: BallKind }) {
     stop();
     timer.current = setInterval(() => { if (!act((g) => buyBall(g, kind))) stop(); }, 120);
   };
+  const can = s.shards >= BALL_PRICE[kind];
   return (
-    <Button small icon={<BallIcon kind={kind} size={16} />} label={`${BALLS[kind].name} (${BALL_PRICE[kind]} 💎)`}
-      disabled={s.shards < BALL_PRICE[kind]} onPress={buyOne} onLongPress={start} onPressOut={stop} delayLongPress={350} />
+    <Pressable onPress={buyOne} onLongPress={start} onPressOut={stop} delayLongPress={350}
+      style={[styles.ballBuy, !can && { opacity: 0.4 }]}>
+      <BallIcon kind={kind} size={32} />
+      <Text style={styles.resTxt}>{s.balls[kind]}</Text>
+      <Text style={styles.ballPrice}>{BALL_PRICE[kind]}💎</Text>
+    </Pressable>
   );
 }
 
@@ -73,13 +79,11 @@ export function BagPanel() {
           <View style={{ gap: 10, marginBottom: 10 }}>
             <View style={styles.res}>
               <Text style={styles.resTxt}>💎 {s.shards} éclats</Text>
-              <View style={styles.ballsRow}>
-                {(Object.keys(BALLS) as BallKind[]).map((b) => (
-                  <View key={b} style={styles.ballCount}>
-                    <BallIcon kind={b} size={18} />
-                    <Text style={styles.resTxt}>{s.balls[b]}</Text>
-                  </View>
-                ))}
+              <View style={styles.ballsCol}>
+                <Text style={styles.ballsHint}>Clique sur les Balls pour acheter</Text>
+                <View style={styles.ballsRow}>
+                  {(Object.keys(BALLS) as BallKind[]).map((b) => <BuyBallIcon key={b} kind={b} />)}
+                </View>
               </View>
             </View>
             <View style={styles.row}>
@@ -88,15 +92,12 @@ export function BagPanel() {
                 act((g) => { for (let c = fusionCandidates(g); c.length; c = fusionCandidates(g)) { const out = fuseItems(g, c[0].map((i) => i.uid), rng); if (out) { n++; toast(`Fusion : ${template(out.templateId).name} ${RARITIES[out.rarity]}`, RARITY_COLOR[out.rarity]); } } });
                 if (n) { feedback('medal', true); runner.restart(); }
               }} />
-              <Button small label={`Recycler jusqu'à ${RARITIES[recycleMaxRarity]} (${junk.length})`} disabled={!junk.length} onPress={() => {
+              <Button small label={`Recycler : ${RARITIES[recycleMaxRarity]} (${junk.length})`} disabled={!junk.length} onPress={() => {
                 const gain = act((g) => recycle(g, junk.map((i) => i.uid)));
                 toast(`+${gain} éclats`);
               }} />
             </View>
-            <View style={styles.row}>
-              {(Object.keys(BALLS) as BallKind[]).map((b) => <BuyBallButton key={b} kind={b} />)}
-            </View>
-            <Text style={styles.hint}>Fusion : 3 objets identiques de même rareté → rareté supérieure. Les objets portés ou verrouillés ne sont jamais recyclés. Maintenir un bouton Ball pour en acheter plusieurs d'affilée.</Text>
+            <Text style={styles.hint}>Fusion : 3 objets identiques de même rareté → rareté supérieure.</Text>
             <View style={styles.row}>
               {FILTERS.map((f) => (
                 <Pressable key={f.key} onPress={() => setFilter(f.key)} style={[styles.chip, filter === f.key && styles.chipOn]}>
@@ -115,10 +116,13 @@ export function BagPanel() {
 
 const styles = StyleSheet.create({
   list: { padding: 12, paddingBottom: 40 },
-  res: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: C.panel, borderRadius: 12, padding: 10 },
-  resTxt: { color: C.text, fontWeight: '700' },
-  ballsRow: { flexDirection: 'row', gap: 10 },
-  ballCount: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  res: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.panel, borderRadius: 12, padding: 10 },
+  resTxt: { color: C.text,  fontSize: 13, fontWeight: '700' },
+  ballsCol: { flex: 1, gap: 4 },
+  ballsHint: { color: C.dim, fontSize: 11, fontWeight: '600' },
+  ballsRow: { flexDirection: 'row', gap: 6 },
+  ballBuy: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2, backgroundColor: C.panel2, borderRadius: 12, paddingVertical: 8 },
+  ballPrice: { color: C.dim, fontSize: 10, fontWeight: '600' },
   row: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   hint: { color: C.dim, fontSize: 12 },
   chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: C.panel },

@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { species } from '../../game/data';
 import {
-  GameState, canEvolve, completeDex, excessMons, monsBelowStars, monsNotShiny, releaseBelowStars, releaseExcess,
-  releaseNotShiny, setTeam, unequipBox,
+  GameState, canCompleteDex, canEvolve, completeDex, excessMons, monsBelowStars, monsNotShiny, releaseBelowStars,
+  releaseExcess, releaseNotShiny, setTeam, unequipBox,
 } from '../../game/game';
 import { Mon } from '../../game/model';
 import { monStars, primaryType } from '../../game/stats';
@@ -58,6 +58,11 @@ export function TeamPanel() {
   const excess = excessMons(s, { keepEvolutionMaterial });
   const belowStars = monsBelowStars(s, 3);
   const notShiny = monsNotShiny(s);
+  const dexCompletable = canCompleteDex(s);
+  const boxEquippedCount = Object.values(s.mons)
+    .filter((m) => !s.team.includes(m.uid))
+    .reduce((a, m) => a + Object.keys(m.items).length, 0);
+  const hasActions = dexCompletable || excess.length > 0 || boxEquippedCount > 0 || belowStars.length > 0 || notShiny.length > 0;
 
   return (
     <>
@@ -127,15 +132,18 @@ export function TeamPanel() {
                 </Pressable>
               );
             })}
-            <View style={styles.row}>
-              <Text style={styles.title}>Actions</Text>
-            </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.maintRow}>
-              <Button small label="Compléter le Pokédex" color="#2e7d32" onPress={() => {
-                const n = act((g: GameState) => completeDex(g));
-                if (n) { feedback('evolve'); toast(`${n} évolution${n > 1 ? 's' : ''} pour compléter le Pokédex`, '#69f0ae'); }
-                else toast('Rien à évoluer pour l’instant');
-              }} />
+            {hasActions && (
+              <>
+                <View style={styles.row}>
+                  <Text style={styles.title}>Actions</Text>
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.maintRow}>
+                  {dexCompletable && (
+                <Button small label="Compléter le Pokédex" color="#2e7d32" onPress={() => {
+                  const n = act((g: GameState) => completeDex(g));
+                  if (n) { feedback('evolve'); toast(`${n} évolution${n > 1 ? 's' : ''} pour compléter le Pokédex`, '#69f0ae'); }
+                }} />
+              )}
               {excess.length > 0 && (
                 <Button small label={`Nettoyer les doublons (${excess.length})`} color="#8d6e63" onPress={() => {
                   const candies = excess.length * 3;
@@ -152,11 +160,12 @@ export function TeamPanel() {
                   });
                 }} />
               )}
-              <Button small label="Déséquiper la boîte" onPress={() => {
-                const n = act((g: GameState) => unequipBox(g));
-                if (n) { feedback(); toast(`${n} objet${n > 1 ? 's' : ''} retiré${n > 1 ? 's' : ''}, de retour dans le sac`, '#69f0ae'); }
-                else toast('Aucun objet équipé dans la boîte');
-              }} />
+              {boxEquippedCount > 0 && (
+                <Button small label={`Déséquiper la boîte (${boxEquippedCount})`} onPress={() => {
+                  const n = act((g: GameState) => unequipBox(g));
+                  if (n) { feedback(); toast(`${n} objet${n > 1 ? 's' : ''} retiré${n > 1 ? 's' : ''}, de retour dans le sac`, '#69f0ae'); }
+                }} />
+              )}
               {belowStars.length > 0 && (
                 <Button small label={`Ne garder que 3★+ (−${belowStars.length})`} color="#5d4037" onPress={() => {
                   const candies = belowStars.length * 3;
@@ -189,7 +198,9 @@ export function TeamPanel() {
                   });
                 }} />
               )}
-            </ScrollView>
+                </ScrollView>
+              </>
+            )}
             <View style={styles.row}>
               <Text style={styles.title}>Ordonner</Text>
             </View>

@@ -21,7 +21,7 @@ export function StarterScreen() {
       <Text style={styles.sub}>
         {prestige
           ? 'Nouveau départ : équipe, boîte et objets repartent à zéro, mais 100 nouveaux Pokémon et une aventure plus corsée t’attendent.'
-          : 'Ton équipe se bat seule. À toi de la préparer : capacités, objets, talents, captures… et de lancer les boss.'}
+          : 'Ton équipe se bat seule. À toi de la préparer : capacités, objets, talents, captures…'}
       </Text>
       <Text style={styles.pick}>Choisis ton premier Pokémon</Text>
       <View style={styles.row}>
@@ -37,6 +37,9 @@ export function StarterScreen() {
           );
         })}
       </View>
+      <Text >
+        Je t'aime Lia 💖
+      </Text>
     </View>
   );
 }

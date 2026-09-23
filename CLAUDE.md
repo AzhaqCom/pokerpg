@@ -288,3 +288,42 @@ y compris la simulation d'équilibrage bout en bout) :
 - **Recherche par nom** dans le picker « Qui envoyer en pension ? » (`PensionPanel`), combinable avec le
   filtre par étoiles — préfixe uniquement (`startsWith`, pas `includes`) : « cara » trouve Carabaffe mais
   pas Scarabrute.
+
+---
+
+## Fait — suite du 2026-09-23 (3e partie : talents simplifiés, sous-stats, page Aide, équiper le meilleur, rééquilibrage objets)
+
+- **Talents** : labels « Palier 1 », « Palier 2 (5 points) »… retirés de `MonSheet.tsx` (le verrouillage
+  reste visible via le bouton grisé). Toutes les sous-stats de combat (pas seulement critique) sont
+  vérifiées câblées dans `battle.ts`/`stats.ts` — aucune n'est décorative.
+- **Sous-stats affichées** sur la fiche Pokémon : dégâts critiques (×1.5 de base + bonus) toujours
+  visibles, et un tiroir dépliable « ▸ Sous-stats » liste tout ce qui est actif (dégâts de type, dégâts
+  de zone, vol de vie, esquive, recharge, affinités…), masqué par défaut pour ne pas surcharger la fiche.
+- **Page « Aide »** (`HelpScreen.tsx`, nouveau fichier), accessible depuis ⚙ Réglages : tableaux
+  récapitulatifs des auras par type et des Spécialités I/II (paliers 3/6) par type, plus un rappel des
+  talents communs à tous les types.
+- **Sac (`BagPanel.tsx`) repensé par Arno** : la ligne « Ressources » et la ligne « Achat de Balls »
+  fusionnées en une seule — les icônes de Ball sont devenues elles-mêmes les boutons d'achat (tap = +1,
+  appui long = rafale), chacune en `flex: 1` pour occuper toute la largeur restante à côté du texte
+  « X éclats » qui garde sa largeur minimale. Un texte « Clique sur les Balls pour acheter » au-dessus.
+- **`autoEquipBest`** (nouveau, `game.ts`) : bouton « Équiper le meilleur » au-dessus des objets tenus
+  dans `MonSheet.tsx`. Compare le total de la meilleure combinaison **indépendante** (meilleur objet
+  libre par emplacement) à celui de **chaque panoplie complétable** avec les objets disponibles (bonus de
+  panoplie inclus, converti sur la même échelle que `itemScore` via `STAT_WEIGHT`, nouvellement exporté
+  depuis `items.ts`) — ne vole jamais un objet porté par un autre Pokémon, aucune règle spéciale liée au
+  type du porteur (les panoplies n'ont jamais été réservées à un type). 3 tests dédiés dans
+  `game.test.ts`, dont un qui vérifie qu'une panoplie complète l'emporte sur un mélange dépareillé grâce
+  au bonus, avec de vraies valeurs du jeu (pas des chiffres inventés).
+- **Rééquilibrage des objets offensifs/défensifs** (15 `TEMPLATES` sur 40, dans `items.ts`) : seuls
+  `%Attaque` (offensif) et `%Déf`/`%PV` (défensif) progressaient vraiment avec le biome depuis le début ;
+  `critPct`, `cdrPct`, `spePct`, `typeDmgPct` avaient une `base` quasi figée, recopiée sans être réajustée
+  d'un biome à l'autre — au point qu'à rareté égale, un objet Critique de fin de partie valait pareil
+  qu'un objet Critique de tout début de partie, alors qu'un objet Attaque avait presque doublé.
+  Corrigé via une courbe de score cible par biome (dérivée d'`%Attaque`/`%Déf`+`%PV`, déjà bien calées),
+  en recalculant `base = cible ÷ poids` pour les stats à la traîne. `critDmgPct` traité à part : le
+  rattrapage à 100 % aurait fait grimper son plafond de ~22 % à ~45 % en Chromatique (trop risqué combiné
+  aux talents crit) — seule la moitié de l'écart a été appliquée (~35 % de plafond). Le biome 11 (1er
+  biome Johto, juste après un prestige — donc un vrai redémarrage, pas une continuation) a été calé
+  **exactement** sur le biome 1 plutôt que sur la 11e marche d'une progression continue. Sous-stats
+  (`SUB_BASE`) vérifiées déjà bien équilibrées (score 2.4–3.2 selon la stat) : aucun changement nécessaire.
+  Simulation d'équilibrage complète relancée après coup (~8 min) : toujours dans la fourchette attendue.

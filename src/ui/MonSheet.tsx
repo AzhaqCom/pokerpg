@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Move, learnedMoves, move, species } from '../game/data';
 import {
-  CANDY_XP, TEAM_SIZE, canEvolve, equip, evolve, feedCandy, heldItems, holder, lineBase, rankUpTalent, release,
-  resetTalents, setMoves, setTeam, unequip,
+  CANDY_XP, TEAM_SIZE, autoEquipBest, canEvolve, equip, evolve, feedCandy, heldItems, holder, lineBase, rankUpTalent,
+  release, resetTalents, setMoves, setTeam, unequip,
 } from '../game/game';
 import { itemScore, slotOf, template } from '../game/items';
-import { ItemSlot } from '../game/model';
+import { BattleBonuses, ItemSlot } from '../game/model';
 import { TIER_REQ, eligibleAffinityTypes, spentPoints, talentPoints, talentTree } from '../game/talents';
 import { AnimatedSprite } from '../sprites/AnimatedSprite';
 import { useGame } from '../store/game';
@@ -26,11 +26,6 @@ import { C } from './theme';
 const SLOTS: { slot: ItemSlot; label: string }[] = [
   { slot: 'offense', label: 'Offensif' }, { slot: 'defense', label: 'Défensif' }, { slot: 'berry', label: 'Baie' },
 ];
-const TIER_NAME = [
-  'Palier 1', 'Palier 2 (5 points)', 'Palier 3 (10 points)', 'Palier 4 (20 points)', 'Palier 5 (40 points)',
-  'Palier 6 (60 points)', 'Palier 7 (70 points)', 'Palier 8 (80 points)', 'Palier 9 (90 points)',
-];
-
 function moveInfo(m: Move) {
   switch (m.kind) {
     case 'damage': return `Puissance ${m.power} · ${m.cd} s${m.aoe ? ' · tous les ennemis' : ''}${m.ailment ? ` · ${m.chance} % ${AIL[m.ailment]}` : ''}`;
@@ -43,6 +38,19 @@ function moveInfo(m: Move) {
 const AIL: Record<string, string> = { burn: 'brûlure', poison: 'poison', paralysis: 'paralysie', sleep: 'sommeil', freeze: 'gel' };
 const STAT: Record<string, string> = { atk: 'Attaque', def: 'Défense', spe: 'Vitesse' };
 
+/** Sous-stats affichées dans le tiroir « Sous-stats » (hors PV/Atq/Déf/Vit déjà en barres, et hors
+ * critique déjà affiché en permanence) : label + valeur formatée. */
+const SUB_STAT_LABEL: [key: keyof BattleBonuses, label: string, fmt: (v: number) => string][] = [
+  ['typeDmgPct', 'Dégâts de son type', (v) => `+${v} %`],
+  ['basicDmgPct', 'Attaque de base', (v) => `+${v} %`],
+  ['aoeDmgPct', 'Dégâts de zone', (v) => `+${v} %`],
+  ['dmgVsStatusPct', 'Dégâts vs statut', (v) => `+${v} %`],
+  ['ailmentChancePct', 'Chance de statut', (v) => `+${v} %`],
+  ['lifestealPct', 'Vol de vie', (v) => `${v} %`],
+  ['dodgePct', 'Esquive', (v) => `${v} %`],
+  ['cdrPct', 'Recharge', (v) => `−${v} %`],
+];
+
 export function MonSheet() {
   const uid = useUi((u) => u.monSheet);
   const open = useUi((u) => u.openMon);
@@ -53,6 +61,7 @@ export function MonSheet() {
   const [swapPicker, setSwapPicker] = useState(false);
   const [affinityPick, setAffinityPick] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogSpec | null>(null);
+  const [showSubs, setShowSubs] = useState(false);
   const mon = uid && s ? s.mons[uid] : null;
 
   // MonSheet est une instance unique et persistante (pas remontée à chaque Pokémon ouvert) : sans ça,
@@ -99,7 +108,7 @@ export function MonSheet() {
                 <Stars mon={mon} size={13} />
               </View>
               <View style={styles.xpTrack}><View style={[styles.xpFill, { width: `${xpProgress(mon) * 100}%` }]} /></View>
-              <Text style={styles.genes}>Gènes PV {mon.genes.hp} · Atq {mon.genes.atk} · Déf {mon.genes.def} · Vit {mon.genes.spe} (sur 15)</Text>
+              <Text style={styles.genes}>PV {mon.genes.hp}/15 · Atq {mon.genes.atk}/15 · Déf {mon.genes.def}/15 · Vit {mon.genes.spe}/15</Text>
             </View>
           </View>
 
@@ -117,7 +126,26 @@ export function MonSheet() {
             <Bar label="Attaque" value={st.atk} max={Math.max(120, st.atk)} color="#e53935" />
             <Bar label="Défense" value={st.def} max={Math.max(120, st.def)} color="#1e88e5" />
             <Bar label="Vitesse" value={st.spe} max={Math.max(120, st.spe)} color="#fdd835" />
-            <Text style={styles.sub}>Critique {st.crit.toFixed(1)} % · stats avec objets, talents, auras et badges</Text>
+            <Text style={styles.sub}>Critique {st.crit.toFixed(1)} % · Dégâts critiques ×{(1.5 + (st.bonuses?.critDmgPct ?? 0) / 100).toFixed(2)}</Text>
+            <Pressable onPress={() => setShowSubs((v) => !v)}>
+              <Text style={styles.subsToggle}>{showSubs ? '▾' : '▸'} Sous-stats</Text>
+            </Pressable>
+            {showSubs && (() => {
+              const b = st.bonuses;
+              const rows = SUB_STAT_LABEL.filter(([key]) => b && b[key] !== 0);
+              const affinities = b?.affinities.filter((a) => a.pct !== 0) ?? [];
+              if (!rows.length && !affinities.length) return <Text style={styles.sub}>Aucune sous-stat active.</Text>;
+              return (
+                <View style={{ gap: 2 }}>
+                  {rows.map(([key, label, fmt]) => (
+                    <Text key={key} style={styles.sub}>{label} : {fmt(b![key] as number)}</Text>
+                  ))}
+                  {affinities.map((a, i) => (
+                    <Text key={i} style={styles.sub}>Dégâts {typeLabel(a.type)} (Affinité) : +{a.pct} %</Text>
+                  ))}
+                </View>
+              );
+            })()}
           </View>
 
           <Text style={styles.section}>Capacités (ordre de priorité)</Text>
@@ -153,7 +181,14 @@ export function MonSheet() {
             })}
           </View>
 
-          <Text style={styles.section}>Objets tenus</Text>
+          <View style={[styles.row, { justifyContent: 'space-between' }]}>
+            <Text style={styles.section}>Objets tenus</Text>
+            <Button small label="Équiper le meilleur" onPress={() => {
+              const n = act((g) => autoEquipBest(g, mon.uid));
+              if (n) { feedback(); changed(); toast(`${n} objet${n > 1 ? 's' : ''} équipé${n > 1 ? 's' : ''}`, '#69f0ae'); }
+              else toast('Déjà équipé au mieux');
+            }} />
+          </View>
           <View style={styles.panel}>
             {SLOTS.map(({ slot, label }) => {
               const it = mon.items[slot] ? s.items[mon.items[slot]!] : undefined;
@@ -170,7 +205,6 @@ export function MonSheet() {
           <View style={styles.panel}>
             {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((tier) => (
               <View key={tier} style={{ gap: 6 }}>
-                <Text style={[styles.sub, spent < TIER_REQ[tier] && { color: C.dim }]}>{TIER_NAME[tier]}</Text>
                 {tree.filter((t) => t.tier === tier).map((t) => {
                   const r = mon.talents[t.id] ?? 0;
                   const chosenType = mon.talentTypeChoices[t.id];
@@ -339,6 +373,7 @@ const styles = StyleSheet.create({
   name: { color: C.text, fontSize: 24, fontWeight: '900' },
   row: { flexDirection: 'row', gap: 6, alignItems: 'center' },
   sub: { color: C.sub, fontSize: 12 },
+  subsToggle: { color: C.accent, fontSize: 12, fontWeight: '700', marginTop: 4 },
   genes: { color: C.dim, fontSize: 11 },
   xpTrack: { height: 6, backgroundColor: C.panel2, borderRadius: 3, overflow: 'hidden' },
   xpFill: { height: '100%', backgroundColor: '#42a5f5' },

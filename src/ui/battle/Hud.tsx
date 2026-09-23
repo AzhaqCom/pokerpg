@@ -10,6 +10,7 @@ import { useSettings } from '../../store/settings';
 import { Button } from '../components/Button';
 import { Dialog, DialogSpec } from '../components/Dialog';
 import { feedback } from '../components/feedback';
+import { HelpScreen } from '../HelpScreen';
 import { C } from '../theme';
 import { useFrameClock } from '../useFrameClock';
 import { runner } from './runner';
@@ -68,6 +69,7 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
   const reset = useGame((g) => g.reset);
   const act = useGame((g) => g.act);
   const [dialog, setDialog] = useState<DialogSpec | null>(null);
+  const [help, setHelp] = useState(false);
   return (
     <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
       {/* Fond et boîte en calques superposés (pas un Pressable imbriqué dans un autre) : un tap sur le
@@ -78,6 +80,8 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
       <View style={styles.centerWrap} pointerEvents="box-none">
         <View style={styles.box}>
           <Text style={styles.title}>Réglages</Text>
+          <Button small label="❔ Aide : auras & talents par type" onPress={() => setHelp(true)} />
+          <HelpScreen open={help} onClose={() => setHelp(false)} />
           <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ gap: 12 }}>
             <Row label="Sons" value={st.sound} onChange={(v) => st.set({ sound: v })} />
             <Row label="Musique" value={st.music} onChange={(v) => st.set({ music: v })} />
@@ -91,9 +95,9 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
             )}
             <Row label="Ne pas proposer un Pokémon déjà possédé (3★+)" value={st.hideOwnedOffers} onChange={(v) => st.set({ hideOwnedOffers: v })} />
             <Row label="Ne pas capturer un chromatique déjà obtenu" value={st.skipOwnedShiny} onChange={(v) => st.set({ skipOwnedShiny: v })} />
-            <Row label="Nettoyage des doublons : garder de la matière pour les évolutions manquantes" value={st.keepEvolutionMaterial} onChange={(v) => st.set({ keepEvolutionMaterial: v })} />
+            <Row label="Collectionneur hardcore" value={st.keepEvolutionMaterial} onChange={(v) => st.set({ keepEvolutionMaterial: v })} />
             <View style={{ gap: 6 }}>
-              <Text style={styles.setLabel}>Recyclage groupé du Sac (Sac → Recycler) : jusqu'à</Text>
+              <Text style={styles.setLabel}>Recycler : jusqu'à</Text>
               <View style={styles.chipsRow}>
                 {RARITIES.map((name, i) => (
                   <Pressable key={name} onPress={() => st.set({ recycleMaxRarity: i })}
@@ -103,7 +107,7 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
                 ))}
               </View>
             </View>
-            <Row label="Recycler auto les objets trouvés hors ligne" value={st.idleAutoRecycle} onChange={(v) => st.set({ idleAutoRecycle: v })} />
+            <Row label="Recycler auto hors ligne" value={st.idleAutoRecycle} onChange={(v) => st.set({ idleAutoRecycle: v })} />
             {st.idleAutoRecycle && (
               <View style={{ gap: 6 }}>
                 <Text style={styles.setLabel}>Recyclage hors ligne : jusqu'à</Text>
@@ -198,14 +202,13 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
             <Button label="Nouvelle partie" color="#5a2020" onPress={() => setDialog({
               title: 'Tout effacer ?', message: 'Équipe, objets, Pokédex et progression seront perdus.',
               primary: { label: 'Tout effacer', onPress: async () => { await reset(); runner.restart(); onClose(); } },
-              secondary: { label: 'Annuler', onPress: () => {} },
+              secondary: { label: 'Annuler', onPress: () => { } },
             })} />
             <Text style={styles.credits}>
-              Développer par Azhaq et Claude.
-            </Text>
-             <Text style={styles.credits}>
+              Développer par Azhaq et Claude.{'\n'}
               Sprites : PMD Sprite Collaboration (CC BY-NC 4.0). Données : PokéAPI.
-              Pokémon © Nintendo / Game Freak / The Pokémon Company.
+              {'\n'}
+              Je t'aime Lia 💖
             </Text>
           </ScrollView>
           <Button label="Fermer" onPress={onClose} />

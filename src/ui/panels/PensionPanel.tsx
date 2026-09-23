@@ -46,11 +46,9 @@ export function PensionPanel() {
   return (
     <View style={{ gap: 10 }}>
       <Text style={styles.hint}>
-        Les Pokémon hors équipe postés ici gagnent de l'XP passive, chacun sur sa propre horloge
-        (8 h d'accumulation maximum) — idéal pour monter en niveau une lignée sans la sortir de la boîte.
-        Le taux ({Math.round(PENSION_XP_SHARE * 100)} % de ce que ton équipe actuelle encaisse au combat)
-        se rafraîchit à chaque récolte, pas besoin de retirer/reposter pour suivre ta progression. Ils
-        donnent aussi la moitié de leur aura à l'équipe.
+        Les Pokémon gagnent de l'XP passive
+        (8 h max) — ({Math.round(PENSION_XP_SHARE * 100)} % de ce que l'équipe gagne au combat)
+       
       </Text>
       <Button label={ready ? `Récolter (+${ready} XP)` : 'Rien à récolter pour l’instant'} color={ready ? '#2e7d32' : C.panel2} disabled={!ready} onPress={() => {
         const h = act((g) => harvestPension(g, nextRate()));

@@ -31,9 +31,9 @@ export interface TalentDef {
 
 const pct = (label: string) => (v: number) => `${label} +${v} %`;
 
-interface Specialty { name: string; stat: NumericBonusStat; perRank: number; describe: (v: number) => string }
+export interface Specialty { name: string; stat: NumericBonusStat; perRank: number; describe: (v: number) => string }
 
-const SPECIALTY: Record<PType, Specialty> = {
+export const SPECIALTY: Record<PType, Specialty> = {
   fire: { name: 'Brasier', stat: 'dmgVsStatusPct', perRank: 8, describe: (v) => `+${v} % de dégâts contre les cibles sous statut` },
   poison: { name: 'Venin', stat: 'ailmentChancePct', perRank: 12, describe: (v) => `+${v} % de chances d'infliger un statut` },
   electric: { name: 'Surtension', stat: 'ailmentChancePct', perRank: 12, describe: (v) => `+${v} % de chances d'infliger un statut` },
@@ -54,7 +54,7 @@ const SPECIALTY: Record<PType, Specialty> = {
 };
 
 /** Palier 6 : une 2e saveur par type, différente de celle du palier 3 (`SPECIALTY`). */
-const SPECIALTY2: Record<PType, Specialty> = {
+export const SPECIALTY2: Record<PType, Specialty> = {
   fire: { name: 'Fournaise', stat: 'ailmentChancePct', perRank: 6, describe: (v) => `+${v} % de chances d'infliger un statut` },
   water: { name: 'Courant vital', stat: 'lifestealPct', perRank: 2, describe: (v) => `Vol de vie ${v} %` },
   grass: { name: 'Spores', stat: 'aoeDmgPct', perRank: 5, describe: (v) => `Capacités de zone +${v} %` },
