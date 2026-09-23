@@ -4,7 +4,7 @@
  */
 import { Battle, FighterInit } from './battle';
 import { BADGE_BONUS, BIOMES, PRESTIGE_BIOME, REGION_START, STAGES_PER_ZONE, WAVES_PER_STAGE, ZoneDef } from './content';
-import { PType, learnedMoves, movesAtLevel, species } from './data';
+import { ALL_SPECIES, PType, learnedMoves, movesAtLevel, species } from './data';
 import { SETS, STAT_WEIGHT, TEMPLATES, berryHeal, fuse, canFuse, itemScore, makeItem, newUid, recycleValue, rerollCost, rerollSub, rollLoot, rollRarity, slotOf, template, upgrade, upgradeCost } from './items';
 import { BattleBonuses, Item, ItemSlot, MAX_RARITY, Mon, emptyBonuses } from './model';
 import { Rng } from './rng';
@@ -173,6 +173,18 @@ export function migrateSave(raw: Record<string, unknown>): Record<string, unknow
     const mons = raw.mons as Record<string, unknown>;
     raw.team = (raw.team as string[]).filter((u, i, arr) => mons[u] && arr.indexOf(u) === i);
   }
+  // `lineBase` ne cherchait les pré-évolutions que parmi les 151 de Kanto : les lignées Johto avaient un
+  // stock de bonbons par stade (ex. Macronium à part de Germignon). Regroupe tout sur la vraie base.
+  for (const key of ['candies', 'megaCandies'] as const) {
+    const stock = raw[key] as Record<string, number> | undefined;
+    if (!stock || typeof stock !== 'object') continue;
+    for (const id of Object.keys(stock)) {
+      const base = String(lineBase(Number(id)));
+      if (base === id) continue;
+      stock[base] = (stock[base] ?? 0) + stock[id];
+      delete stock[id];
+    }
+  }
   return raw;
 }
 
@@ -227,7 +239,7 @@ export function addMon(s: GameState, mon: Mon) {
 export function lineBase(speciesId: number): number {
   let base = speciesId;
   for (let g = 0; g < 3; g++) {
-    const prev = [...Array(151).keys()].map((i) => i + 1).find((id) => species(id).evolvesTo === base);
+    const prev = ALL_SPECIES.find((sp) => sp.evolvesTo === base)?.id;
     if (!prev) break;
     base = prev;
   }

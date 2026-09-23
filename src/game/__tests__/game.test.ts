@@ -1,7 +1,7 @@
 import { BIOMES, STAGES_PER_ZONE } from '../content';
 import { ALL_SPECIES } from '../data';
 import {
-  GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, applyMegaCandy, craftMegaCandy, arenaAvailable, assignExploration, assignPension, autoCaptureBall, autoEquipBest, bestStarsOf, biomeAvailable, bossAvailable,
+  GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, applyMegaCandy, craftMegaCandy, lineBase, arenaAvailable, assignExploration, assignPension, autoCaptureBall, autoEquipBest, bestStarsOf, biomeAvailable, bossAvailable,
   canCompleteDex, canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
   harvestExploration, harvestPension, holder, isRareInZone, makeMon, addMon, makeWaves, migrateSave, monsBelowStars, monsNotShiny, newGame, pickSpecies, rankUpTalent, recycle, release, releaseBelowStars, SHARDS_PER_MIN,
   releaseExcess, releaseNotShiny, remainingEvolutions, removePension, selectStage, startPrestige, teamMaxLevel, tryCapture, unequipBox, xpGapMult,
@@ -198,6 +198,19 @@ test('méga bonbons : 30 bonbons de la lignée → 1 méga bonbon, +1 à un gèn
   const other = makeMon(4, 20, seededRng(2)); // autre lignée : aucun méga bonbon Salamèche
   addMon(s, other);
   expect(applyMegaCandy(s, other.uid, 'def')).toBe(false);
+});
+
+test('lineBase : les lignées Johto remontent à leur vraie base (pas seulement les 151 de Kanto)', () => {
+  expect(lineBase(154)).toBe(152); // Méganium → Germignon
+  expect(lineBase(153)).toBe(152);
+  expect(lineBase(3)).toBe(1); // Kanto inchangé
+});
+
+test('migrateSave : regroupe les bonbons/méga bonbons Johto rangés sous un stade intermédiaire', () => {
+  const old = { candies: { 152: 3, 153: 6, 154: 9, 1: 4 }, megaCandies: { 153: 1 } } as unknown as Record<string, unknown>;
+  const migrated = migrateSave(old) as unknown as GameState;
+  expect(migrated.candies).toEqual({ 152: 18, 1: 4 });
+  expect(migrated.megaCandies).toEqual({ 152: 1 });
 });
 
 test('migrateSave : nettoie les uid fantômes de l’équipe (Pokémon relâché/supprimé jamais retiré de team)', () => {
