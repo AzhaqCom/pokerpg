@@ -16,9 +16,9 @@ import { feedback } from '../components/feedback';
 import { MonThumb } from '../components/MonThumb';
 import { Stars } from '../components/Stars';
 import { TypeBadge } from '../components/TypeBadge';
-import { TYPE_COLOR, monName, monStats, xpProgress } from '../helpers';
+import { TYPE_COLOR, auraDisplay, monName, monStats, xpProgress } from '../helpers';
 import { C } from '../theme';
-import { AURA, spentPoints, talentPoints } from '../../game/talents';
+import { spentPoints, talentPoints } from '../../game/talents';
 
 const BOX_COLS = 4;
 const BOX_GAP = 8;
@@ -92,7 +92,7 @@ export function TeamPanel() {
               const m = s.mons[uid];
               const st = monStats(s, uid);
               const pts = talentPoints(m.level) - spentPoints(m.talents);
-              const aura = AURA[primaryType(m.speciesId)];
+              const auras = auraDisplay(m.speciesId, 1);
               const move = (delta: number) => {
                 const j = i + delta;
                 if (j < 0 || j >= s.team.length) return;
@@ -122,7 +122,7 @@ export function TeamPanel() {
                     </View>
                     <View style={styles.xpTrack}><View style={[styles.xpFill, { width: `${xpProgress(m) * 100}%` }]} /></View>
                     <Text style={styles.stats}>PC {st.cp} · PV {st.hp} · Atq {st.atk} · Déf {st.def} · Vit {st.spe}</Text>
-                    <Text style={styles.aura}>Aura à l'équipe : {aura.label} +{aura.value} %</Text>
+                    <Text style={styles.aura}>Aura à l'équipe : {auras.map((a) => `${a.label} +${a.value} %`).join(' · ')}</Text>
                     <View style={styles.row}>
                       {canEvolve(m) && <Text style={styles.flag}>Peut évoluer</Text>}
                       {pts > 0 && <Text style={[styles.flag, { backgroundColor: '#3d5afe' }]}>{pts} talent{pts > 1 ? 's' : ''}</Text>}

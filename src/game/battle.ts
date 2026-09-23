@@ -14,6 +14,13 @@ export const HP_SCALE = 4;
 const STATUS_TIME: Record<Ailment, number> = { burn: 5, poison: 6, paralysis: 5, sleep: 3, freeze: 3 };
 const BUFF_TIME = 6;
 
+/** Multiplicateur de temps de recharge (Vitesse + `cdrPct`, plafonné à 40 % de réduction) : appliqué à
+ * TOUTES les capacités équipées (et à l'attaque de base), pas seulement en combat — exporté pour que
+ * l'UI puisse afficher le vrai temps de recharge actuel sur la fiche d'un Pokémon (voir `MonSheet`). */
+export function cdFactor(spe: number, cdrPct: number): number {
+  return (100 / (100 + spe)) * (1 - Math.min(40, cdrPct) / 100);
+}
+
 export interface FighterInit {
   id: string;
   side: 0 | 1; // 0 = joueur, 1 = sauvages
@@ -125,7 +132,7 @@ export class Battle {
 
   private cdFactor(f: Fighter) {
     const spe = f.stats.spe * this.statMult(f, 'spe');
-    return (100 / (100 + spe)) * (1 - Math.min(40, f.bonuses.cdrPct) / 100);
+    return cdFactor(spe, f.bonuses.cdrPct);
   }
 
   private tick() {
@@ -262,11 +269,15 @@ export class Battle {
     const atk = f.stats.atk * this.statMult(f, 'atk');
     const def = Math.max(1, tg.stats.def * this.statMult(tg, 'def'));
     let dmg = ((0.4 * f.level + 2) * m.power * (atk / def)) / 50 + 2;
-    const stab = f.types.includes(m.type) ? 1.5 : 1;
-    const eff = typeMultiplier(m.type, tg.types);
+    // l'attaque de base (id 0) est un filet de sécurité neutre : jamais de STAB, jamais 0/×2 via la
+    // table des types (voir `basicAttack` dans data.ts) — sinon elle peut totalement whiffer selon le
+    // matchup, hors du contrôle du joueur, alors qu'elle sert justement quand ses vraies capacités sont
+    // indisponibles.
+    const stab = m.id !== 0 && f.types.includes(m.type) ? 1.5 : 1;
+    const eff = m.id === 0 ? 1 : typeMultiplier(m.type, tg.types);
     const crit = this.rng.int(1000) < Math.min(100, f.stats.crit) * 10;
     let bonus = 1;
-    if (f.types.includes(m.type)) bonus += f.bonuses.typeDmgPct / 100;
+    if (m.id !== 0 && f.types.includes(m.type)) bonus += f.bonuses.typeDmgPct / 100;
     if (m.id === 0) bonus += f.bonuses.basicDmgPct / 100;
     if (m.aoe) bonus += f.bonuses.aoeDmgPct / 100;
     if (tg.status) bonus += f.bonuses.dmgVsStatusPct / 100;

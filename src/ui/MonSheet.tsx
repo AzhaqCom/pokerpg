@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { cdFactor } from '../game/battle';
 import { Move, learnedMoves, move, species } from '../game/data';
 import {
   CANDY_XP, TEAM_SIZE, autoEquipBest, canEvolve, equip, evolve, feedCandy, heldItems, holder, lineBase, rankUpTalent,
@@ -26,11 +27,15 @@ import { C } from './theme';
 const SLOTS: { slot: ItemSlot; label: string }[] = [
   { slot: 'offense', label: 'Offensif' }, { slot: 'defense', label: 'Défensif' }, { slot: 'berry', label: 'Baie' },
 ];
-function moveInfo(m: Move) {
+/** `cdf` : multiplicateur de recharge actuel du Pokémon (`cdFactor` dans `battle.ts`, dépend de sa
+ * Vitesse et de son bonus `cdrPct`) — sans lui, `m.cd` n'est que le temps de base, jamais celui
+ * réellement observé en combat. */
+function moveInfo(m: Move, cdf: number) {
+  const cd = Math.round(m.cd * cdf * 10) / 10;
   switch (m.kind) {
-    case 'damage': return `Puissance ${m.power} · ${m.cd} s${m.aoe ? ' · tous les ennemis' : ''}${m.ailment ? ` · ${m.chance} % ${AIL[m.ailment]}` : ''}`;
-    case 'status': return `${AIL[m.ailment]} · ${m.cd} s`;
-    case 'heal': return `Soigne ${m.heal} % · ${m.cd} s`;
+    case 'damage': return `Puissance ${m.power} · ${cd} s${m.aoe ? ' · tous les ennemis' : ''}${m.ailment ? ` · ${m.chance} % ${AIL[m.ailment]}` : ''}`;
+    case 'status': return `${AIL[m.ailment]} · ${cd} s`;
+    case 'heal': return `Soigne ${m.heal} % · ${cd} s`;
     case 'buff': return `${STAT[m.stat]} +${25 * m.stages} % pendant 6 s`;
     case 'debuff': return `${STAT[m.stat]} de la cible −${Math.abs(25 * m.stages)} %`;
   }
@@ -73,6 +78,7 @@ export function MonSheet() {
 
   const sp = species(mon.speciesId);
   const st = monStats(s, mon.uid);
+  const cdf = cdFactor(st.spe, st.bonuses?.cdrPct ?? 0);
   const inTeam = s.team.includes(mon.uid);
   // uid fantôme (Pokémon relâché/supprimé) jamais nettoyé de l'équipe : compter les membres valides
   // plutôt que s.team.length brut, sinon l'équipe semble pleine alors qu'elle affiche moins de 3.
@@ -157,7 +163,7 @@ export function MonSheet() {
                   <Text style={styles.moveIdx}>{i + 1}</Text>
                   <View style={{ flex: 1 }}>
                     <View style={styles.row}><Text style={styles.moveName}>{m.name}</Text><TypeBadge type={m.type} small /></View>
-                    <Text style={styles.moveInfo}>{moveInfo(m)}</Text>
+                    <Text style={styles.moveInfo}>{moveInfo(m, cdf)}</Text>
                   </View>
                   <Pressable onPress={() => moveUp(i)} hitSlop={6}><Text style={styles.icon}>▲</Text></Pressable>
                   <Pressable onPress={() => act((g) => setMoves(g, mon.uid, mon.moves.filter((x) => x !== id)))} hitSlop={6}><Text style={styles.icon}>✕</Text></Pressable>
@@ -172,7 +178,7 @@ export function MonSheet() {
                 <View key={id} style={styles.moveRow}>
                   <View style={{ flex: 1 }}>
                     <View style={styles.row}><Text style={styles.moveName}>{m.name}</Text><TypeBadge type={m.type} small /></View>
-                    <Text style={styles.moveInfo}>{moveInfo(m)}</Text>
+                    <Text style={styles.moveInfo}>{moveInfo(m, cdf)}</Text>
                   </View>
                   <Button small label={mon.moves.length >= 4 ? 'Plein' : 'Équiper'} disabled={mon.moves.length >= 4}
                     onPress={() => act((g) => setMoves(g, mon.uid, [...mon.moves, id]))} />

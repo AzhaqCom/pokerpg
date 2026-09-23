@@ -327,3 +327,31 @@ y compris la simulation d'équilibrage bout en bout) :
   **exactement** sur le biome 1 plutôt que sur la 11e marche d'une progression continue. Sous-stats
   (`SUB_BASE`) vérifiées déjà bien équilibrées (score 2.4–3.2 selon la stat) : aucun changement nécessaire.
   Simulation d'équilibrage complète relancée après coup (~8 min) : toujours dans la fourchette attendue.
+
+---
+
+## Fait — suite du 2026-09-23 (4e partie : temps de recharge réel affiché, attaque de base, aura bi-type)
+
+- **Temps de recharge réel affiché** à côté de chaque capacité sur la fiche Pokémon (`MonSheet.tsx`) :
+  `m.cd` seul n'était que la base, jamais ce qui se passe vraiment en combat une fois Vitesse et
+  `cdrPct` appliqués. `cdFactor(spe, cdrPct)` exporté de `battle.ts` pour que l'UI puisse le recalculer
+  hors combat (`(100/(100+Vitesse)) × (1 − min(40%, Recharge))` — la Vitesse à elle seule fait souvent
+  l'essentiel de la réduction, pas juste le bonus « Recharge »).
+- **Attaque de base (`basicAttack`)** : tentative de lui donner le type principal du Pokémon (au lieu de
+  Normal fixe) pour corriger le cas où elle fait 0 dégâts contre un Spectre (Normal → Spectre = ×0) —
+  **abandonnée après coup** : ça a cassé la simulation d'équilibrage dès le tout début de partie (même le
+  1er badge n'était plus atteint sur certaines graines), parce que l'attaque de base est utilisée bien
+  plus souvent qu'il n'y paraît en tout début de partie (peu de capacités encore apprises), et selon le
+  matchup elle devenait parfois *pire* qu'avant (ex. starter Eau contre repaire Plante : ×0.5 au lieu de
+  ×1 neutre). Solution retenue à la place : l'attaque de base (`m.id === 0`) est désormais **neutre par
+  construction** dans `damage()` — jamais de STAB, jamais ×0/×2 via la table des types, quel que soit le
+  Pokémon ou l'adversaire. Un vrai filet de sécurité qui ne peut plus totalement rater. Toujours vérifier
+  la simulation longue après tout changement touchant `battle.ts`, même un changement qui semble mineur.
+- **Aura bi-type** (`auraBonuses` dans `stats.ts`) : un Pokémon à deux types donnait avant sa pleine aura
+  du seul type principal, le 2e type n'ayant jamais d'effet (retour d'Arno sur Roucoups Normal/Vol, qui
+  ne donnait que PV +3 % sans jamais toucher à Vitesse). Donne désormais les deux auras, chacune divisée
+  par 2 (même ordre de grandeur total qu'un mono-type) ; même règle en pension/exploration (déjà à moitié,
+  la division bi-type s'applique en plus). Affichage (`auraDisplay` dans `ui/helpers.ts`) mis à jour dans
+  `TeamPanel`/`ExplorationPanel` pour lister les deux auras. Trouvaille en passant : un seul Pokémon du
+  jeu est Vol pur dans les données (Togetic) — vraisemblablement une erreur de génération, Togepi/Togetic
+  sont Normal pur dans les vrais jeux Gen 2 (le Vol n'arrive qu'en Gen 6) ; non corrigé, hors périmètre.

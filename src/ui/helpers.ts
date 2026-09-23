@@ -3,6 +3,7 @@ import { GameState, allyFighter } from '../game/game';
 import { Mon } from '../game/model';
 import { combatPower } from '../game/stats';
 import { xpForLevel } from '../game/stats';
+import { AURA } from '../game/talents';
 
 export const TYPE_COLOR: Record<PType, string> = {
   normal: '#9e9e7a', fire: '#f0803c', water: '#6890f0', grass: '#78c850', electric: '#f8d030', ice: '#98d8d8',
@@ -24,3 +25,14 @@ export function xpProgress(m: Mon) {
 }
 
 export const typeLabel = (t: PType) => TYPE_NAME[t];
+
+/**
+ * Aura(s) données à l'équipe par un Pokémon, pour l'affichage (même règle que `auraBonuses` dans
+ * `stats.ts`) : `factor` = 1 en équipe, 0.5 en pension/exploration ; un bi-type donne les 2 auras
+ * (une par type), chacune divisée par 2.
+ */
+export function auraDisplay(speciesId: number, factor: number): { label: string; value: number }[] {
+  const types = species(speciesId).types;
+  const share = types.length > 1 ? factor / 2 : factor;
+  return types.map((t) => ({ label: AURA[t].label, value: Math.round(AURA[t].value * share * 10) / 10 }));
+}

@@ -7,6 +7,26 @@ import { C } from './theme';
 
 const TYPES = Object.keys(TYPE_COLOR) as PType[];
 
+/** Ce que fait concrètement chaque stat (objets, talents, auras) — voir `battle.ts`/`stats.ts` pour le
+ * détail exact des formules. */
+const STAT_EXPLAIN: [label: string, text: string][] = [
+  ['Attaque', 'Dégâts de toutes les capacités.'],
+  ['Défense', 'Réduit les dégâts subis.'],
+  ['PV', 'Points de vie maximum.'],
+  ['Vitesse', 'Agit plus souvent : réduit le temps de recharge de TOUTES les capacités équipées (voir Recharge, l’effet se cumule).'],
+  ['Critique', 'Chance de coup critique (×1.5 dégâts de base).'],
+  ['Dégâts critiques', 'Multiplicateur des coups critiques, en plus du ×1.5 de base.'],
+  ['Dégâts de son type', 'Bonus sur les capacités du même type que le Pokémon (en plus du STAB déjà inclus dans la formule de base).'],
+  ['Attaque de base', 'Bonus uniquement sur l’attaque de secours utilisée quand aucune capacité équipée n’est prête (neutre, jamais 0 ni doublée par la table des types).'],
+  ['Dégâts de zone', 'Bonus sur les capacités qui touchent tous les ennemis à la fois — inutile sur un Pokémon sans capacité de zone dans son movepool.'],
+  ['Dégâts vs statut', 'Bonus si la cible est déjà sous un statut (brûlure, poison, sommeil…).'],
+  ['Chance de statut', 'Chance en plus d’infliger un statut sur les capacités qui en proposent un.'],
+  ['Recharge', 'Réduit le temps de recharge de toutes les capacités équipées, plafonné à 40 % (s’ajoute à l’effet de la Vitesse).'],
+  ['Esquive', 'Chance d’éviter totalement une capacité de dégâts adverse.'],
+  ['Vol de vie', 'Soigne le Pokémon d’une part des dégâts qu’il inflige.'],
+  ['Affinité (type choisi)', 'Bonus de dégâts sur un type choisi (talents palier 4-5), en plus de ses propres types.'],
+];
+
 /** Modale d'aide (ouverte depuis les Réglages) : tableaux récapitulatifs des auras et des talents
  * spécifiques à chaque type, pour ne pas avoir à rouvrir 16 fiches Pokémon pour comparer. */
 export function HelpScreen({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -17,6 +37,13 @@ export function HelpScreen({ open, onClose }: { open: boolean; onClose: () => vo
         <View style={styles.box}>
           <Text style={styles.title}>Aide</Text>
           <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ gap: 18 }}>
+            <View style={{ gap: 8 }}>
+              <Text style={styles.section}>Que fait chaque stat ?</Text>
+              {STAT_EXPLAIN.map(([label, text]) => (
+                <Text key={label} style={styles.hint}><Text style={styles.statLabel}>{label}</Text> — {text}</Text>
+              ))}
+            </View>
+
             <View style={{ gap: 8 }}>
               <Text style={styles.section}>Auras par type</Text>
               <Text style={styles.hint}>
@@ -82,6 +109,7 @@ const styles = StyleSheet.create({
   title: { color: C.text, fontSize: 20, fontWeight: '900' },
   section: { color: C.gold, fontSize: 15, fontWeight: '800' },
   hint: { color: C.dim, fontSize: 12, lineHeight: 17 },
+  statLabel: { color: C.text, fontWeight: '800' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   cell: { color: C.text, fontSize: 12, flex: 1 },
   close: { backgroundColor: C.panel2, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },

@@ -45,7 +45,11 @@ export function move(id: number): Move {
   return m;
 }
 
-/** Attaque de base : puissance 40, type Normal (neutre partout sauf Roche/Spectre). */
+/** Attaque de base : puissance 40. Type Normal purement indicatif — `battle.ts` la traite comme
+ * neutre partout (jamais de STAB, jamais 0/×2 via la table des types) : un vrai filet de sécurité qui
+ * ne doit jamais totalement whiffer selon le matchup (testé : lier son type au Pokémon semblait plus
+ * thématique mais cassait l'équilibrage dès le tout début de partie, quand l'attaque de base est encore
+ * très utilisée faute d'assez de capacités apprises). */
 export function basicAttack(): Move {
   return { id: 0, slug: 'basic', name: 'Attaque', type: 'normal', cd: 1.5, aoe: false, kind: 'damage', power: 40 };
 }

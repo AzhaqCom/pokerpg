@@ -19,11 +19,21 @@ export function primaryType(speciesId: number): PType {
   return species(speciesId).types[0];
 }
 
-/** Auras d'équipe : pleine pour chaque membre de l'équipe, moitié pour la pension. */
+/**
+ * Auras d'équipe : pleine pour chaque membre de l'équipe, moitié pour la pension/exploration. Un
+ * Pokémon bi-type donne les deux auras (une par type), chacune divisée par 2 — le total reste du même
+ * ordre de grandeur qu'un mono-type (qui donne sa seule aura à taux plein), sans que le 2e type soit
+ * ignoré comme avant (seul le type principal comptait).
+ */
 export function auraBonuses(teamSpecies: number[], pensionSpecies: number[]): BattleBonuses {
   const b = emptyBonuses();
-  for (const id of teamSpecies) { const a = AURA[primaryType(id)]; b[a.stat] += a.value; }
-  for (const id of pensionSpecies) { const a = AURA[primaryType(id)]; b[a.stat] += a.value / 2; }
+  const apply = (id: number, factor: number) => {
+    const types = species(id).types;
+    const share = types.length > 1 ? factor / 2 : factor;
+    for (const t of types) { const a = AURA[t]; b[a.stat] += a.value * share; }
+  };
+  for (const id of teamSpecies) apply(id, 1);
+  for (const id of pensionSpecies) apply(id, 0.5);
   return b;
 }
 

@@ -1,15 +1,14 @@
 import { useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { PENSION_CAP_MS, SHARDS_PER_MIN, assignExploration, explorationReady, explorationSlots, harvestExploration, removeExploration } from '../../game/game';
-import { AURA } from '../../game/talents';
-import { monStars, primaryType } from '../../game/stats';
+import { monStars } from '../../game/stats';
 import { useGame } from '../../store/game';
 import { toast } from '../../store/ui';
 import { Button } from '../components/Button';
 import { MonThumb } from '../components/MonThumb';
 import { Stars } from '../components/Stars';
 import { feedback } from '../components/feedback';
-import { monName } from '../helpers';
+import { auraDisplay, monName } from '../helpers';
 import { C } from '../theme';
 import { useFrameClock } from '../useFrameClock';
 
@@ -50,7 +49,7 @@ export function ExplorationPanel() {
         const elapsed = Math.min(now - p.since, PENSION_CAP_MS);
         const readyShards = Math.floor(elapsed / 60_000) * SHARDS_PER_MIN;
         const full = now - p.since >= PENSION_CAP_MS;
-        const aura = AURA[primaryType(m.speciesId)];
+        const auras = auraDisplay(m.speciesId, 0.5);
         return (
           <View key={p.uid} style={styles.card}>
             <MonThumb speciesId={m.speciesId} shiny={m.shiny} size={46} />
@@ -60,7 +59,7 @@ export function ExplorationPanel() {
                 <Stars mon={m} />
               </View>
               <Text style={styles.sub}>{full ? 'Plein : récolte !' : `+${readyShards} éclats prêts · plein dans ${fmt(PENSION_CAP_MS - elapsed)}`}</Text>
-              <Text style={styles.aura}>Aura : {aura.label} +{aura.value / 2} %</Text>
+              <Text style={styles.aura}>Aura : {auras.map((a) => `${a.label} +${a.value} %`).join(' · ')}</Text>
             </View>
             <Button small label="Retirer" onPress={() => act((g) => removeExploration(g, p.uid))} />
           </View>
@@ -84,13 +83,13 @@ export function ExplorationPanel() {
               windowSize={5}
               removeClippedSubviews
               renderItem={({ item: m }) => {
-                const aura = AURA[primaryType(m.speciesId)];
+                const auras = auraDisplay(m.speciesId, 0.5);
                 return (
                   <Pressable style={styles.card} onPress={() => { act((g) => assignExploration(g, m.uid)); setPick(false); feedback(); }}>
                     <MonThumb speciesId={m.speciesId} shiny={m.shiny} size={40} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.name}>{monName(m)} Nv.{m.level}</Text>
-                      <Text style={styles.aura}>Aura à l'équipe : {aura.label} +{aura.value / 2} %</Text>
+                      <Text style={styles.aura}>Aura à l'équipe : {auras.map((a) => `${a.label} +${a.value} %`).join(' · ')}</Text>
                     </View>
                     <Stars mon={m} />
                   </Pressable>
