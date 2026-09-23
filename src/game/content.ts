@@ -318,19 +318,21 @@ export const BIOMES: BiomeDef[] = [
     name: 'Route des Cieux',
     zones: [
       {
+        // Starters Johto (STARTERS2) en rencontre très rare dès la 1re zone, comme les starters Kanto
+        // en biome 2 : sans ça, indisponibles pour qui n'a pas choisi cette lignée au prestige.
         name: 'Sentier des Roseaux', minLv: 5, maxLv: 9, biome: 'meadow',
-        pool: [[187, 30], [41, 25], [16, 30], [163, 25]],
+        pool: [[187, 25], [41, 25], [16, 25], [163, 20], [152, 5], [155, 5], [158, 5], [1, 5], [4, 5], [7, 5]],
         boss: { speciesId: 21, level: 10 },
       },
       {
         name: 'Falaise aux Vents', minLv: 9, maxLv: 14, biome: 'meadow',
-        pool: [[165, 25], [21, 20], [177, 20], [84, 20], [188, 15]],
+        pool: [[165, 25], [21, 20], [177, 20], [84, 15], [188, 10], [207, 10], [29, 10], [32, 10]],
         boss: { speciesId: 225, level: 15 },
       },
       {
         name: 'Cimes de Ver-de-Gris', minLv: 14, maxLv: 19, biome: 'meadow',
-        pool: [[17, 25], [83, 20], [176, 15], [166, 15], [198, 15], [193, 10]],
-        boss: { speciesId: 249, level: 20, joinsPool: true },
+        pool: [[17, 25], [83, 20], [176, 15], [166, 15], [198, 10], [193, 10], [169, 5]],
+        boss: { speciesId: 18, level: 20 },
       },
     ],
     arena: {
@@ -345,17 +347,17 @@ export const BIOMES: BiomeDef[] = [
     zones: [
       {
         name: 'Lisière Grouillante', minLv: 19, maxLv: 22, biome: 'forest',
-        pool: [[14, 30], [11, 30], [10, 25], [13, 25]],
+        pool: [[14, 25], [11, 25], [10, 20], [13, 20], [190, 10], [46, 15], [43, 10]],
         boss: { speciesId: 46, level: 22 },
       },
       {
         name: 'Clairière aux Cocons', minLv: 22, maxLv: 26, biome: 'forest',
-        pool: [[167, 25], [204, 25], [48, 20], [213, 20], [168, 10]],
+        pool: [[167, 20], [204, 20], [48, 20], [213, 15], [168, 10], [216, 15], [69, 10], [102, 10]],
         boss: { speciesId: 47, level: 26 },
       },
       {
         name: 'Cœur de la Forêt', minLv: 26, maxLv: 30, biome: 'forest',
-        pool: [[166, 25], [193, 20], [12, 20], [15, 15], [205, 10], [49, 10]],
+        pool: [[166, 20], [193, 15], [12, 15], [15, 15], [205, 10], [49, 10], [234, 15], [114, 10], [123, 5], [127, 5]],
         boss: { speciesId: 212, level: 30 },
       },
     ],
@@ -370,18 +372,19 @@ export const BIOMES: BiomeDef[] = [
     name: 'Prairies de Doré',
     zones: [
       {
+        // Route 34 (Day Care) canon, juste à côté de Doré/Goldenrod : Pichu y trouve sa place.
         name: 'Champs de Doré', minLv: 30, maxLv: 31, biome: 'meadow',
-        pool: [[161, 25], [173, 20], [175, 20], [174, 20], [16, 15]],
+        pool: [[161, 20], [173, 20], [175, 20], [174, 15], [16, 15], [172, 5], [191, 5], [39, 15], [25, 5]],
         boss: { speciesId: 39, level: 31 },
       },
       {
         name: 'Ferme Laitière', minLv: 31, maxLv: 33, biome: 'meadow',
-        pool: [[19, 25], [52, 20], [209, 15], [35, 15], [133, 15], [84, 10]],
+        pool: [[19, 20], [52, 20], [209, 15], [35, 15], [133, 10], [84, 5], [182, 10], [235, 5], [108, 10], [115, 5]],
         boss: { speciesId: 162, level: 33 },
       },
       {
         name: 'Verger Paisible', minLv: 33, maxLv: 35, biome: 'meadow',
-        pool: [[20, 25], [203, 20], [53, 20], [210, 15], [36, 10], [164, 10]],
+        pool: [[20, 20], [203, 20], [53, 15], [210, 15], [36, 10], [164, 10], [206, 5], [242, 5], [143, 5], [113, 5], [128, 10], [132, 5]],
         boss: { speciesId: 143, level: 35 },
       },
     ],
@@ -400,17 +403,17 @@ export const BIOMES: BiomeDef[] = [
     zones: [
       {
         name: 'Rez-de-Tour', minLv: 35, maxLv: 37, biome: 'temple',
-        pool: [[92, 30], [200, 20], [185, 20], [201, 15], [93, 10], [199, 5]],
+        pool: [[92, 25], [200, 20], [185, 20], [201, 15], [93, 10], [199, 5], [196, 5], [63, 10]],
         boss: { speciesId: 93, level: 38 },
       },
       {
         name: 'Étages Hantés', minLv: 37, maxLv: 39, biome: 'temple',
-        pool: [[93, 30], [200, 15], [201, 20], [185, 15], [199, 10], [94, 10]],
+        pool: [[93, 25], [200, 15], [201, 20], [185, 15], [199, 10], [94, 10], [202, 5], [96, 10]],
         boss: { speciesId: 93, level: 40 },
       },
       {
         name: 'Sommet de la Tour', minLv: 39, maxLv: 42, biome: 'temple',
-        pool: [[93, 15], [94, 30], [200, 10], [199, 20], [201, 15], [185, 10]],
+        pool: [[93, 15], [94, 30], [200, 10], [199, 20], [201, 15], [185, 10], [122, 5]],
         boss: { speciesId: 94, level: 42 },
       },
     ],
@@ -426,17 +429,17 @@ export const BIOMES: BiomeDef[] = [
     zones: [
       {
         name: 'Cour d’Entraînement', minLv: 42, maxLv: 47, biome: 'temple',
-        pool: [[236, 30], [66, 30], [56, 25], [67, 15]],
+        pool: [[236, 30], [66, 30], [56, 25], [67, 15], [27, 10], [50, 10]],
         boss: { speciesId: 57, level: 47 },
       },
       {
         name: 'Salle des Katas', minLv: 47, maxLv: 52, biome: 'temple',
-        pool: [[237, 25], [107, 25], [106, 20], [62, 15], [68, 15]],
+        pool: [[237, 25], [107, 25], [106, 20], [62, 15], [68, 15], [74, 10], [95, 5]],
         boss: { speciesId: 68, level: 52 },
       },
       {
         name: 'Antichambre du Maître', minLv: 52, maxLv: 58, biome: 'temple',
-        pool: [[214, 25], [57, 20], [68, 20], [107, 15], [62, 10], [237, 10]],
+        pool: [[214, 25], [57, 20], [68, 20], [107, 15], [62, 10], [237, 10], [104, 10], [111, 10]],
         boss: { speciesId: 62, level: 58 },
       },
     ],
@@ -456,17 +459,17 @@ export const BIOMES: BiomeDef[] = [
     zones: [
       {
         name: 'Base du Phare', minLv: 58, maxLv: 59, biome: 'cave',
-        pool: [[205, 25], [227, 20], [179, 20], [75, 15], [212, 10], [180, 10]],
+        pool: [[205, 25], [227, 20], [179, 20], [75, 15], [212, 10], [180, 10], [81, 15]],
         boss: { speciesId: 227, level: 60 },
       },
       {
         name: 'Escalier de Fer', minLv: 59, maxLv: 61, biome: 'cave',
-        pool: [[212, 25], [208, 15], [180, 20], [227, 15], [75, 15], [179, 10]],
+        pool: [[212, 25], [208, 15], [180, 20], [227, 15], [75, 15], [179, 10], [100, 10], [125, 5]],
         boss: { speciesId: 212, level: 61 },
       },
       {
         name: 'Sommet du Phare', minLv: 61, maxLv: 63, biome: 'cave',
-        pool: [[208, 25], [212, 20], [227, 15], [180, 20], [75, 10], [179, 10]],
+        pool: [[208, 25], [212, 20], [227, 15], [180, 20], [75, 10], [179, 10], [135, 5], [137, 5], [142, 5]],
         boss: { speciesId: 208, level: 63 },
       },
     ],
@@ -482,18 +485,20 @@ export const BIOMES: BiomeDef[] = [
     zones: [
       {
         name: 'Entrée Givrée', minLv: 63, maxLv: 65, biome: 'cave',
-        pool: [[220, 30], [238, 30], [225, 20], [87, 20]],
+        pool: [[220, 30], [238, 30], [225, 20], [87, 20], [86, 15], [54, 10], [72, 10]],
         boss: { speciesId: 91, level: 66 },
       },
       {
+        // Légendaires (Gen 1 et 2) regroupés sur les 4 derniers biomes Johto (Nv.63→100), en boss
+        // `joinsPool` : ils rejoignent le pool de leur zone une fois vaincus (farm/chromatique).
         name: 'Galerie de Glace', minLv: 65, maxLv: 67, biome: 'cave',
-        pool: [[221, 30], [91, 25], [215, 20], [124, 15], [131, 10]],
-        boss: { speciesId: 124, level: 68 },
+        pool: [[221, 30], [91, 25], [215, 20], [124, 15], [131, 10], [79, 10], [90, 10]],
+        boss: { speciesId: 245, level: 68, joinsPool: true },
       },
       {
         name: 'Lac Souterrain Gelé', minLv: 67, maxLv: 70, biome: 'cave',
-        pool: [[131, 30], [221, 20], [124, 15], [215, 15]],
-        boss: { speciesId: 131, level: 70 },
+        pool: [[131, 30], [221, 20], [124, 15], [215, 15], [98, 10], [120, 10]],
+        boss: { speciesId: 144, level: 70, joinsPool: true },
       },
     ],
     arena: {
@@ -510,18 +515,18 @@ export const BIOMES: BiomeDef[] = [
     zones: [
       {
         name: 'Rivière aux Dragonneaux', minLv: 70, maxLv: 71, biome: 'water',
-        pool: [[147, 30], [230, 20], [134, 20], [141, 15], [148, 10], [139, 5]],
-        boss: { speciesId: 148, level: 72 },
+        pool: [[147, 25], [230, 20], [134, 15], [141, 15], [148, 10], [139, 5], [170, 5], [183, 5], [60, 10], [118, 10], [129, 10]],
+        boss: { speciesId: 145, level: 72, joinsPool: true },
       },
       {
         name: 'Bassin Sacré', minLv: 71, maxLv: 73, biome: 'water',
-        pool: [[148, 30], [230, 20], [139, 15], [134, 15], [147, 10], [141, 10]],
-        boss: { speciesId: 148, level: 73 },
+        pool: [[148, 25], [230, 20], [139, 10], [134, 15], [147, 10], [141, 10], [194, 5], [223, 5], [116, 10], [140, 5]],
+        boss: { speciesId: 146, level: 73, joinsPool: true },
       },
       {
         name: 'Antre de Rosalia', minLv: 73, maxLv: 75, biome: 'water',
-        pool: [[148, 25], [149, 20], [230, 20], [141, 15], [139, 10], [134, 10]],
-        boss: { speciesId: 149, level: 75 },
+        pool: [[148, 20], [149, 20], [230, 15], [141, 15], [139, 10], [134, 10], [222, 10], [138, 5]],
+        boss: { speciesId: 249, level: 75, joinsPool: true },
       },
     ],
     arena: {
@@ -539,18 +544,18 @@ export const BIOMES: BiomeDef[] = [
     zones: [
       {
         name: 'Antichambre Obscure', minLv: 75, maxLv: 79, biome: 'cave',
-        pool: [[228, 20], [198, 20], [246, 20], [215, 15], [197, 15], [229, 10]],
-        boss: { speciesId: 229, level: 80 },
+        pool: [[228, 20], [198, 20], [246, 20], [215, 15], [197, 15], [229, 10], [23, 10]],
+        boss: { speciesId: 243, level: 80, joinsPool: true },
       },
       {
         name: 'Couloir des Ombres', minLv: 79, maxLv: 83, biome: 'cave',
-        pool: [[229, 20], [197, 20], [247, 20], [215, 15], [198, 15], [228, 10]],
-        boss: { speciesId: 197, level: 84 },
+        pool: [[229, 20], [197, 20], [247, 20], [215, 15], [198, 15], [228, 10], [88, 10]],
+        boss: { speciesId: 244, level: 84, joinsPool: true },
       },
       {
         name: 'Trône de Carla', minLv: 83, maxLv: 87, biome: 'cave',
-        pool: [[248, 20], [229, 20], [197, 15], [247, 15], [246, 15], [215, 15]],
-        boss: { speciesId: 248, level: 87 },
+        pool: [[248, 20], [229, 20], [197, 15], [247, 15], [246, 15], [215, 15], [109, 10]],
+        boss: { speciesId: 150, level: 87, joinsPool: true },
       },
     ],
     arena: {
@@ -561,22 +566,25 @@ export const BIOMES: BiomeDef[] = [
     },
   },
   {
-    // Nv.87→100 — Champion Johto, capstone Ho-Oh.
+    // Nv.87→100 — Champion Johto, capstone Ho-Oh. Zone « mixte » (pas de dominante stricte) : sert aussi
+    // de repli pour les espèces sans zone de leur type à Johto (Feu, Sol, Porygon2…). La Carte masque
+    // Kanto après le prestige (voir MapPanel) : tout le Pokédex (Kanto compris) doit être obtenable dans
+    // les biomes Johto.
     name: 'Plateau Doré',
     zones: [
       {
         name: 'Antichambre Dorée', minLv: 87, maxLv: 91, biome: 'temple',
-        pool: [[241, 30], [217, 30], [209, 20], [210, 20]],
-        boss: { speciesId: 232, level: 92 },
+        pool: [[241, 25], [217, 25], [209, 15], [210, 15], [231, 10], [239, 10], [37, 10], [58, 10]],
+        boss: { speciesId: 251, level: 92, joinsPool: true },
       },
       {
         name: 'Galerie des Champions', minLv: 91, maxLv: 95, biome: 'temple',
-        pool: [[224, 30], [211, 30], [171, 20], [186, 20]],
-        boss: { speciesId: 226, level: 96 },
+        pool: [[224, 20], [211, 20], [171, 15], [186, 15], [226, 10], [218, 10], [240, 10], [77, 10], [126, 5]],
+        boss: { speciesId: 151, level: 96, joinsPool: true },
       },
       {
         name: 'Sanctuaire de Ho-Oh', minLv: 95, maxLv: 99, biome: 'temple',
-        pool: [[157, 30], [160, 30], [154, 20], [181, 20]],
+        pool: [[157, 25], [160, 25], [154, 20], [181, 20], [233, 10], [136, 5]],
         boss: { speciesId: 250, level: 99, joinsPool: true },
       },
     ],
