@@ -2,7 +2,7 @@
  * Joueur automatique : sert aux tests d'équilibrage (simulation de la V1
  * complète, du starter au badge). Joue « raisonnablement bien ».
  */
-import { BIOMES, STARTERS, STARTERS2 } from './content';
+import { BIOMES, STARTERS, regionOf } from './content';
 import {
   GameState, StageRun, arenaAvailable, bossAvailable, canEvolve, canPrestige, chooseStarter, equip, evolve, fuseItems,
   fusionCandidates, heldItems, newGame, rankUpTalent, recycle, setTeam, startPrestige, tryCapture, holder,
@@ -99,11 +99,12 @@ export function simulate(rng: Rng, maxSeconds = 6 * 3600, trace?: string[]): Sim
     manage(s, rng);
     // 5 Poké Balls gratuites par « jour » de jeu simulé : 1 fois par heure de jeu ici
     if (Math.floor(t / 3600) > Math.floor((t - 60) / 3600)) s.balls.poke += 5;
-    // un joueur efficace lance le prestige dès qu'il le peut (Champion Kanto + Pokédex complet)
+    // un joueur efficace lance le prestige dès qu'il le peut (Champion de la région + Pokédex complet)
     if (canPrestige(s)) {
       startPrestige(s);
-      mark('prestige');
-      chooseStarter(s, STARTERS2[rng.int(3)], rng);
+      mark(s.prestige === 1 ? 'prestige' : `prestige${s.prestige}`);
+      const starters = regionOf(s.prestige).starters;
+      chooseStarter(s, starters[rng.int(starters.length)], rng);
     }
   }
   return {

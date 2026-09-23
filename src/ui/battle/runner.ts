@@ -5,7 +5,7 @@
  */
 import { sfx } from '../../audio/sfx';
 import { BattleEvent } from '../../game/battle';
-import { BIOMES, PRESTIGE_BIOME } from '../../game/content';
+import { BIOMES, REGION_START } from '../../game/content';
 import { species } from '../../game/data';
 import {
   BETWEEN_WAVES_MS, CaptureOffer, StageKind, StageRun, WaveRewards, arenaAvailable, autoCaptureBall, bestStarsOf, bossAvailable,
@@ -122,9 +122,9 @@ class Runner {
         if (run.kind === 'boss') { sfx('medal'); toast(`${species(BIOMES[run.biome].zones[run.zone].boss.speciesId).name} vaincu !`, '#ffb300'); }
         else if (run.kind === 'arena') {
           sfx('evolve');
-          // Champion Kanto : on coupe l'enchaînement automatique vers Johto — le joueur doit d'abord
-          // voir le récap et choisir explicitement le nouveau départ (voir App.tsx/PrestigeOffer).
-          if (run.biome === PRESTIGE_BIOME - 1) this.paused = true;
+          // Champion d'une région : on coupe l'enchaînement automatique vers la suivante — le joueur doit
+          // d'abord voir le récap et choisir explicitement le nouveau départ (voir App.tsx/PrestigeOffer).
+          if (REGION_START.includes(run.biome + 1)) this.paused = true;
           else if (s.badges === 1) {
             // 1er vrai badge de la partie : la vitesse ×2 n'a de sens qu'ici, on l'active d'office plutôt
             // que de laisser le joueur découvrir un bouton caché dans le HUD.

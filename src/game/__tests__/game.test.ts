@@ -1,4 +1,4 @@
-import { BIOMES, STAGES_PER_ZONE } from '../content';
+import { BIOMES, REGION_START, REGIONS, STAGES_PER_ZONE, regionLastBiome } from '../content';
 import { ALL_SPECIES } from '../data';
 import {
   GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, applyMegaCandy, craftMegaCandy, lineBase, arenaAvailable, assignExploration, assignPension, autoCaptureBall, autoEquipBest, bestStarsOf, biomeAvailable, bossAvailable,
@@ -175,6 +175,12 @@ test('prestige : indisponible tant que le Champion Kanto n’est pas battu, puis
   expect(s.prestige).toBe(1);
   expect(s.dex).toEqual({ seen: [], caught: [], shiny: [] }); // Pokédex remis à zéro (1/251 après le starter)
   expect(canPrestige(s)).toBe(false); // ne se relance pas une 2e fois
+
+  // Johto : même règle, Champion de Johto (dernier biome de la région) + Pokédex cumulé (251) vu →
+  // prestige vers la région suivante déclarée dans REGIONS (Hoenn), s'il y en a une.
+  s.arenaBeaten[regionLastBiome(s.prestige)] = true;
+  for (let id = 1; id <= 251; id++) s.dex.seen.push(id);
+  expect(canPrestige(s)).toBe(REGIONS.length > 2);
 });
 
 test('méga bonbons : 30 bonbons de la lignée → 1 méga bonbon, +1 à un gène d’un Pokémon de la lignée, plafond 15', () => {
@@ -228,9 +234,9 @@ test('migrateSave : nettoie les uid fantômes de l’équipe (Pokémon relâché
  * démarrer pile là où le précédent finit — sinon toute la suite de la courbe dérive.
  */
 const DOCUMENTED_END_LEVELS = [18, 30, 35, 43, 61, 66, 73, 78, 90, 100];
-/** Indices de biome qui redémarrent une courbe de niveau à zéro (repartir en Johto « prestige » après
- * avoir fini Kanto) : la continuité avec le biome précédent ne s'applique pas à ceux-là. */
-const RESET_BOUNDARIES = new Set([10]);
+/** Indices de biome qui redémarrent une courbe de niveau à zéro (premier biome de chaque région de prestige,
+ * après avoir fini la région précédente) : la continuité avec le biome précédent ne s'applique pas à ceux-là. */
+const RESET_BOUNDARIES = new Set(REGION_START.slice(1));
 
 test('courbe de niveau : chaque biome codé monte jusqu’au niveau documenté dans BIOMES.md, sans rupture avec le suivant', () => {
   BIOMES.forEach((b, i) => {
@@ -304,18 +310,24 @@ test('un combat de boss n’est jamais chromatique, qu’il rejoigne le pool ens
   expect(classicWaves[0][0].mon.shiny).toBe(false);
 });
 
-test('les 151 espèces sont farmables en chromatique une fois les 10 biomes codés : 81 formes de base/sans ' +
-  'évolution, toutes en rencontre sauvage OU boss qui rejoint le pool (un boss classique n’est jamais chromatique)', () => {
-  const kanto = ALL_SPECIES.filter((s) => s.id <= 151); // Johto (152-251) n'a pas encore de biomes
-  const targets = new Set(kanto.filter((s) => s.evolvesTo).map((s) => s.evolvesTo));
-  const mustPlace = kanto.filter((s) => !targets.has(s.id)).map((s) => s.id);
-  const wildPool = new Set(BIOMES.flatMap((b) => b.zones.flatMap((z) => z.pool.map(([id]) => id))));
-  const poolBosses = new Set(
-    BIOMES.flatMap((b) => b.zones.filter((z) => z.boss.joinsPool).map((z) => z.boss.speciesId)),
-  );
-  const missing = mustPlace.filter((id) => !wildPool.has(id) && !poolBosses.has(id));
-  expect(missing).toEqual([]);
-});
+test.each(REGIONS.map((r, i) => [r.name, i] as const))(
+  'couverture %s : tout le Pokédex cumulé est obtenable (et chromatisable) dans les seuls biomes de la région',
+  (_name, p) => {
+    // la Carte masque les régions précédentes après un prestige : chaque région doit se suffire à
+    // elle-même. On ne place que les formes de base / sans évolution, les évolutions par niveau suivent.
+    const region = REGIONS[p];
+    const biomes = BIOMES.slice(region.start, REGIONS[p + 1]?.start ?? BIOMES.length);
+    const dex = ALL_SPECIES.filter((s) => s.id <= region.dexMax);
+    const targets = new Set(dex.filter((s) => s.evolvesTo).map((s) => s.evolvesTo));
+    const mustPlace = dex.filter((s) => !targets.has(s.id)).map((s) => s.id);
+    const wildPool = new Set(biomes.flatMap((b) => b.zones.flatMap((z) => z.pool.map(([id]) => id))));
+    const poolBosses = new Set(biomes.flatMap((b) => b.zones.filter((z) => z.boss.joinsPool).map((z) => z.boss.speciesId)));
+    expect(mustPlace.filter((id) => !wildPool.has(id) && !poolBosses.has(id))).toEqual([]);
+    // et rien d'une génération suivante (pas de fuite vers une région pas encore débloquée)
+    const used = biomes.flatMap((b) => [...b.zones.flatMap((z) => [...z.pool.map(([id]) => id), z.boss.speciesId]), ...b.arena.team.map(([id]) => id)]);
+    expect(used.filter((id) => id > region.dexMax)).toEqual([]);
+  },
+);
 
 test('effectivePool : le boss rejoint le pool sauvage une fois vaincu, pas avant', () => {
   const zone = BIOMES[8].zones[1]; // Artikodin (joinsPool)

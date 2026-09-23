@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { regionOf } from '../../game/content';
 import { ALL_SPECIES } from '../../game/data';
 import { useGame } from '../../store/game';
 import { MonThumb } from '../components/MonThumb';
@@ -20,9 +21,9 @@ export function DexPanel() {
   const seen = new Set(s.dex.seen);
   const { width } = useWindowDimensions();
   const cellWidth = (width - SCREEN_PADDING - GRID_GAP * (GRID_COLS - 1)) / GRID_COLS;
-  // n'affiche que les espèces des régions déjà débloquées (151 en Kanto, 251 dès Johto) : le Pokédex ne
+  // n'affiche que les espèces des régions déjà débloquées (151 en Kanto, 251 dès Johto…) : le Pokédex ne
   // doit pas trahir la génération suivante avant que le joueur l'ait débloquée.
-  const maxId = s.prestige > 0 ? ALL_SPECIES.length : 151;
+  const maxId = regionOf(s.prestige).dexMax;
   const species = ALL_SPECIES.filter((sp) => sp.id <= maxId);
   return (
     <View style={{ gap: 10 }}>

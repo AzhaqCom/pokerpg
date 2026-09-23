@@ -3,7 +3,9 @@
  * équipe, étapes/vagues, butin, capture, évolutions, pension.
  */
 import { Battle, FighterInit } from './battle';
-import { BADGE_BONUS, BIOMES, PRESTIGE_BIOME, REGION_START, STAGES_PER_ZONE, WAVES_PER_STAGE, ZoneDef } from './content';
+import {
+  BADGE_BONUS, BIOMES, REGIONS, REGION_START, STAGES_PER_ZONE, WAVES_PER_STAGE, ZoneDef, regionLastBiome, regionOf,
+} from './content';
 import { ALL_SPECIES, PType, learnedMoves, movesAtLevel, species } from './data';
 import { SETS, STAT_WEIGHT, TEMPLATES, berryHeal, fuse, canFuse, itemScore, makeItem, newUid, recycleValue, rerollCost, rerollSub, rollLoot, rollRarity, slotOf, template, upgrade, upgradeCost } from './items';
 import { BattleBonuses, Item, ItemSlot, MAX_RARITY, Mon, emptyBonuses } from './model';
@@ -63,7 +65,7 @@ export interface GameState {
   totals: { kills: number; captures: number; fusions: number; stagesCleared: number };
   /** Horodatage (ms) de la dernière activité : combat affiché ou passage en arrière-plan. Sert au calcul idle. */
   lastActive: number;
-  /** 0 = partie Kanto ; 1 = a lancé le « nouveau départ » Johto (voir `startPrestige`). */
+  /** Index de la région en cours dans `REGIONS` (0 = Kanto, 1 = Johto…), +1 à chaque `startPrestige`. */
   prestige: number;
   /** Horodatage (ms) du tout début de la partie — sert au récap affiché avant le prestige. */
   startedAt: number;
@@ -86,28 +88,34 @@ export function newGame(): GameState {
   };
 }
 
-/** Peut-on lancer le « nouveau départ » Johto ? Une fois, dès le badge du Champion Kanto obtenu. */
+/**
+ * Peut-on lancer le « nouveau départ » vers la région suivante ? Il faut qu'elle existe, que le Champion
+ * de la région en cours soit battu (arène de son dernier biome) et que toutes ses espèces aient été vues.
+ */
 export function canPrestige(s: GameState): boolean {
-  return s.prestige === 0 && s.arenaBeaten[9] && s.dex.seen.length >= 151;
+  const next = REGIONS[s.prestige + 1];
+  if (!next) return false;
+  const dexMax = regionOf(s.prestige).dexMax;
+  return !!s.arenaBeaten[regionLastBiome(s.prestige)] && s.dex.seen.filter((id) => id <= dexMax).length >= dexMax;
 }
 
 /**
- * « Nouveau départ » (prestige) : équipe/boîte/objets/éclats/Balls/badges/Pokédex repartent à zéro
- * (1/251 après le starter Johto), nouveau starter à choisir (`STARTERS2`, via le même écran que le
- * tout premier départ). Seule la progression de zone Kanto (unlocked/bossesBeaten/arenaBeaten, bonbons,
- * totaux) est conservée — Kanto reste farmable avec la nouvelle équipe (butin recalé sur son niveau,
- * voir `waveRewards`), juste sans le Pokédex déjà rempli.
+ * « Nouveau départ » (prestige) : équipe/boîte/objets/éclats/Balls/badges/Pokédex repartent à zéro,
+ * nouveau starter à choisir parmi ceux de la région suivante (via le même écran que le tout premier
+ * départ). La progression de zone des régions précédentes (unlocked/bossesBeaten/arenaBeaten), les
+ * bonbons/méga bonbons et les totaux sont conservés.
  */
 export function startPrestige(s: GameState): boolean {
   if (!canPrestige(s)) return false;
+  const start = REGIONS[s.prestige + 1].start;
   s.mons = {}; s.team = []; s.pension = []; s.exploration = [];
   s.items = {}; s.shards = 0; s.balls = { poke: 10, super: 0, hyper: 0 };
   s.badges = 0;
   s.dex = { seen: [], caught: [], shiny: [] };
-  s.biome = PRESTIGE_BIOME; s.zone = 0; s.stage = 1;
-  s.unlocked[PRESTIGE_BIOME][0] = Math.max(1, s.unlocked[PRESTIGE_BIOME][0]); // sinon la 1re zone Johto reste verrouillée
+  s.biome = start; s.zone = 0; s.stage = 1;
+  s.unlocked[start][0] = Math.max(1, s.unlocked[start][0]); // sinon la 1re zone de la région reste verrouillée
   s.starterChosen = false;
-  s.prestige = 1;
+  s.prestige++;
   return true;
 }
 
@@ -451,7 +459,7 @@ function maxReachableStage(mon: Mon): number {
  * savoir si le bouton a quelque chose à faire, voir `canCompleteDex`).
  */
 export function completeDex(s: GameState, dryRun = false): number {
-  const maxId = s.prestige > 0 ? 251 : 151;
+  const maxId = regionOf(s.prestige).dexMax;
   const bases = new Set<number>();
   for (let id = 1; id <= maxId; id++) bases.add(lineBase(id));
   let count = 0;
@@ -981,9 +989,9 @@ function onStageWon(s: GameState, kind: StageKind, biome: number, zone: number, 
     if (!s.arenaBeaten[biome]) {
       s.arenaBeaten[biome] = true;
       if (BIOMES[biome].arena.grantsBadge !== false) s.badges++;
-      // Kanto -> Johto : ne pas enchaîner automatiquement, le joueur doit d'abord choisir le prestige
-      // (voir startPrestige) — Johto reste une surprise tant qu'il ne l'a pas lancé.
-      if (biome + 1 < BIOMES.length && biome + 1 !== PRESTIGE_BIOME) {
+      // fin de région : ne pas enchaîner automatiquement sur la suivante, le joueur doit d'abord choisir
+      // le prestige (voir startPrestige) — la région suivante reste une surprise jusque-là.
+      if (biome + 1 < BIOMES.length && !REGION_START.includes(biome + 1)) {
         s.unlocked[biome + 1][0] = Math.max(1, s.unlocked[biome + 1][0]);
         s.biome = biome + 1;
         s.zone = 0;

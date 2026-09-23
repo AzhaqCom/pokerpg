@@ -37,18 +37,32 @@ export interface BiomeDef {
 export const STAGES_PER_ZONE = 5;
 export const WAVES_PER_STAGE = 3;
 
-export const STARTERS = [1, 4, 7] as const;
-/** Starters Johto (Germignon/Héricendre/Kaiminus), proposés au « nouveau départ » (prestige). */
-export const STARTERS2 = [152, 155, 158] as const;
-/** Index du 1er biome Johto dans `BIOMES` : le prestige y renvoie le joueur. */
-export const PRESTIGE_BIOME = 10;
 /**
- * Index du 1er biome de chaque région, dans l'ordre des prestiges (`REGION_START[s.prestige]`) : la
- * Carte n'affiche que les biomes de la région courante (`REGION_START[p]` à `REGION_START[p+1]`, ou la
- * fin de `BIOMES`). Étendre ce tableau (ex. `[0, 10, 20]`) suffit à préparer une Gen 3, sans toucher
- * au code de la Carte.
+ * Régions, dans l'ordre des prestiges (`REGIONS[s.prestige]` = région en cours). Chaque prestige
+ * renvoie au 1er biome de la région suivante, une fois le Champion de la région en cours battu (dernier
+ * biome de la région) et toutes ses espèces vues (`dexMax`). Ajouter une région = ajouter ses biomes à
+ * la suite de `BIOMES` + une ligne ici (espèces présentes dans species.json jusqu'à `dexMax`).
  */
-export const REGION_START = [0, PRESTIGE_BIOME] as const;
+export interface RegionDef {
+  name: string;
+  /** index du 1er biome de la région dans `BIOMES` */
+  start: number;
+  starters: readonly number[];
+  /** Pokédex cumulé jusqu'à cette région (151 Kanto, 251 Johto…) */
+  dexMax: number;
+}
+export const REGIONS: readonly RegionDef[] = [
+  { name: 'Kanto', start: 0, starters: [1, 4, 7], dexMax: 151 },
+  { name: 'Johto', start: 10, starters: [152, 155, 158], dexMax: 251 },
+  { name: 'Hoenn', start: 20, starters: [252, 255, 258], dexMax: 386 },
+];
+export const STARTERS = REGIONS[0].starters;
+/** Index du 1er biome de chaque région (`REGION_START[s.prestige]`). */
+export const REGION_START: readonly number[] = REGIONS.map((r) => r.start);
+/** Région en cours (dernière si `prestige` dépasse, par sécurité). */
+export const regionOf = (prestige: number): RegionDef => REGIONS[Math.min(prestige, REGIONS.length - 1)];
+/** Index du dernier biome (arène du Champion) de la région n° `prestige`. */
+export const regionLastBiome = (prestige: number): number => (REGIONS[prestige + 1]?.start ?? BIOMES.length) - 1;
 
 export const BIOMES: BiomeDef[] = [
   {
@@ -318,7 +332,7 @@ export const BIOMES: BiomeDef[] = [
     name: 'Route des Cieux',
     zones: [
       {
-        // Starters Johto (STARTERS2) en rencontre très rare dès la 1re zone, comme les starters Kanto
+        // Starters Johto (`REGIONS[1].starters`) en rencontre très rare dès la 1re zone, comme les starters Kanto
         // en biome 2 : sans ça, indisponibles pour qui n'a pas choisi cette lignée au prestige.
         name: 'Sentier des Roseaux', minLv: 5, maxLv: 9, biome: 'meadow',
         pool: [[187, 25], [41, 25], [16, 25], [163, 20], [152, 5], [155, 5], [158, 5], [1, 5], [4, 5], [7, 5]],
@@ -592,6 +606,361 @@ export const BIOMES: BiomeDef[] = [
       name: 'Plateau Doré', leader: 'Champion Johto', type: 'mixte',
       team: [[154, 96], [157, 97], [160, 98], [248, 100]],
       badge: 'Titre de Champion Johto',
+      grantsBadge: false,
+    },
+  },
+  // ─── Hoenn (Gen 3, 252-386) — région du 2e prestige, 12 biomes (index 20-31). Généré puis relu :
+  // chaque forme de base 1-386 est placée par type dominant, les 11 légendaires Kanto/Johto en rencontre
+  // très rare dans les derniers biomes, les 10 légendaires Hoenn en boss `joinsPool`.
+  {
+    // Nv.5→15 — biome Roche (badge Roche). Starters des 3 régions en rencontre très rare.
+    name: 'Carrière de Mérouville',
+    zones: [
+      {
+        // Embrylex, Racaillou, Tarinor, Lilia, Bulbizarre, Salamèche, Carapuce, Germignon, Héricendre, Kaiminus, Arcko, Poussifeu, Gobou
+        name: 'Sentier Caillouteux', minLv: 5, maxLv: 8, biome: 'cave',
+        pool: [[246, 20], [74, 20], [299, 8], [345, 8], [1, 4], [4, 4], [7, 4], [152, 4], [155, 4], [158, 4], [252, 4], [255, 4], [258, 4]],
+        boss: { speciesId: 346, level: 9 },
+      },
+      {
+        // Kabuto, Amonita, Onix, Anorith
+        name: 'Galerie de Granite', minLv: 8, maxLv: 12, biome: 'cave',
+        pool: [[140, 20], [138, 20], [95, 8], [347, 8]],
+        boss: { speciesId: 348, level: 13 },
+      },
+      {
+        // Simularbre, Séléroc, Solaroc, Ptéra
+        name: 'Falaise de Mérouville', minLv: 12, maxLv: 14, biome: 'cave',
+        pool: [[185, 20], [337, 20], [338, 8], [142, 8]],
+        boss: { speciesId: 142, level: 15 },
+      },
+    ],
+    arena: {
+      name: 'Arène de Mérouville', leader: 'Roxanne', type: 'Roche',
+      team: [[369, 13], [348, 14], [306, 15]], // Relicanth, Armaldo, Galeking
+      badge: 'Badge Roche',
+    },
+  },
+  {
+    // Nv.15→22 — biome Combat (badge Poing).
+    name: 'Îlot de Myokara',
+    zones: [
+      {
+        // Debugant, Nosferapti, Makuhita, Méditikka
+        name: 'Plage de Myokara', minLv: 15, maxLv: 17, biome: 'water',
+        pool: [[236, 20], [41, 20], [296, 8], [307, 8]],
+        boss: { speciesId: 308, level: 18 },
+      },
+      {
+        // Gloupti, Smogo, Machoc, Férosinge
+        name: 'Grotte du Dojo', minLv: 17, maxLv: 20, biome: 'cave',
+        pool: [[316, 20], [109, 20], [66, 8], [56, 8]],
+        boss: { speciesId: 57, level: 21 },
+      },
+      {
+        // Séviper, Tygnon, Kicklee, Nostenfer
+        name: 'Salle des Poings', minLv: 20, maxLv: 21, biome: 'temple',
+        pool: [[336, 20], [107, 20], [106, 8], [169, 8]],
+        boss: { speciesId: 169, level: 22 },
+      },
+    ],
+    arena: {
+      name: 'Arène de Myokara', leader: 'Bastien', type: 'Combat',
+      team: [[308, 20], [286, 21], [297, 22]], // Charmina, Chapignon, Hariyama
+      badge: 'Badge Poing',
+    },
+  },
+  {
+    // Nv.22→28 — route sans badge : forêt (Insecte/Plante).
+    name: 'Bois de Clémenti',
+    zones: [
+      {
+        // Chenipan, Blindalys, Aspicot, Chenipotte, Mimigal, Ningale, Munja
+        name: 'Orée des Bois', minLv: 22, maxLv: 24, biome: 'forest',
+        pool: [[10, 20], [268, 20], [13, 20], [265, 20], [167, 20], [290, 8], [292, 8]],
+        boss: { speciesId: 292, level: 25 },
+      },
+      {
+        // Coxy, Arakdo, Paras, Pomdepik, Mimitoss, Noeunoeuf, Yanma
+        name: 'Sous-bois Humide', minLv: 24, maxLv: 26, biome: 'forest',
+        pool: [[165, 20], [283, 20], [46, 20], [204, 20], [48, 20], [102, 8], [193, 8]],
+        boss: { speciesId: 193, level: 27 },
+      },
+      {
+        // Muciole, Lumivole, Caratroc, Insécateur, Scarabrute, Cizayox, Scarhino
+        name: 'Clairière aux Chenilles', minLv: 26, maxLv: 27, biome: 'forest',
+        pool: [[313, 20], [314, 20], [213, 20], [123, 20], [127, 20], [212, 8], [214, 8]],
+        boss: { speciesId: 214, level: 28 },
+      },
+    ],
+    arena: {
+      name: 'Camp des Scouts', leader: 'Scout Insecte', type: 'Insecte',
+      team: [[284, 26], [291, 27], [348, 28]], // Maskadra, Ninjask, Armaldo
+      badge: 'Titre de Scout',
+      grantsBadge: false,
+    },
+  },
+  {
+    // Nv.28→34 — biome Électrik (badge Dynamo).
+    name: 'Centrale de Lavandia',
+    zones: [
+      {
+        // Pichu, Wattouat, Terhal, Dynavolt, Pikachu
+        name: 'Route Cyclable', minLv: 28, maxLv: 30, biome: 'electric',
+        pool: [[172, 20], [179, 20], [374, 20], [309, 8], [25, 8]],
+        boss: { speciesId: 26, level: 31 },
+      },
+      {
+        // Voltorbe, Magnéti, Élekid, Posipi, Négapi
+        name: 'Nouvelle Centrale', minLv: 30, maxLv: 32, biome: 'electric',
+        pool: [[100, 20], [81, 20], [239, 20], [311, 8], [312, 8]],
+        boss: { speciesId: 312, level: 33 },
+      },
+      {
+        // Élektek, Steelix, Voltali
+        name: 'Salle des Turbines', minLv: 32, maxLv: 33, biome: 'electric',
+        pool: [[125, 20], [208, 20], [135, 20]],
+        boss: { speciesId: 135, level: 34 },
+      },
+    ],
+    arena: {
+      name: 'Arène de Lavandia', leader: 'Voltère', type: 'Électrik',
+      team: [[312, 32], [311, 33], [310, 34]], // Négapi, Posipi, Élecsprint
+      badge: 'Badge Dynamo',
+    },
+  },
+  {
+    // Nv.34→41 — biome Feu (badge Chaleur).
+    name: 'Mont Chimnée',
+    zones: [
+      {
+        // Limagma, Balbuto, Chamallot, Goupix, Kraknoix
+        name: 'Pente de Cendres', minLv: 34, maxLv: 36, biome: 'volcano',
+        pool: [[218, 20], [343, 20], [322, 20], [37, 8], [328, 8]],
+        boss: { speciesId: 330, level: 37 },
+      },
+      {
+        // Caninos, Phanpy, Magby, Rhinocorne, Ponyta
+        name: 'Cratère Fumant', minLv: 36, maxLv: 39, biome: 'volcano',
+        pool: [[58, 20], [231, 20], [240, 20], [111, 8], [77, 8]],
+        boss: { speciesId: 78, level: 40 },
+      },
+      {
+        // Chartor, Scorplane, Magmar, Pyroli
+        name: 'Sources de Vermilava', minLv: 39, maxLv: 40, biome: 'volcano',
+        pool: [[324, 20], [207, 20], [126, 8], [136, 8]],
+        boss: { speciesId: 136, level: 41 },
+      },
+    ],
+    arena: {
+      name: 'Arène de Vermilava', leader: 'Adriane', type: 'Feu',
+      team: [[59, 39], [324, 40], [323, 41]], // Arcanin, Chartor, Camérupt
+      badge: 'Badge Chaleur',
+    },
+  },
+  {
+    // Nv.41→48 — biome Normal (badge Balance).
+    name: 'Plaines de Clémenti-Ville',
+    zones: [
+      {
+        // Azurill, Fouinette, Mélo, Zigzaton, Togepi, Roucool, Rondoudou
+        name: 'Hautes Herbes', minLv: 41, maxLv: 43, biome: 'meadow',
+        pool: [[298, 20], [161, 20], [173, 20], [263, 20], [175, 20], [16, 8], [39, 8]],
+        boss: { speciesId: 40, level: 44 },
+      },
+      {
+        // Métamorph, Piafabec, Parecool, Teddiursa, Spinda, Excelangue, Canarticho
+        name: 'Ranch Paisible', minLv: 43, maxLv: 46, biome: 'meadow',
+        pool: [[132, 20], [21, 20], [287, 20], [216, 20], [327, 20], [108, 8], [83, 8]],
+        boss: { speciesId: 83, level: 47 },
+      },
+      {
+        // Porygon, Insolourdo, Kecleon, Cerfrousse, Mangriff, Écrémeuh, Kangourex
+        name: 'Dojo de Norman', minLv: 46, maxLv: 47, biome: 'temple',
+        pool: [[137, 20], [206, 20], [352, 20], [234, 20], [335, 20], [241, 8], [115, 8]],
+        boss: { speciesId: 115, level: 48 },
+      },
+    ],
+    arena: {
+      name: 'Arène de Clémenti-Ville', leader: 'Norman', type: 'Normal',
+      team: [[295, 46], [335, 47], [289, 48]], // Brouhabam, Mangriff, Monaflèmit
+      badge: 'Badge Balance',
+    },
+  },
+  {
+    // Nv.48→55 — route sans badge : jungle et désert (Plante/Sol/Poison).
+    name: 'Route du Désert',
+    zones: [
+      {
+        // Tournegrin, Grainipiot, Granivol, Nidoran♀, Taupiqueur, Nidoran♂
+        name: 'Jungle Tropicale', minLv: 48, maxLv: 50, biome: 'forest',
+        pool: [[191, 20], [273, 20], [187, 20], [29, 20], [50, 8], [32, 8]],
+        boss: { speciesId: 34, level: 51 },
+      },
+      {
+        // Balignon, Chétiflor, Abo, Osselait, Cacnea, Mystherbe
+        name: 'Marais Poisseux', minLv: 50, maxLv: 53, biome: 'swamp',
+        pool: [[285, 20], [69, 20], [23, 20], [104, 20], [331, 8], [43, 8]],
+        boss: { speciesId: 45, level: 54 },
+      },
+      {
+        // Sabelette, Tadmorv, Rosélia, Tropius, Saquedeneu, Joliflor
+        name: 'Désert Ensablé', minLv: 53, maxLv: 54, biome: 'desert',
+        pool: [[27, 20], [88, 20], [315, 20], [357, 20], [114, 8], [182, 8]],
+        boss: { speciesId: 182, level: 55 },
+      },
+    ],
+    arena: {
+      name: 'Ruines du Désert', leader: 'Montagnard', type: 'Sol',
+      team: [[340, 53], [344, 54], [330, 55]], // Barbicha, Kaorine, Libégon
+      badge: 'Titre de Montagnard',
+      grantsBadge: false,
+    },
+  },
+  {
+    // Nv.55→62 — biome Vol (badge Plume). Les 3 Regi en boss légendaires (`joinsPool`).
+    name: 'Cimes de Cimetronelle',
+    zones: [
+      {
+        // Toudoudou, Chuchmur, Queulorior, Skitty, Hoothoot, Rattata, Nirondelle
+        name: 'Pont Suspendu', minLv: 55, maxLv: 57, biome: 'meadow',
+        pool: [[174, 20], [293, 20], [235, 20], [300, 20], [163, 20], [19, 8], [276, 8]],
+        boss: { speciesId: 377, level: 58, joinsPool: true },
+      },
+      {
+        // Miaouss, Tylton, Snubbull, Mélofée, Évoli, Doduo, Capumain
+        name: 'Canopée Venteuse', minLv: 57, maxLv: 60, biome: 'forest',
+        pool: [[52, 20], [333, 20], [209, 20], [35, 20], [133, 20], [84, 8], [190, 8]],
+        boss: { speciesId: 378, level: 61, joinsPool: true },
+      },
+      {
+        // Morphéo, Girafarig, Leveinard, Porygon2, Tauros, Ronflex, Leuphorie
+        name: 'Nid des Altaria', minLv: 60, maxLv: 61, biome: 'meadow',
+        pool: [[351, 20], [203, 20], [113, 20], [233, 20], [128, 20], [143, 8], [242, 8]],
+        boss: { speciesId: 379, level: 62, joinsPool: true },
+      },
+    ],
+    arena: {
+      name: 'Arène de Cimetronelle', leader: 'Alizée', type: 'Vol',
+      team: [[279, 60], [277, 61], [334, 62]], // Bekipan, Hélédelle, Altaria
+      badge: 'Badge Plume',
+    },
+  },
+  {
+    // Nv.62→70 — biome Psy (badge Esprit). Latias, Latios et Jirachi en boss légendaires.
+    name: 'Île d’Algatia',
+    zones: [
+      {
+        // Tarsal, Okéoké, Skelénox, Polichombr, Soporifik
+        name: 'Rivage Spirituel', minLv: 62, maxLv: 65, biome: 'water',
+        pool: [[280, 20], [360, 20], [355, 20], [353, 8], [96, 8]],
+        boss: { speciesId: 380, level: 66, joinsPool: true },
+      },
+      {
+        // Zarbi, Natu, Fantominus, Spoink, Abra
+        name: 'Centre Spatial', minLv: 65, maxLv: 67, biome: 'temple',
+        pool: [[201, 20], [177, 20], [92, 20], [325, 8], [63, 8]],
+        boss: { speciesId: 381, level: 68, joinsPool: true },
+      },
+      {
+        // Qulbutoké, Éoko, M. Mime, Mentali
+        name: 'Jardin Céleste', minLv: 67, maxLv: 69, biome: 'temple',
+        pool: [[202, 20], [358, 20], [122, 8], [196, 8]],
+        boss: { speciesId: 385, level: 70, joinsPool: true },
+      },
+    ],
+    arena: {
+      name: 'Arène d’Algatia', leader: 'Lévy & Tatia', type: 'Psy',
+      team: [[337, 68], [338, 69], [282, 70]], // Séléroc, Solaroc, Gardevoir
+      badge: 'Badge Esprit',
+    },
+  },
+  {
+    // Nv.70→78 — biome Eau (badge Pluie). Kyogre en boss légendaire.
+    name: 'Fonds Marins d’Atalanopolis',
+    zones: [
+      {
+        // Barpau, Axoloto, Barloche, Goélise, Kokiyas, Ptitard, Artikodin, Raikou, Celebi
+        name: 'Courants Chauds', minLv: 70, maxLv: 73, biome: 'water',
+        pool: [[349, 20], [194, 20], [339, 20], [278, 20], [90, 8], [60, 8], [144, 3], [243, 3], [251, 3]],
+        boss: { speciesId: 62, level: 74 },
+      },
+      {
+        // Hypotrempe, Otaria, Carvanha, Psykokwak, Ramoloss, Stari, Électhor, Entei
+        name: 'Grotte Sous-Marine', minLv: 73, maxLv: 75, biome: 'water',
+        pool: [[116, 20], [86, 20], [318, 20], [54, 20], [79, 8], [120, 8], [145, 3], [244, 3]],
+        boss: { speciesId: 121, level: 76 },
+      },
+      {
+        // Wailmer, Rosabyss, Roigada, Tarpaud, Hyporoi, Lokhlass
+        name: 'Abysses Anciens', minLv: 75, maxLv: 77, biome: 'water',
+        pool: [[320, 20], [368, 20], [199, 20], [186, 20], [230, 8], [131, 8]],
+        boss: { speciesId: 382, level: 78, joinsPool: true },
+      },
+    ],
+    arena: {
+      name: 'Arène d’Atalanopolis', leader: 'Marc', type: 'Eau',
+      team: [[369, 76], [365, 77], [350, 78]], // Relicanth, Kaimorse, Milobellus
+      badge: 'Badge Pluie',
+    },
+  },
+  {
+    // Nv.78→89 — Route Victoire / Conseil des 4 Hoenn (Spectre, Ténèbres, Glace, Dragon). Groudon en boss légendaire.
+    name: 'Route Victoire Hoenn',
+    zones: [
+      {
+        // Medhyèna, Marcacrin, Stalgamin, Obalie, Cadoizo, Malosse, Sulfura, Suicune
+        name: 'Caverne Glacée', minLv: 78, maxLv: 82, biome: 'cave',
+        pool: [[261, 20], [220, 20], [361, 20], [363, 20], [225, 8], [228, 8], [146, 3], [245, 3]],
+        boss: { speciesId: 229, level: 83 },
+      },
+      {
+        // Lippouti, Ténéfix, Corayon, Cornèbre, Feuforêve, Qwilfish, Mewtwo, Lugia
+        name: 'Galerie des Ombres', minLv: 82, maxLv: 85, biome: 'cave',
+        pool: [[238, 20], [302, 20], [222, 20], [198, 20], [200, 8], [211, 8], [150, 3], [249, 3]],
+        boss: { speciesId: 211, level: 86 },
+      },
+      {
+        // Farfuret, Absol, Lippoutou, Relicanth, Noctali
+        name: 'Magma Souterrain', minLv: 85, maxLv: 88, biome: 'volcano',
+        pool: [[215, 20], [359, 20], [124, 20], [369, 8], [197, 8]],
+        boss: { speciesId: 383, level: 89, joinsPool: true },
+      },
+    ],
+    arena: {
+      name: 'Conseil des 4 (Hoenn)', leader: 'Conseil des 4', type: 'mixte',
+      team: [[359, 87], [330, 88], [373, 89]], // Absol, Libégon, Drattak
+      badge: 'Titre de Maître Hoenn',
+      grantsBadge: false,
+    },
+  },
+  {
+    // Nv.89→100 — Champion Hoenn (Acier). Rayquaza et Deoxys en boss légendaires.
+    name: 'Ligue d’Éternara',
+    zones: [
+      {
+        // Magicarpe, Nénupiot, Marill, Rémoraid, Minidraco, Écrapince
+        name: 'Pilier Céleste', minLv: 89, maxLv: 93, biome: 'temple',
+        pool: [[129, 20], [270, 20], [183, 20], [223, 20], [147, 8], [341, 8]],
+        boss: { speciesId: 384, level: 94, joinsPool: true },
+      },
+      {
+        // Draby, Coquiperl, Tentacool, Galekid, Lovdisc, Poissirène
+        name: 'Météorite Mystérieuse', minLv: 93, maxLv: 96, biome: 'cave',
+        pool: [[371, 20], [366, 20], [72, 20], [304, 20], [370, 8], [118, 8]],
+        boss: { speciesId: 386, level: 97, joinsPool: true },
+      },
+      {
+        // Loupio, Krabby, Mysdibule, Airmure, Démanta, Mew, Ho-Oh
+        name: 'Salle du Champion', minLv: 96, maxLv: 99, biome: 'temple',
+        pool: [[170, 20], [98, 20], [303, 20], [227, 8], [226, 8], [151, 3], [250, 3]],
+        boss: { speciesId: 226, level: 100 },
+      },
+    ],
+    arena: {
+      name: 'Ligue d’Éternara', leader: 'Pierre Rochard', type: 'Acier',
+      team: [[303, 98], [306, 99], [376, 100]], // Mysdibule, Galeking, Métalosse
+      badge: 'Titre de Champion Hoenn',
       grantsBadge: false,
     },
   },

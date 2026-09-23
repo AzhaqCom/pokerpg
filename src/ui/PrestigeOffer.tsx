@@ -1,4 +1,5 @@
 import { Modal, StyleSheet, Text, View } from 'react-native';
+import { REGIONS, regionOf } from '../game/content';
 import { GameState, startPrestige } from '../game/game';
 import { useGame } from '../store/game';
 import { runner } from './battle/runner';
@@ -15,14 +16,17 @@ function formatDuration(ms: number): string {
 }
 
 /**
- * Récap de fin de Kanto, affiché à la place du combat dès le badge du Champion obtenu (le runner se
- * met en pause, voir runner.ts). Pas de bouton « continuer sur Kanto » : un vrai palier de fin, la
- * seule sortie est d'accepter le nouveau départ.
+ * Récap de fin de région, affiché à la place du combat dès le badge du Champion obtenu (le runner se
+ * met en pause, voir runner.ts). Pas de bouton « continuer » : un vrai palier de fin, la seule sortie est
+ * d'accepter le nouveau départ vers la région suivante.
  */
 export function PrestigeOffer({ onClose }: { onClose: () => void }) {
   const s = useGame((g) => g.s) as GameState | null;
   const act = useGame((g) => g.act);
   if (!s) return null;
+  const region = regionOf(s.prestige);
+  const next = REGIONS[s.prestige + 1];
+  if (!next) return null;
   const dex = s.dex.caught.length;
   const shiny = s.dex.shiny.length;
   const elapsed = formatDuration(Date.now() - s.startedAt);
@@ -30,19 +34,19 @@ export function PrestigeOffer({ onClose }: { onClose: () => void }) {
     <Modal visible transparent animationType="fade" onRequestClose={() => {}}>
       <View style={styles.backdrop}>
         <View style={styles.box}>
-          <Text style={styles.title}>🏆 Champion de Kanto !</Text>
+          <Text style={styles.title}>🏆 Champion de {region.name} !</Text>
           <View style={styles.stats}>
-            <Text style={styles.stat}>Pokédex : {dex}/151 {shiny ? `(dont ${shiny} chromatiques)` : ''}</Text>
+            <Text style={styles.stat}>Pokédex : {dex}/{region.dexMax} {shiny ? `(dont ${shiny} chromatiques)` : ''}</Text>
             <Text style={styles.stat}>Badges : {s.badges}/8</Text>
             <Text style={styles.stat}>Temps de jeu : {elapsed}</Text>
             <Text style={styles.stat}>Combats gagnés : {s.totals.stagesCleared}</Text>
           </View>
           <Text style={styles.sub}>
-            Johto t’attend : 100 nouveaux Pokémon, un nouveau starter, une aventure plus corsée. Équipe,
-            boîte, objets et Pokédex repartiront à zéro (1/251 avec ton starter) — seule ta progression
-            de zones Kanto (bonbons, biomes débloqués) reste acquise et toujours accessible.
+            {next.name} t’attend : {next.dexMax - region.dexMax} nouveaux Pokémon, un nouveau starter, une
+            aventure plus corsée. Équipe, boîte, objets et Pokédex repartiront à zéro (1/{next.dexMax} avec
+            ton starter) — seuls tes bonbons et méga bonbons restent acquis.
           </Text>
-          <Button label="Nouveau départ à Johto" color="#ffb300" onPress={() => {
+          <Button label={`Nouveau départ à ${next.name}`} color="#ffb300" onPress={() => {
             act((g) => startPrestige(g));
             runner.paused = false;
             feedback('evolve');

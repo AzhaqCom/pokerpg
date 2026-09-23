@@ -1,8 +1,9 @@
 /**
  * Pipeline sprites PMD SpriteCollab → atlas PNG + manifeste JSON pour l'app.
  *
- *   npm run sprites            # les 151, normal + shiny
- *   npm run sprites -- 25 133  # seulement certains numéros
+ *   npm run sprites            # les 151, normal + shiny (repart de zéro : écrase le manifeste !)
+ *   npm run sprites -- 25 133  # seulement certains numéros, fusionnés dans le manifeste existant
+ *   npm run sprites -- 252-493 # une plage de numéros (Gen 3 et 4)
  *
  * Pour chaque Pokémon on télécharge AnimData.xml + les feuilles *-Anim.png
  * utiles, on garde UNE direction par animation (face caméra, ou gauche/droite
@@ -176,7 +177,11 @@ async function pack(num: number, shiny: boolean): Promise<[string, SpriteMeta, s
 }
 
 async function main() {
-  const args = process.argv.slice(2).map(Number).filter((n) => n >= 1 && n <= 251);
+  // numéros isolés ou plages (`252-493`), fusionnés dans le manifeste existant
+  const args = process.argv.slice(2).flatMap((a) => {
+    const m = a.match(/^(\d+)-(\d+)$/);
+    return m ? Array.from({ length: +m[2] - +m[1] + 1 }, (_, i) => +m[1] + i) : [Number(a)];
+  }).filter((n) => n >= 1 && n <= 493);
   const nums = args.length ? args : Array.from({ length: 151 }, (_, i) => i + 1);
   fs.mkdirSync(OUT_IMG, { recursive: true });
   const manifest: Record<string, SpriteMeta> = fs.existsSync(OUT_JSON) && args.length

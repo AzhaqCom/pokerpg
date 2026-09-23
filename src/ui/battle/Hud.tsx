@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
-import { BIOMES, STAGES_PER_ZONE } from '../../game/content';
+import { BIOMES, STAGES_PER_ZONE, regionLastBiome, regionOf } from '../../game/content';
 import { species } from '../../game/data';
 import { addMon, arenaAvailable, bossAvailable, equip, makeMon, setTeam } from '../../game/game';
 import { makeItem } from '../../game/items';
@@ -123,13 +123,13 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
             )}
             {__DEV__ && (
               <Button label="🐛 Debug : +10 Pokémon dans la boîte" color="#37474f" onPress={() => {
-                act((g) => { for (let i = 0; i < 10; i++) addMon(g, makeMon(1 + Math.floor(rng.int(151)), 5 + rng.int(20), rng, rng.int(20) === 0, 8)); });
+                act((g) => { const max = regionOf(g.prestige).dexMax; for (let i = 0; i < 10; i++) addMon(g, makeMon(1 + rng.int(max), 5 + rng.int(20), rng, rng.int(20) === 0, 8)); });
                 feedback();
               }} />
             )}
             {__DEV__ && (
-              <Button label="🐛 Debug : les 151 Pokémon Nv.100 dans la boîte" color="#37474f" onPress={() => {
-                act((g) => { for (let id = 1; id <= 151; id++) addMon(g, makeMon(id, 100, rng, false, 15)); });
+              <Button label="🐛 Debug : tout le Pokédex de la région Nv.100 dans la boîte" color="#37474f" onPress={() => {
+                act((g) => { const max = regionOf(g.prestige).dexMax; for (let id = 1; id <= max; id++) addMon(g, makeMon(id, 100, rng, false, 15)); });
                 feedback();
               }} />
             )}
@@ -147,13 +147,14 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
                   }
                   setTeam(g, team.map((m) => m.uid));
                   g.badges = 8;
-                  for (let i = 0; i < 8; i++) {
+                  const base = regionOf(g.prestige).start;
+                  for (let i = base; i < base + 8; i++) {
                     g.arenaBeaten[i] = true;
                     g.bossesBeaten[i] = g.bossesBeaten[i].map(() => true);
                     g.unlocked[i] = g.unlocked[i].map(() => 5);
                   }
-                  g.unlocked[8][0] = Math.max(1, g.unlocked[8][0]);
-                  g.biome = 8; g.zone = 0; g.stage = 1;
+                  g.unlocked[base + 8][0] = Math.max(1, g.unlocked[base + 8][0]);
+                  g.biome = base + 8; g.zone = 0; g.stage = 1;
                 });
                 runner.restart();
                 feedback();
@@ -173,7 +174,8 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
             {__DEV__ && (
               <Button label="🐛 Debug : Pokédex complet, plus que le Champion à battre (test écran de fin)" color="#37474f" onPress={() => {
                 act((g) => {
-                  for (let id = 1; id <= 151; id++) if (!g.dex.seen.includes(id)) g.dex.seen.push(id);
+                  const max = regionOf(g.prestige).dexMax;
+                  for (let id = 1; id <= max; id++) if (!g.dex.seen.includes(id)) g.dex.seen.push(id);
                   const team = [6, 9, 65].map((id) => makeMon(id, 100, rng, false, 15));
                   for (const m of team) {
                     addMon(g, m);
@@ -184,16 +186,18 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
                     }
                   }
                   setTeam(g, team.map((m) => m.uid));
-                  g.badges = 8; // Route Victoire (Conseil des 4) ne compte pas comme un badge
-                  for (let i = 0; i < 9; i++) {
+                  g.badges = 8; // Conseil des 4 ne compte pas comme un badge
+                  const base = regionOf(g.prestige).start;
+                  const last = regionLastBiome(g.prestige);
+                  for (let i = base; i < last; i++) {
                     g.arenaBeaten[i] = true;
                     g.bossesBeaten[i] = g.bossesBeaten[i].map(() => true);
                     g.unlocked[i] = g.unlocked[i].map(() => 5);
                   }
-                  // biome 9 (Ligue Pokémon) entièrement dégagé : ne reste que le Champion à défier
-                  g.bossesBeaten[9] = g.bossesBeaten[9].map(() => true);
-                  g.unlocked[9] = g.unlocked[9].map(() => 5);
-                  g.biome = 9; g.zone = 2; g.stage = 5;
+                  // dernier biome de la région entièrement dégagé : ne reste que le Champion à défier
+                  g.bossesBeaten[last] = g.bossesBeaten[last].map(() => true);
+                  g.unlocked[last] = g.unlocked[last].map(() => 5);
+                  g.biome = last; g.zone = 2; g.stage = 5;
                 });
                 runner.restart();
                 feedback();
