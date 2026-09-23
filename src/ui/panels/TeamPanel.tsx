@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { species } from '../../game/data';
 import {
   GameState, canCompleteDex, canEvolve, completeDex, excessMons, monsBelowStars, monsNotShiny, releaseBelowStars,
@@ -47,8 +47,10 @@ export function TeamPanel() {
   const [cleanup, setCleanup] = useState<DialogSpec | null>(null);
   const [sort, setSort] = useState<SortMode>('dex');
   const [evolveOnly, setEvolveOnly] = useState(false);
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
   const box = Object.values(s.mons)
-    .filter((m) => !s.team.includes(m.uid) && (!evolveOnly || canEvolve(m)))
+    .filter((m) => !s.team.includes(m.uid) && (!evolveOnly || canEvolve(m)) && (!q || monName(m).toLowerCase().startsWith(q)))
     .sort(SORTERS[sort]);
   const pensionUids = new Set(s.pension.map((p) => p.uid));
   const explorationUids = new Set(s.exploration.map((p) => p.uid));
@@ -214,10 +216,18 @@ export function TeamPanel() {
                 <Text style={styles.chipTxt}>Peut évoluer</Text>
               </Pressable>
             </View>
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Rechercher dans la boîte…"
+              placeholderTextColor={C.dim}
+              style={styles.search}
+            />
             <View style={styles.row}>
               <Text style={styles.title}>Boîte · {box.length}</Text>
             </View>
-            {evolveOnly && !box.length && <Text style={styles.hint}>Aucun Pokémon de la boîte n'est prêt à évoluer pour l'instant.</Text>}
+            {evolveOnly && !box.length && !q && <Text style={styles.hint}>Aucun Pokémon de la boîte n'est prêt à évoluer pour l'instant.</Text>}
+            {!!q && !box.length && <Text style={styles.hint}>Aucun Pokémon de la boîte ne correspond à « {query.trim()} ».</Text>}
           </View>
         }
         ListEmptyComponent={<Text style={styles.hint}>Capture des Pokémon sauvages après les vagues pour remplir ta boîte.</Text>}
@@ -249,6 +259,7 @@ const styles = StyleSheet.create({
   boxName: { color: C.text, fontSize: 10, fontWeight: '700', maxWidth: 70 },
   boxLv: { color: C.sub, fontSize: 10 },
   chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: C.panel },
+  search: { backgroundColor: C.panel, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, color: C.text, fontSize: 14 },
   chipOn: { backgroundColor: C.accent },
   chipTxt: { color: C.text, fontWeight: '700', fontSize: 12 },
 });
