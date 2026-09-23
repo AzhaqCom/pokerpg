@@ -1,7 +1,10 @@
 import { useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { species } from '../../game/data';
-import { GameState, canEvolve, excessMons, releaseExcess } from '../../game/game';
+import {
+  GameState, canEvolve, completeDex, excessMons, monsBelowStars, monsNotShiny, releaseBelowStars, releaseExcess,
+  releaseNotShiny, setTeam, unequipBox,
+} from '../../game/game';
 import { Mon } from '../../game/model';
 import { monStars, primaryType } from '../../game/stats';
 import { useGame } from '../../store/game';
@@ -14,7 +17,7 @@ import { Stars } from '../components/Stars';
 import { TypeBadge } from '../components/TypeBadge';
 import { TYPE_COLOR, monName, monStats, xpProgress } from '../helpers';
 import { C } from '../theme';
-import { spentPoints, talentPoints } from '../../game/talents';
+import { AURA, spentPoints, talentPoints } from '../../game/talents';
 
 const BOX_COLS = 4;
 const BOX_GAP = 8;
@@ -51,6 +54,8 @@ export function TeamPanel() {
   const { width } = useWindowDimensions();
   const cellWidth = (width - SCREEN_PADDING - BOX_GAP * (BOX_COLS - 1)) / BOX_COLS;
   const excess = excessMons(s);
+  const belowStars = monsBelowStars(s, 3);
+  const notShiny = monsNotShiny(s);
 
   return (
     <>
@@ -75,14 +80,31 @@ export function TeamPanel() {
         )}
         ListHeaderComponent={
           <View style={{ gap: 10, marginBottom: 10 }}>
-            <Text style={styles.title}>Équipe <Text style={styles.hint}>· le 1er est devant et encaisse le plus</Text></Text>
+            <Text style={styles.title}>Équipe <Text style={styles.hint}>· le 1er est en 1ère ligne : les ennemis le visent en priorité</Text></Text>
             {s.team.map((uid, i) => {
               const m = s.mons[uid];
               const st = monStats(s, uid);
               const pts = talentPoints(m.level) - spentPoints(m.talents);
+              const aura = AURA[primaryType(m.speciesId)];
+              const move = (delta: number) => {
+                const j = i + delta;
+                if (j < 0 || j >= s.team.length) return;
+                const order = [...s.team];
+                [order[i], order[j]] = [order[j], order[i]];
+                act((g) => setTeam(g, order));
+                feedback();
+              };
               return (
                 <Pressable key={uid} onPress={() => openMon(uid)} style={styles.card}>
-                  <Text style={styles.slot}>{i + 1}</Text>
+                  <View style={styles.reorder}>
+                    <Pressable hitSlop={8} disabled={i === 0} onPress={() => move(-1)}>
+                      <Text style={[styles.reorderArrow, i === 0 && styles.reorderArrowOff]}>▲</Text>
+                    </Pressable>
+                    <Text style={styles.slot}>{i + 1}</Text>
+                    <Pressable hitSlop={8} disabled={i === s.team.length - 1} onPress={() => move(1)}>
+                      <Text style={[styles.reorderArrow, i === s.team.length - 1 && styles.reorderArrowOff]}>▼</Text>
+                    </Pressable>
+                  </View>
                   <MonThumb speciesId={m.speciesId} shiny={m.shiny} size={52} />
                   <View style={{ flex: 1, gap: 3 }}>
                     <View style={styles.row}>
@@ -93,6 +115,7 @@ export function TeamPanel() {
                     </View>
                     <View style={styles.xpTrack}><View style={[styles.xpFill, { width: `${xpProgress(m) * 100}%` }]} /></View>
                     <Text style={styles.stats}>PC {st.cp} · PV {st.hp} · Atq {st.atk} · Déf {st.def} · Vit {st.spe}</Text>
+                    <Text style={styles.aura}>Aura à l'équipe : {aura.label} +{aura.value} %</Text>
                     <View style={styles.row}>
                       {canEvolve(m) && <Text style={styles.flag}>Peut évoluer</Text>}
                       {pts > 0 && <Text style={[styles.flag, { backgroundColor: '#3d5afe' }]}>{pts} talent{pts > 1 ? 's' : ''}</Text>}
@@ -103,23 +126,70 @@ export function TeamPanel() {
               );
             })}
             <View style={styles.row}>
-              <Text style={styles.title}>Boîte · {box.length}</Text>
+              <Text style={styles.title}>Actions</Text>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.maintRow}>
+              <Button small label="Compléter le Pokédex" color="#2e7d32" onPress={() => {
+                const n = act((g: GameState) => completeDex(g));
+                if (n) { feedback('evolve'); toast(`${n} évolution${n > 1 ? 's' : ''} pour compléter le Pokédex`, '#69f0ae'); }
+                else toast('Rien à évoluer pour l’instant');
+              }} />
               {excess.length > 0 && (
                 <Button small label={`Nettoyer les doublons (${excess.length})`} color="#8d6e63" onPress={() => {
                   const candies = excess.length * 3;
                   setCleanup({
                     title: 'Relâcher les doublons ?',
-                    message: `${excess.length} Pokémon en excès seront relâchés (les plus faibles de chaque espèce d'abord, chromatiques et normaux comptés à part). Tu gagneras ${candies} bonbons.`,
+                    message: `${excess.length} Pokémon en excès seront relâchés (1 seul exemplaire gardé par espèce, chromatiques et normaux comptés à part, le plus fort en premier). Tu gagneras ${candies} bonbons.`,
                     primary: {
                       label: 'Relâcher', color: '#8d6e63', onPress: () => {
                         const r = act((g: GameState) => releaseExcess(g));
                         if (r) { feedback('medal'); toast(`${r.count} Pokémon relâchés, +${r.candies} bonbons`, '#69f0ae'); }
                       },
                     },
-                    secondary: { label: 'Annuler', onPress: () => {} },
+                    secondary: { label: 'Annuler', onPress: () => { } },
                   });
                 }} />
               )}
+              <Button small label="Déséquiper la boîte" onPress={() => {
+                const n = act((g: GameState) => unequipBox(g));
+                if (n) { feedback(); toast(`${n} objet${n > 1 ? 's' : ''} retiré${n > 1 ? 's' : ''}, de retour dans le sac`, '#69f0ae'); }
+                else toast('Aucun objet équipé dans la boîte');
+              }} />
+              {belowStars.length > 0 && (
+                <Button small label={`Ne garder que 3★+ (−${belowStars.length})`} color="#5d4037" onPress={() => {
+                  const candies = belowStars.length * 3;
+                  setCleanup({
+                    title: 'Relâcher les Pokémon sous 3★ ?',
+                    message: `${belowStars.length} Pokémon de la boîte sous 3★ seront relâchés. Tu gagneras ${candies} bonbons.`,
+                    primary: {
+                      label: 'Relâcher', color: '#5d4037', onPress: () => {
+                        const r = act((g: GameState) => releaseBelowStars(g, 3));
+                        if (r) { feedback('medal'); toast(`${r.count} Pokémon relâchés, +${r.candies} bonbons`, '#69f0ae'); }
+                      },
+                    },
+                    secondary: { label: 'Annuler', onPress: () => { } },
+                  });
+                }} />
+              )}
+              {notShiny.length > 0 && (
+                <Button small label={`Ne garder que les Shiney (−${notShiny.length})`} color="#6a1b9a" onPress={() => {
+                  const candies = notShiny.length * 3;
+                  setCleanup({
+                    title: 'Relâcher tous les Pokémon non chromatiques de la boîte ?',
+                    message: `${notShiny.length} Pokémon normaux de la boîte seront relâchés. Tu gagneras ${candies} bonbons.`,
+                    primary: {
+                      label: 'Relâcher', color: '#6a1b9a', onPress: () => {
+                        const r = act((g: GameState) => releaseNotShiny(g));
+                        if (r) { feedback('medal'); toast(`${r.count} Pokémon relâchés, +${r.candies} bonbons`, '#69f0ae'); }
+                      },
+                    },
+                    secondary: { label: 'Annuler', onPress: () => { } },
+                  });
+                }} />
+              )}
+            </ScrollView>
+            <View style={styles.row}>
+              <Text style={styles.title}>Ordonner</Text>
             </View>
             <View style={styles.row}>
               {SORTS.map((so) => (
@@ -130,6 +200,9 @@ export function TeamPanel() {
               <Pressable onPress={() => setEvolveOnly((v) => !v)} style={[styles.chip, evolveOnly && styles.chipOn]}>
                 <Text style={styles.chipTxt}>Peut évoluer</Text>
               </Pressable>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.title}>Boîte · {box.length}</Text>
             </View>
             {evolveOnly && !box.length && <Text style={styles.hint}>Aucun Pokémon de la boîte n'est prêt à évoluer pour l'instant.</Text>}
           </View>
@@ -146,13 +219,18 @@ const styles = StyleSheet.create({
   title: { color: C.text, fontSize: 15, fontWeight: '800' },
   hint: { color: C.dim, fontSize: 12, fontWeight: '500' },
   card: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.panel, borderRadius: 14, padding: 10 },
-  slot: { color: C.gold, fontWeight: '900', fontSize: 16, width: 12 },
+  slot: { color: C.gold, fontWeight: '900', fontSize: 16, width: 12, textAlign: 'center' },
+  reorder: { alignItems: 'center', gap: 2 },
+  reorderArrow: { color: C.sub, fontSize: 13, fontWeight: '900', paddingHorizontal: 4, paddingVertical: 2 },
+  reorderArrowOff: { color: C.dim, opacity: 0.3 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  maintRow: { flexDirection: 'row', gap: 8 },
   name: { color: C.text, fontWeight: '800', fontSize: 15 },
   lv: { color: C.sub, fontWeight: '700', fontSize: 12 },
   xpTrack: { height: 4, backgroundColor: C.panel2, borderRadius: 2, overflow: 'hidden' },
   xpFill: { height: '100%', backgroundColor: '#42a5f5' },
   stats: { color: C.sub, fontSize: 11 },
+  aura: { color: '#80cbc4', fontSize: 11 },
   flag: { color: '#fff', fontSize: 10, fontWeight: '800', backgroundColor: '#c0392b', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6, overflow: 'hidden' },
   boxCell: { alignItems: 'center', backgroundColor: C.panel, borderRadius: 12, paddingVertical: 6 },
   boxName: { color: C.text, fontSize: 10, fontWeight: '700', maxWidth: 70 },

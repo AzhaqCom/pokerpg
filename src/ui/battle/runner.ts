@@ -125,7 +125,14 @@ class Runner {
           // Champion Kanto : on coupe l'enchaînement automatique vers Johto — le joueur doit d'abord
           // voir le récap et choisir explicitement le nouveau départ (voir App.tsx/PrestigeOffer).
           if (run.biome === PRESTIGE_BIOME - 1) this.paused = true;
-          else toast(`${BIOMES[run.biome].arena.badge} obtenu ! Vitesse ×2 débloquée`, '#ffb300');
+          else if (s.badges === 1) {
+            // 1er vrai badge de la partie : la vitesse ×2 n'a de sens qu'ici, on l'active d'office plutôt
+            // que de laisser le joueur découvrir un bouton caché dans le HUD.
+            useSettings.getState().set({ fast: true });
+            toast(`${BIOMES[run.biome].arena.badge} obtenu ! Vitesse ×2 débloquée et activée`, '#ffb300');
+          } else {
+            toast(`${BIOMES[run.biome].arena.badge} obtenu !`, '#ffb300');
+          }
         }
       } else if (lost) {
         sfx('deny');
@@ -153,10 +160,15 @@ class Runner {
     if (r.capture) {
       const capture = r.capture;
       if (capture.guaranteed) {
-        // capture garantie (boss, ou chromatique en vague normale) : directe
-        if (capture.shiny) toast('✨ Un Pokémon chromatique !', '#ff5ec4');
-        const mon = useGame.getState().act((st) => tryCapture(st, capture, null, rng));
-        if (mon) { sfx('hatch'); toast(`${species(mon.speciesId).name} rejoint ta boîte !`, '#7CFC00'); }
+        // capture garantie (boss, ou chromatique en vague normale) : directe, sauf réglage explicite
+        // pour ne pas s'encombrer d'un chromatique dont l'espèce est déjà chromatique dans le Pokédex.
+        if (capture.shiny && useSettings.getState().skipOwnedShiny && s.dex.shiny.includes(capture.speciesId)) {
+          toast(`✨ ${species(capture.speciesId).name} chromatique déjà obtenu, ignoré`, '#9575cd');
+        } else {
+          if (capture.shiny) toast('✨ Un Pokémon chromatique !', '#ff5ec4');
+          const mon = useGame.getState().act((st) => tryCapture(st, capture, null, rng));
+          if (mon) { sfx('hatch'); toast(`${species(mon.speciesId).name} rejoint ta boîte !`, '#7CFC00'); }
+        }
       } else {
         const known = s.dex.caught.includes(capture.speciesId);
         const settings = useSettings.getState();

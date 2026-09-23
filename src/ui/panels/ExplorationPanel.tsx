@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { species } from '../../game/data';
-import { JOBS, Job, PENSION_CAP_MS, assignExploration, explorationReady, explorationSlots, harvestExploration, removeExploration } from '../../game/game';
+import { PENSION_CAP_MS, SHARDS_PER_MIN, assignExploration, explorationReady, explorationSlots, harvestExploration, removeExploration } from '../../game/game';
 import { AURA } from '../../game/talents';
 import { monStars, primaryType } from '../../game/stats';
-import { rng, useGame } from '../../store/game';
+import { useGame } from '../../store/game';
 import { toast } from '../../store/ui';
 import { Button } from '../components/Button';
 import { MonThumb } from '../components/MonThumb';
@@ -24,7 +23,7 @@ export function ExplorationPanel() {
   useGame((g) => g.rev);
   const act = useGame((g) => g.act);
   const now = useFrameClock(1);
-  const [pick, setPick] = useState<Job | null>(null);
+  const [pick, setPick] = useState(false);
   const ready = explorationReady(s, now);
   const free = Object.values(s.mons)
     .filter((m) => !s.team.includes(m.uid) && !s.exploration.some((p) => p.uid === m.uid) && !s.pension.some((p) => p.uid === m.uid))
@@ -35,26 +34,22 @@ export function ExplorationPanel() {
   return (
     <View style={{ gap: 10 }}>
       <Text style={styles.hint}>
-        Les Pokémon hors équipe explorent ici, chacun sur sa propre horloge (8 h d'accumulation maximum). Ils donnent aussi la moitié de leur aura à l'équipe.
+        Les Pokémon hors équipe explorent ici, chacun sur sa propre horloge (8 h d'accumulation maximum) et
+        rapportent {SHARDS_PER_MIN} éclats/min ({SHARDS_PER_MIN * 60}/h). Ils donnent aussi la moitié de leur
+        aura à l'équipe.
       </Text>
-      <Button label={ready ? `Récolter (${ready} cycle${ready > 1 ? 's' : ''})` : 'Rien à récolter pour l’instant'} color={ready ? '#2e7d32' : C.panel2} disabled={!ready} onPress={() => {
-        const h = act((g) => harvestExploration(g, rng));
-        if (!h) return;
+      <Button label={ready ? `Récolter (+${ready} éclats)` : 'Rien à récolter pour l’instant'} color={ready ? '#2e7d32' : C.panel2} disabled={!ready} onPress={() => {
+        const gained = act((g) => harvestExploration(g));
+        if (!gained) return;
         feedback('medal');
-        const parts = [
-          h.berries.length && `${h.berries.length} baie${h.berries.length > 1 ? 's' : ''}`,
-          Object.values(h.candies).reduce((a, b) => a + b, 0) && `${Object.values(h.candies).reduce((a, b) => a + b, 0)} bonbon(s)`,
-          h.shards && `${h.shards} éclats`, h.balls && `${h.balls} Poké Ball(s)`,
-        ].filter(Boolean);
-        toast(`Récolte : ${parts.join(', ')}`, '#69f0ae');
+        toast(`+${gained} éclats`, '#69f0ae');
       }} />
       <Text style={styles.title}>Postes · {s.exploration.length}/{explorationSlots(s)}</Text>
       {posted.map((p) => {
         const m = s.mons[p.uid];
         if (!m) return null;
-        const job = JOBS[p.job];
         const elapsed = Math.min(now - p.since, PENSION_CAP_MS);
-        const cycles = Math.floor(elapsed / job.cycleMs);
+        const readyShards = Math.floor(elapsed / 60_000) * SHARDS_PER_MIN;
         const full = now - p.since >= PENSION_CAP_MS;
         const aura = AURA[primaryType(m.speciesId)];
         return (
@@ -62,11 +57,10 @@ export function ExplorationPanel() {
             <MonThumb speciesId={m.speciesId} shiny={m.shiny} size={46} />
             <View style={{ flex: 1 }}>
               <View style={styles.row}>
-                <Text style={styles.name}>{monName(m)} · {job.name}</Text>
+                <Text style={styles.name}>{monName(m)}</Text>
                 <Stars mon={m} />
               </View>
-              <Text style={styles.sub}>{job.desc}</Text>
-              <Text style={styles.sub}>{full ? 'Plein : récolte !' : `${cycles} prêt(s) · prochain dans ${fmt(job.cycleMs - (elapsed % job.cycleMs))}`}</Text>
+              <Text style={styles.sub}>{full ? 'Plein : récolte !' : `+${readyShards} éclats prêts · plein dans ${fmt(PENSION_CAP_MS - elapsed)}`}</Text>
               <Text style={styles.aura}>Aura : {aura.label} +{aura.value / 2} %</Text>
             </View>
             <Button small label="Retirer" onPress={() => act((g) => removeExploration(g, p.uid))} />
@@ -74,18 +68,14 @@ export function ExplorationPanel() {
         );
       })}
       {s.exploration.length < explorationSlots(s) && (
-        <View style={styles.row}>
-          {(Object.keys(JOBS) as Job[]).map((j) => (
-            <Button key={j} small label={`+ ${JOBS[j].name}`} disabled={!free.length} onPress={() => setPick(j)} />
-          ))}
-        </View>
+        <Button small label="+ Poster un Pokémon" disabled={!free.length} onPress={() => setPick(true)} />
       )}
       {!free.length && <Text style={styles.hint}>Capture d'autres Pokémon : ceux qui ne sont pas dans l'équipe (ni déjà en pension) peuvent explorer ici.</Text>}
 
-      <Modal visible={!!pick} transparent animationType="slide" onRequestClose={() => setPick(null)}>
-        <Pressable style={styles.backdrop} onPress={() => setPick(null)}>
+      <Modal visible={pick} transparent animationType="slide" onRequestClose={() => setPick(false)}>
+        <Pressable style={styles.backdrop} onPress={() => setPick(false)}>
           <Pressable style={styles.sheet} onPress={() => {}}>
-            <Text style={styles.title}>{pick && JOBS[pick].name} : qui envoyer ?</Text>
+            <Text style={styles.title}>Qui envoyer explorer ?</Text>
             <FlatList
               data={free}
               keyExtractor={(m) => m.uid}
@@ -94,14 +84,19 @@ export function ExplorationPanel() {
               initialNumToRender={12}
               windowSize={5}
               removeClippedSubviews
-              renderItem={({ item: m }) => (
-                <Pressable style={styles.card} onPress={() => { act((g) => assignExploration(g, m.uid, pick!)); setPick(null); feedback(); }}>
-                  <MonThumb speciesId={m.speciesId} shiny={m.shiny} size={40} />
-                  <Text style={[styles.name, { flex: 1 }]}>{monName(m)} Nv.{m.level}</Text>
-                  <Stars mon={m} />
-                  <Text style={styles.sub}>{species(m.speciesId).types.includes('grass') || species(m.speciesId).types.includes('water') ? (pick === 'orchard' ? 'Baies ×2' : '') : ''}</Text>
-                </Pressable>
-              )}
+              renderItem={({ item: m }) => {
+                const aura = AURA[primaryType(m.speciesId)];
+                return (
+                  <Pressable style={styles.card} onPress={() => { act((g) => assignExploration(g, m.uid)); setPick(false); feedback(); }}>
+                    <MonThumb speciesId={m.speciesId} shiny={m.shiny} size={40} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.name}>{monName(m)} Nv.{m.level}</Text>
+                      <Text style={styles.aura}>Aura à l'équipe : {aura.label} +{aura.value / 2} %</Text>
+                    </View>
+                    <Stars mon={m} />
+                  </Pressable>
+                );
+              }}
             />
           </Pressable>
         </Pressable>

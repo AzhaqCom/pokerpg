@@ -5,6 +5,7 @@ import { Fighter } from '../../game/battle';
 import { BIOMES } from '../../game/content';
 import { ActionKey, attackFrameLimit, getSprite, resolveAction } from '../../sprites/manifest';
 import { PmdSprite, autoScale, totalMs } from '../../sprites/PmdSprite';
+import { CaptureBar } from './CaptureBar';
 import { STATUS_COLOR, STATUS_LABEL, runner } from './runner';
 
 /** Positions (fractions du canvas) : front, puis arrière haut, arrière bas. */
@@ -53,10 +54,13 @@ function FighterDraw({ f, image, meta, W, H, px }: {
   f: Fighter; image: SkImage | null; meta: NonNullable<ReturnType<typeof getSprite>>['meta']; W: number; H: number; px: number;
 }) {
   const anim = runner.anims[f.id];
-  if (!anim) return null;
+  const run = runner.run;
+  // `useImage` (Skia) charge le sprite de façon asynchrone : le combat peut déjà être terminé
+  // (`runner.run` redevenu null) au moment où ce composant se re-rend avec l'image enfin prête.
+  if (!anim || !run) return null;
   const clock = runner.clock;
   const side = f.side;
-  const slot = runner.run!.battle.fighters.filter((x) => x.side === side).indexOf(f);
+  const slot = run.battle.fighters.filter((x) => x.side === side).indexOf(f);
   const pos = (side === 0 ? ALLY_POS : ENEMY_POS)[slot] ?? ALLY_POS[0];
   const dir = side === 0 ? 'R' : 'L';
   let action: ActionKey = `idle${dir}`;
@@ -148,6 +152,7 @@ export function BattleView({ width }: { width: number }) {
         </View>
       )}
       {!run && <View style={styles.bannerWrap}><Text style={styles.banner}>Prochaine étape…</Text></View>}
+      <CaptureBar />
     </View>
   );
 }

@@ -11,7 +11,6 @@ import { Dialog, DialogSpec } from '../components/Dialog';
 import { feedback } from '../components/feedback';
 import { C } from '../theme';
 import { useFrameClock } from '../useFrameClock';
-import { CaptureBar } from './CaptureBar';
 import { runner } from './runner';
 
 /** Bandeau au-dessus du combat : où l'on est, boss à lancer, vitesse, réglages. */
@@ -42,7 +41,7 @@ export function HudTop() {
   );
 }
 
-/** Sous le combat : capture et raccourci boss/arène. */
+/** Sous le combat : raccourci boss/arène (la capture est en overlay sur le combat, voir BattleView). */
 export function HudBottom() {
   useFrameClock(4);
   const s = useGame((g) => g.s)!;
@@ -51,7 +50,6 @@ export function HudBottom() {
   const canArena = arenaAvailable(s) && !s.arenaBeaten[s.biome] && run?.kind !== 'arena';
   return (
     <View style={{ gap: 6 }}>
-      <CaptureBar />
       {(canBoss || canArena) && (
         <View style={styles.row}>
           {canBoss && <Button small label={`⚔ Défier le boss : ${BIOMES[s.biome].zones[s.zone].boss.title}`} color="#c62828" style={{ flex: 1 }}
@@ -91,6 +89,7 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
               </>
             )}
             <Row label="Ne pas proposer un Pokémon déjà possédé (3★+)" value={st.hideOwnedOffers} onChange={(v) => st.set({ hideOwnedOffers: v })} />
+            <Row label="Ne pas capturer un chromatique déjà obtenu" value={st.skipOwnedShiny} onChange={(v) => st.set({ skipOwnedShiny: v })} />
             <View style={{ gap: 6 }}>
               <Text style={styles.setLabel}>Recyclage groupé du Sac (Sac → Recycler) : jusqu'à</Text>
               <View style={styles.chipsRow}>
@@ -189,7 +188,10 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
               secondary: { label: 'Annuler', onPress: () => {} },
             })} />
             <Text style={styles.credits}>
-              Projet personnel non commercial. Sprites : PMD Sprite Collaboration (CC BY-NC 4.0). Données : PokéAPI.
+              Développer par Azhaq et Claude.
+            </Text>
+             <Text style={styles.credits}>
+              Sprites : PMD Sprite Collaboration (CC BY-NC 4.0). Données : PokéAPI.
               Pokémon © Nintendo / Game Freak / The Pokémon Company.
             </Text>
           </ScrollView>

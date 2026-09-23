@@ -26,7 +26,7 @@ export function CaptureBar() {
     else { feedback('deny'); toast(`${sp.name} s'est échappé…`, '#ff8a80'); }
   };
   return (
-    <View style={styles.bar}>
+    <View style={styles.bar} pointerEvents="box-none">
       <View style={styles.infoRow}>
         <MonThumb speciesId={offer.speciesId} shiny={offer.shiny} size={40} />
         <View style={styles.col}>
@@ -49,7 +49,12 @@ export function CaptureBar() {
 }
 
 const styles = StyleSheet.create({
-  bar: { gap: 8, backgroundColor: '#1f3a2b', borderColor: '#69f0ae', borderWidth: 1, borderRadius: 14, padding: 8, marginHorizontal: 10 },
+  // en overlay absolu sur la zone de combat (voir BattleView) : ne doit jamais pousser le reste de l'UI
+  // (listes de la boîte/du sac) quand une offre apparaît ou disparaît.
+  bar: {
+    position: 'absolute', left: 8, right: 8, bottom: 8, gap: 8,
+    backgroundColor: 'rgba(31,58,43,0.94)', borderColor: '#69f0ae', borderWidth: 1, borderRadius: 14, padding: 8,
+  },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   col: { flex: 1 },
   ballRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },

@@ -176,3 +176,79 @@ session : pousser une relecture plus complète** de tout ce chantier, en particu
   base pas encore posé (zones Johto au malus standard Kanto).
 - `balance.test.ts` : le test bout-en-bout ne couvre que Kanto ; Johto reste bloquant au-delà de 10h de
   simulation sur certaines graines (premier jet non équilibré) — à réintégrer une fois réglé.
+
+---
+
+## Fait — retours de test d'Arno (et de sa femme) du 2026-09-23
+
+11 retours d'ergonomie après une soirée de test (APK partagé), tous codés et testés (100 tests Jest OK,
+y compris la simulation d'équilibrage bout en bout) :
+
+1. **Vitesse ×2** : le message « débloquée » ne s'affiche plus qu'au tout premier badge (`s.badges === 1`
+   dans `runner.ts`), et la vitesse s'active désormais d'office à ce moment-là (au lieu de laisser un
+   bouton caché dans le HUD à découvrir).
+2. **Popup de capture** (`CaptureBar`) déplacée en overlay `position: absolute` sur la zone de combat
+   (`BattleView.tsx`, plus dans `HudBottom`) : n'affecte plus jamais la mise en page du Sac/de la Boîte
+   quand elle apparaît/disparaît.
+3. **Nettoyage des doublons** (`excessMons`/`releaseExcess` dans `game.ts`) repensé : garde le strict
+   minimum (1 exemplaire par espèce, normal/chromatique à part) au lieu de `remainingEvolutions + 1`, qui
+   gardait plusieurs exemplaires non évolués même quand les formes évoluées existaient déjà séparément en
+   boîte. Protège désormais aussi les Pokémon postés en pension/exploration (jamais relâchés par ce bouton).
+4. **`unequipBox`** (nouveau) : bouton « Déséquiper la boîte » dans `TeamPanel` — retire tous les objets
+   des Pokémon hors équipe pour reconsolider l'équipement dans le sac.
+5. **Farm hors ligne intelligent** (`idleFarmTarget` dans `game.ts`, branché dans `idle.ts`) : si la zone
+   en cours est intégralement farmée (boss vaincu, tous les sauvages vus en normal ET chromatique) et que
+   la zone suivante est déjà débloquée, l'idle simule et récolte sur cette zone suivante à la place — et
+   la position affichée (`s.biome`/`s.zone`/`s.stage`) suit au retour. Ne touche jamais une zone non
+   débloquée ; le combat au premier plan n'est pas concerné (page hors ligne uniquement).
+6. **Filtre par étoiles** (Tous/2★+/3★+/4★+) sur la liste des Pokémon postables en pension (`PensionPanel`).
+7. **`releaseBelowStars`/`releaseNotShiny`** (nouveau) : boutons « Ne garder que 3★+ » et « Ne garder que
+   les chromatiques » dans `TeamPanel`, mêmes garde-fous que le nettoyage des doublons (jamais l'équipe/
+   pension/exploration).
+8. **Achat de Balls en maintenant le bouton** (`BuyBallButton` dans `BagPanel`, `Button.tsx` étendu avec
+   `onLongPress`/`onPressOut`/`delayLongPress`) : un tap achète 1 Ball, un appui long en achète en rafale
+   (utile en fin de partie avec des milliers d'éclats).
+9. **Bug panoplie starter Johto corrigé** : `chooseStarter` équipait toujours la panoplie Sylvestre
+   (biome 0, Kanto) même au « nouveau départ » Johto. Équipe désormais la panoplie du premier biome de la
+   région courante (`REGION_START[s.prestige]` → `SETS[...].biome` correspondant), Kanto comme Johto —
+   et scalable pour une future Gen 3 sans y retoucher.
+10. **`completeDex`** (nouveau) : bouton « Compléter le Pokédex » dans `TeamPanel` — fait évoluer le
+    strict minimum de doublons de la boîte pour combler les lignées manquantes (normal et chromatique
+    traités séparément), en garantissant toujours qu'1 exemplaire de chaque étage déjà possédé (équipe/
+    pension/exploration/boîte) reste intact ; ne consomme que les exemplaires réellement en trop.
+
+---
+
+## Fait — suite du 2026-09-23 (réordonnancement équipe, exploration repensée, aura, réglage chromatique)
+
+- **Réordonnancement de l'équipe** (`TeamPanel`) : flèches ▲▼ sur chaque carte, échange la position avec
+  le voisin via `setTeam` (déjà existant). Le 1er de la liste est bien celui que les sauvages ciblent en
+  priorité (70 % du temps, `battle.ts:pickTarget`) — texte du panneau reformulé en conséquence.
+- **Bug corrigé (`BattleView.tsx`)** : `Cannot read property 'battle' of null`, race condition
+  préexistante (pas liée aux changements du jour) entre le chargement asynchrone du sprite (`useImage`
+  Skia) et la fin de combat — `FighterDraw` accédait à `runner.run!` sans vérifier qu'il n'était pas
+  redevenu `null` entretemps. Guard ajouté (`if (!anim || !run) return null;`), même pattern que la
+  vérification `anim` déjà en place.
+- **Boutons de la boîte réunis sur une ligne à défilement horizontal** (`ScrollView horizontal`, comme
+  les onglets de biomes de la Carte), dans l'ordre : Compléter le Pokédex, Nettoyer les doublons,
+  Déséquiper la boîte, Ne garder que 3★+, Ne garder que les chromatiques.
+- **Exploration repensée** : Arno ne l'utilisait pas (récompenses peu lisibles/attractives — Verger/
+  Entraînement/Fouille avaient des taux fixes indépendants du niveau du Pokémon posté, seul Verger avait
+  un bonus de type). Remplacé par un mécanisme unique, focalisé sur le vrai manque en début de partie :
+  **`SHARDS_PER_MIN = 3` éclats/minute par Pokémon posté** (donc 9/min avec 3 postes, une Poké Ball
+  ~toutes les 2 min), plafond 8 h inchangé. `JOBS`/`Job` supprimés de `game.ts` ; `GameState.exploration`
+  n'a plus de champ `job` (les anciennes sauvegardes convergent simplement vers le nouveau taux, sans
+  migration nécessaire — le champ `job` résiduel est juste ignoré). Panneau simplifié sur le modèle de la
+  Pension (un seul bouton « + Poster un Pokémon »).
+- **Mécanique d'aura clarifiée** : elle ne servait qu'à l'Exploration côté affichage, alors qu'elle
+  s'applique en combat à **toute l'équipe active**, pas juste au porteur — valeur pleine (`AURA[type].value`)
+  pour un membre de l'équipe, moitié pour un Pokémon posté en pension/exploration (`auraBonuses` dans
+  `stats.ts`, cumulée entre tous, appliquée à chaque combattant via `allyFighter`). Désormais affichée
+  aussi sur chaque carte de `TeamPanel` (valeur pleine, puisqu'en équipe).
+- **Réglage `skipOwnedShiny`** (`store/settings.ts`, off par défaut) : « Ne pas capturer un chromatique
+  déjà obtenu » — ignore la capture garantie d'un chromatique dont l'espèce est déjà dans `dex.shiny`, en
+  combat (`runner.ts`) comme hors ligne (`idle.ts`, nouvel opt `skipOwnedShiny` de `computeIdleGains`).
+
+**Reste ouvert** : `src/ui/CrashScreen.tsx` a toujours un diff local non commité (« TamaPoké » → « Pokerpg »
+dans le message de crash) — jamais écrit par Claude, signalé à Arno à plusieurs reprises, toujours pas
+résolu ni intentionnellement écarté.

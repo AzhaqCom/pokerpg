@@ -3,9 +3,9 @@
  * équipe, étapes/vagues, butin, capture, évolutions, pension.
  */
 import { Battle, FighterInit } from './battle';
-import { BADGE_BONUS, BIOMES, PRESTIGE_BIOME, STAGES_PER_ZONE, WAVES_PER_STAGE, ZoneDef } from './content';
+import { BADGE_BONUS, BIOMES, PRESTIGE_BIOME, REGION_START, STAGES_PER_ZONE, WAVES_PER_STAGE, ZoneDef } from './content';
 import { PType, learnedMoves, movesAtLevel, species } from './data';
-import { TEMPLATES, berryHeal, fuse, canFuse, makeItem, newUid, recycleValue, rerollCost, rerollSub, rollLoot, rollRarity, slotOf, template, upgrade, upgradeCost } from './items';
+import { SETS, TEMPLATES, berryHeal, fuse, canFuse, makeItem, newUid, recycleValue, rerollCost, rerollSub, rollLoot, rollRarity, slotOf, template, upgrade, upgradeCost } from './items';
 import { BattleBonuses, Item, ItemSlot, MAX_RARITY, Mon, emptyBonuses } from './model';
 import { Rng } from './rng';
 import { MAX_LEVEL, auraBonuses, combatPower, finalStats, levelFromXp, monBonuses, monStars, sumBonuses, xpForLevel } from './stats';
@@ -28,12 +28,9 @@ export const BALL_PRICE: Record<'poke' | 'super' | 'hyper', number> = { poke: 20
 export const PENSION_CAP_MS = 8 * 3600_000;
 /** Pause entre deux vagues affichée à l'écran (runner) ; utilisée aussi par le calcul idle pour estimer la durée d'une vague. */
 export const BETWEEN_WAVES_MS = 1100;
-export const JOBS = {
-  orchard: { name: 'Verger', cycleMs: 3600_000, desc: 'Baies (Plante et Eau : ×2)' },
-  training: { name: 'Entraînement', cycleMs: 2 * 3600_000, desc: 'Bonbons de son espèce' },
-  dig: { name: 'Fouille', cycleMs: 4 * 3600_000, desc: 'Éclats, parfois une Poké Ball' },
-} as const;
-export type Job = keyof typeof JOBS;
+/** Exploration : farm passif d'éclats, 3/min par Pokémon posté (voir `harvestExploration`). */
+export const SHARDS_PER_MIN = 3;
+const EXPLORATION_CYCLE_MS = 60_000;
 export const CANDY_XP = 100;
 
 export interface GameState {
@@ -43,8 +40,8 @@ export interface GameState {
   team: string[];
   /** Pension : gagne de l'XP passive (voir `harvestPension`). `xpPerHour` figé au moment de l'affectation. */
   pension: { uid: string; since: number; xpPerHour: number }[];
-  /** Exploration : les 3 métiers à ressources (ex-pension). */
-  exploration: { uid: string; job: Job; since: number }[];
+  /** Exploration : farm passif d'éclats (ex-pension). */
+  exploration: { uid: string; since: number }[];
   items: Record<string, Item>;
   shards: number;
   balls: Record<BallKind, number>;
@@ -194,15 +191,22 @@ export function makeMon(speciesId: number, level: number, rng: Rng, shiny = fals
   };
 }
 
-/** Objets offerts au starter (1 par emplacement, rareté commune) : un peu de marge pour le début. */
-const STARTER_ITEMS = ['griffe-sylve', 'cape-sylve', 'baie-sylve'] as const;
+/** Objets offerts au starter (1 par emplacement, rareté commune) : la panoplie du tout premier biome
+ * de la région courante (Forêt de Jade en Kanto, Route des Cieux en Johto…) — jamais une panoplie
+ * d'une région précédente. */
+function starterItems(s: GameState): string[] {
+  const firstBiome = REGION_START[s.prestige] ?? 0;
+  const setKey = Object.keys(SETS).find((k) => SETS[k].biome === firstBiome);
+  const templates = setKey ? TEMPLATES.filter((t) => t.set === setKey).map((t) => t.id) : [];
+  return templates.length ? templates : ['griffe-sylve', 'cape-sylve', 'baie-sylve'];
+}
 
 export function chooseStarter(s: GameState, speciesId: number, rng: Rng) {
   const mon = makeMon(speciesId, 5, rng, false, 8);
   addMon(s, mon);
   s.team = [mon.uid];
   s.starterChosen = true;
-  for (const templateId of STARTER_ITEMS) {
+  for (const templateId of starterItems(s)) {
     const item = makeItem(templateId, 0, 5, rng);
     s.items[item.uid] = item;
     equip(s, mon.uid, item.uid);
@@ -319,9 +323,10 @@ export function remainingEvolutions(speciesId: number): number {
 }
 
 /**
- * Doublons en excès dans la boîte (jamais l'équipe) : pour chaque (espèce, chromatique ou non), on
- * garde `remainingEvolutions + 1` exemplaires (de quoi faire évoluer la lignée jusqu'au bout tout en
- * gardant un exemplaire de chaque palier), les plus forts (PC) d'abord. Le reste est en excès.
+ * Doublons en excès dans la boîte (jamais l'équipe, ni la pension/exploration) : pour chaque (espèce,
+ * chromatique ou non), on garde le strict minimum — 1 seul exemplaire, le plus fort (PC) — le reste est
+ * en excès. Compléter une lignée d'évolution (garder un exemplaire de chaque palier) est le rôle du
+ * bouton « Compléter le Pokédex » (`completeDex`), pas de ce nettoyage.
  */
 export function excessMons(s: GameState): Mon[] {
   const groups = new Map<string, Mon[]>();
@@ -331,11 +336,16 @@ export function excessMons(s: GameState): Mon[] {
     groups.set(key, [...(groups.get(key) ?? []), m]);
   }
   const out: Mon[] = [];
+  const keep = 1;
+  // un Pokémon posté en pension/exploration compte pour l'exemplaire gardé, mais n'est jamais lui-même
+  // relâché ici (utiliser « Retirer » dans le panneau concerné pour le libérer).
+  const isProtected = (m: Mon) => s.pension.some((p) => p.uid === m.uid) || s.exploration.some((p) => p.uid === m.uid);
   for (const mons of groups.values()) {
-    const keep = remainingEvolutions(mons[0].speciesId) + 1;
     if (mons.length <= keep) continue;
     const sorted = [...mons].sort((a, b) => combatPower(finalStats(b, emptyBonuses())) - combatPower(finalStats(a, emptyBonuses())));
-    out.push(...sorted.slice(keep));
+    const releasable = sorted.filter((m) => !isProtected(m));
+    const stillNeeded = Math.max(0, keep - (sorted.length - releasable.length));
+    if (releasable.length > stillNeeded) out.push(...releasable.slice(stillNeeded));
   }
   return out;
 }
@@ -345,6 +355,102 @@ export function releaseExcess(s: GameState): { count: number; candies: number } 
   const excess = excessMons(s);
   for (const m of excess) release(s, m.uid);
   return { count: excess.length, candies: excess.length * 3 };
+}
+
+function boxMons(s: GameState): Mon[] {
+  return Object.values(s.mons).filter((m) => !s.team.includes(m.uid) && !s.pension.some((p) => p.uid === m.uid) && !s.exploration.some((p) => p.uid === m.uid));
+}
+
+/** Pokémon de la boîte sous `minStars` étoiles (jamais l'équipe/pension/exploration). */
+export function monsBelowStars(s: GameState, minStars: number): Mon[] {
+  return boxMons(s).filter((m) => monStars(m) < minStars);
+}
+
+/** Relâche tous les Pokémon de la boîte sous `minStars` étoiles (ex. « ne garder que les 3★+ »). */
+export function releaseBelowStars(s: GameState, minStars: number): { count: number; candies: number } {
+  const targets = monsBelowStars(s, minStars);
+  for (const m of targets) release(s, m.uid);
+  return { count: targets.length, candies: targets.length * 3 };
+}
+
+/** Pokémon normaux (non chromatiques) de la boîte (jamais l'équipe/pension/exploration). */
+export function monsNotShiny(s: GameState): Mon[] {
+  return boxMons(s).filter((m) => !m.shiny);
+}
+
+/** Relâche tous les Pokémon non chromatiques de la boîte (« ne garder que les chromatiques »). */
+export function releaseNotShiny(s: GameState): { count: number; candies: number } {
+  const targets = monsNotShiny(s);
+  for (const m of targets) release(s, m.uid);
+  return { count: targets.length, candies: targets.length * 3 };
+}
+
+/** Retire tous les objets portés par les Pokémon de la boîte (jamais l'équipe) : pratique pour
+ * reconsolider l'équipement dans le sac quand des Pokémon de passage en équipe l'ont dispersé. */
+export function unequipBox(s: GameState): number {
+  let n = 0;
+  for (const m of Object.values(s.mons)) {
+    if (s.team.includes(m.uid)) continue;
+    n += Object.keys(m.items).length;
+    m.items = {};
+  }
+  return n;
+}
+
+/** Étage le plus avancé qu'un Pokémon peut atteindre par évolutions successives à son niveau actuel. */
+function maxReachableStage(mon: Mon): number {
+  let id = mon.speciesId;
+  for (;;) {
+    const sp = species(id);
+    if (!sp.evolvesTo || mon.level < sp.evolveLevel) return id;
+    id = sp.evolvesTo;
+  }
+}
+
+/**
+ * Fait évoluer automatiquement le strict minimum de Pokémon de la boîte pour compléter le Pokédex :
+ * pour chaque lignée (normale et chromatique séparément), un exemplaire déjà possédé (équipe, pension,
+ * exploration ou boîte) est toujours conservé à son étage — seuls des exemplaires de la boîte en trop
+ * (au-delà du premier gardé à chaque étage déjà possédé) servent de matière pour grimper la lignée
+ * jusqu'aux étages manquants. Retourne le nombre d'évolutions effectuées.
+ */
+export function completeDex(s: GameState): number {
+  const maxId = s.prestige > 0 ? 251 : 151;
+  const bases = new Set<number>();
+  for (let id = 1; id <= maxId; id++) bases.add(lineBase(id));
+  let count = 0;
+  for (const base of bases) {
+    const chain: number[] = [];
+    for (let id = base; id && id <= maxId; id = species(id).evolvesTo || 0) chain.push(id);
+    if (chain.length < 2) continue;
+    for (const shiny of [false, true]) {
+      const all = Object.values(s.mons).filter((m) => m.shiny === shiny && chain.includes(m.speciesId));
+      const cnt = new Map<number, number>();
+      for (const m of all) cnt.set(m.speciesId, (cnt.get(m.speciesId) ?? 0) + 1);
+      // 1 exemplaire protégé par étage déjà possédé (équipe/pension/exploration prioritaires)
+      const protectedUids = new Set<string>();
+      for (const stage of chain) {
+        if (!(cnt.get(stage) ?? 0)) continue;
+        const held = all.find((m) => m.speciesId === stage
+          && (s.team.includes(m.uid) || s.pension.some((p) => p.uid === m.uid) || s.exploration.some((p) => p.uid === m.uid)))
+          ?? all.find((m) => m.speciesId === stage);
+        if (held) protectedUids.add(held.uid);
+      }
+      const freeSpares = all
+        .filter((m) => !protectedUids.has(m.uid) && !s.team.includes(m.uid)
+          && !s.pension.some((p) => p.uid === m.uid) && !s.exploration.some((p) => p.uid === m.uid))
+        .sort((a, b) => chain.indexOf(a.speciesId) - chain.indexOf(b.speciesId));
+      const missing = chain.filter((stage) => !(cnt.get(stage) ?? 0));
+      for (const target of missing) {
+        const ti = chain.indexOf(target);
+        const idx = freeSpares.findIndex((m) => chain.indexOf(m.speciesId) < ti && chain.indexOf(maxReachableStage(m)) >= ti);
+        if (idx < 0) continue;
+        const [mon] = freeSpares.splice(idx, 1);
+        while (mon.speciesId !== target) { evolve(s, mon.uid); count++; }
+      }
+    }
+  }
+  return count;
 }
 
 export function feedCandy(s: GameState, uid: string, n = 1) {
@@ -772,6 +878,33 @@ export function bossAvailable(s: GameState, biome = s.biome, zone = s.zone) {
   return s.unlocked[biome][zone] >= STAGES_PER_ZONE;
 }
 
+/** Une zone est « intégralement farmée » quand son boss est vaincu et que tous ses sauvages ont été
+ * capturés en normal ET en chromatique (farmer une zone déjà finie n'apporte plus rien de nouveau). */
+function zoneFullyFarmed(s: GameState, biome: number, zone: number): boolean {
+  const ids = BIOMES[biome].zones[zone].pool.map(([id]) => id);
+  return s.bossesBeaten[biome][zone] && ids.every((id) => s.dex.caught.includes(id) && s.dex.shiny.includes(id));
+}
+
+/**
+ * Zone à utiliser pour le farm hors ligne (`idle.ts`) : avance automatiquement d'une zone déjà
+ * intégralement farmée vers la suivante, tant qu'elle est déjà débloquée (ex. le joueur farme une
+ * ancienne zone pour ses chromatiques/gènes, puis passe à la suivante une fois celle-ci vidée de tout
+ * intérêt) — ne touche jamais à une zone non débloquée.
+ */
+export function idleFarmTarget(s: GameState): { biome: number; zone: number } {
+  let biome = s.biome;
+  let zone = s.zone;
+  for (let i = 0; i < BIOMES.length * STAGES_PER_ZONE; i++) {
+    if (!zoneFullyFarmed(s, biome, zone)) break;
+    let nb = biome;
+    let nz = zone + 1;
+    if (nz >= BIOMES[biome].zones.length) { nb = biome + 1; nz = 0; }
+    if (nb >= BIOMES.length || !s.unlocked[nb]?.[nz]) break;
+    biome = nb; zone = nz;
+  }
+  return { biome, zone };
+}
+
 export function arenaAvailable(s: GameState, biome = s.biome) {
   return s.bossesBeaten[biome].every(Boolean);
 }
@@ -906,17 +1039,16 @@ export function harvestPension(s: GameState, now = Date.now()): PensionHarvest {
   return { gains };
 }
 
-// ---------------------------------------------------------------- exploration (Verger/Entraînement/Fouille)
+// ---------------------------------------------------------------- exploration (farm d'éclats)
 export function explorationSlots(s: GameState) {
   return 3 + s.badges;
 }
 
-export function assignExploration(s: GameState, uid: string, job: Job, now = Date.now()): boolean {
+export function assignExploration(s: GameState, uid: string, now = Date.now()): boolean {
   if (s.team.includes(uid) || !s.mons[uid] || s.pension.some((p) => p.uid === uid)) return false;
-  const existing = s.exploration.find((p) => p.uid === uid);
-  if (existing) { existing.job = job; existing.since = now; return true; }
+  if (s.exploration.some((p) => p.uid === uid)) return true;
   if (s.exploration.length >= explorationSlots(s)) return false;
-  s.exploration.push({ uid, job, since: now });
+  s.exploration.push({ uid, since: now });
   return true;
 }
 
@@ -924,46 +1056,23 @@ export function removeExploration(s: GameState, uid: string) {
   s.exploration = s.exploration.filter((p) => p.uid !== uid);
 }
 
-export interface ExplorationHarvest { berries: Item[]; candies: Record<string, number>; shards: number; balls: number }
-
+/** Éclats prêts à récolter (`SHARDS_PER_MIN`/min et par Pokémon posté, plafond 8 h d'accumulation). */
 export function explorationReady(s: GameState, now = Date.now()): number {
-  return s.exploration.reduce((a, p) => a + Math.floor(Math.min(now - p.since, PENSION_CAP_MS) / JOBS[p.job].cycleMs), 0);
+  return s.exploration.reduce((a, p) => a + Math.floor(Math.min(now - p.since, PENSION_CAP_MS) / EXPLORATION_CYCLE_MS) * SHARDS_PER_MIN, 0);
 }
 
-/** Récolte tous les cycles terminés (plafond 8 h d'accumulation). */
-export function harvestExploration(s: GameState, rng: Rng, now = Date.now()): ExplorationHarvest {
-  const out: ExplorationHarvest = { berries: [], candies: {}, shards: 0, balls: 0 };
+/** Récolte les éclats prêts de tous les postes (plafond 8 h d'accumulation par poste). */
+export function harvestExploration(s: GameState, now = Date.now()): number {
+  let shards = 0;
   for (const p of s.exploration) {
-    const mon = s.mons[p.uid];
-    if (!mon) continue;
-    const cycleMs = JOBS[p.job].cycleMs;
     const elapsed = Math.min(now - p.since, PENSION_CAP_MS);
-    const cycles = Math.floor(elapsed / cycleMs);
+    const cycles = Math.floor(elapsed / EXPLORATION_CYCLE_MS);
     if (!cycles) continue;
-    p.since = now - (elapsed >= PENSION_CAP_MS ? 0 : elapsed - cycles * cycleMs);
-    for (let c = 0; c < cycles; c++) {
-      if (p.job === 'orchard') {
-        const types = species(mon.speciesId).types;
-        const n = types.includes('grass') || types.includes('water') ? 2 : 1;
-        const berryIds = TEMPLATES.filter((t) => t.slot === 'berry').map((t) => t.id);
-        for (let i = 0; i < n; i++) {
-          const id = berryIds[rng.int(berryIds.length)];
-          const it = { ...makeItem(id, Math.min(rollRarity(rng), 2), Math.max(1, mon.level), rng), subs: [] as Item['subs'] };
-          s.items[it.uid] = it;
-          out.berries.push(it);
-        }
-      } else if (p.job === 'training') {
-        const base = lineBase(mon.speciesId);
-        s.candies[base] = (s.candies[base] ?? 0) + 1;
-        out.candies[base] = (out.candies[base] ?? 0) + 1;
-      } else {
-        out.shards += 10 + Math.floor(mon.level / 2);
-        if (rng.int(100) < 20) { out.balls++; s.balls.poke++; }
-      }
-    }
+    p.since = now - (elapsed >= PENSION_CAP_MS ? 0 : elapsed - cycles * EXPLORATION_CYCLE_MS);
+    shards += cycles * SHARDS_PER_MIN;
   }
-  s.shards += out.shards;
-  return out;
+  s.shards += shards;
+  return shards;
 }
 
 export { newUid };

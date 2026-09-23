@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { BALL_PRICE, BALLS, BallKind, buyBall, fuseItems, fusionCandidates, heldBy, recycle } from '../../game/game';
 import { slotOf, template, itemScore } from '../../game/items';
@@ -18,6 +18,25 @@ import { C } from '../theme';
 const FILTERS: { key: ItemSlot | 'all'; label: string }[] = [
   { key: 'all', label: 'Tout' }, { key: 'offense', label: 'Offensif' }, { key: 'defense', label: 'Défensif' }, { key: 'berry', label: 'Baies' },
 ];
+
+/** Achat d'1 Ball au tap, achat répété tant qu'on maintient le bouton (fin de partie : des milliers d'éclats à dépenser). */
+function BuyBallButton({ kind }: { kind: BallKind }) {
+  const act = useGame((g) => g.act);
+  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const s = useGame((g) => g.s)!;
+  useGame((g) => g.rev);
+  const stop = () => { if (timer.current) { clearInterval(timer.current); timer.current = null; } };
+  useEffect(() => stop, []);
+  const buyOne = () => { if (act((g) => buyBall(g, kind))) feedback(); };
+  const start = () => {
+    stop();
+    timer.current = setInterval(() => { if (!act((g) => buyBall(g, kind))) stop(); }, 120);
+  };
+  return (
+    <Button small icon={<BallIcon kind={kind} size={16} />} label={`${BALLS[kind].name} (${BALL_PRICE[kind]} 💎)`}
+      disabled={s.shards < BALL_PRICE[kind]} onPress={buyOne} onLongPress={start} onPressOut={stop} delayLongPress={350} />
+  );
+}
 
 export function BagPanel() {
   const s = useGame((g) => g.s)!;
@@ -75,12 +94,9 @@ export function BagPanel() {
               }} />
             </View>
             <View style={styles.row}>
-              {(Object.keys(BALLS) as BallKind[]).map((b) => (
-                <Button key={b} small icon={<BallIcon kind={b} size={16} />} label={`${BALLS[b].name} (${BALL_PRICE[b]} 💎)`} disabled={s.shards < BALL_PRICE[b]}
-                  onPress={() => { if (act((g) => buyBall(g, b))) feedback(); }} />
-              ))}
+              {(Object.keys(BALLS) as BallKind[]).map((b) => <BuyBallButton key={b} kind={b} />)}
             </View>
-            <Text style={styles.hint}>Fusion : 3 objets identiques de même rareté → rareté supérieure. Les objets portés ou verrouillés ne sont jamais recyclés.</Text>
+            <Text style={styles.hint}>Fusion : 3 objets identiques de même rareté → rareté supérieure. Les objets portés ou verrouillés ne sont jamais recyclés. Maintenir un bouton Ball pour en acheter plusieurs d'affilée.</Text>
             <View style={styles.row}>
               {FILTERS.map((f) => (
                 <Pressable key={f.key} onPress={() => setFilter(f.key)} style={[styles.chip, filter === f.key && styles.chipOn]}>

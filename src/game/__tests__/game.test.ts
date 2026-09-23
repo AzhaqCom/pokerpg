@@ -2,11 +2,11 @@ import { BIOMES, STAGES_PER_ZONE } from '../content';
 import { ALL_SPECIES } from '../data';
 import {
   GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, arenaAvailable, assignExploration, assignPension, autoCaptureBall, bestStarsOf, biomeAvailable, bossAvailable,
-  canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
-  harvestExploration, harvestPension, holder, isRareInZone, makeMon, addMon, makeWaves, migrateSave, newGame, pickSpecies, rankUpTalent, recycle, release, releaseExcess,
-  remainingEvolutions, removePension, selectStage, startPrestige, teamMaxLevel, tryCapture, xpGapMult,
+  canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
+  harvestExploration, harvestPension, holder, isRareInZone, makeMon, addMon, makeWaves, migrateSave, monsBelowStars, monsNotShiny, newGame, pickSpecies, rankUpTalent, recycle, release, releaseBelowStars, SHARDS_PER_MIN,
+  releaseExcess, releaseNotShiny, remainingEvolutions, removePension, selectStage, startPrestige, teamMaxLevel, tryCapture, unequipBox, xpGapMult,
 } from '../game';
-import { makeItem } from '../items';
+import { SETS, TEMPLATES, makeItem } from '../items';
 import { emptyBonuses } from '../model';
 import { Rng, seededRng } from '../rng';
 import { spentPoints, talentPoints } from '../talents';
@@ -301,28 +301,114 @@ test('remainingEvolutions : 0 pour une forme finale, 1/2 pour Paras/Aspicot', ()
   expect(remainingEvolutions(13)).toBe(2); // Aspicot → Coconfort → Dardargnan
 });
 
-test('excessMons / releaseExcess : garde les plus forts, jamais l’équipe, chromatique à part', () => {
+test('excessMons / releaseExcess : garde le strict minimum (1), jamais l’équipe/pension/exploration, chromatique à part', () => {
   const s = newGame();
   chooseStarter(s, 4, seededRng(1));
   addMon(s, makeMon(1, 5, seededRng(50))); // complète l'équipe à 3 pour que les Paras aillent en boîte
   addMon(s, makeMon(7, 5, seededRng(51)));
-  // 5 Paras normaux (garde 2) + 3 Paras chromatiques (garde 2, quota séparé)
+  // 5 Paras normaux (garde 1) + 3 Paras chromatiques (garde 1, quota séparé)
   for (let i = 0; i < 5; i++) addMon(s, makeMon(46, 10 + i, seededRng(i), false));
   for (let i = 0; i < 3; i++) addMon(s, makeMon(46, 10 + i, seededRng(100 + i), true));
   const before = Object.keys(s.mons).length;
   const excess = excessMons(s);
-  expect(excess.length).toBe(5 - 2 + (3 - 2)); // 3 normaux + 1 chromatique en trop
+  expect(excess.length).toBe(5 - 1 + (3 - 1)); // 4 normaux + 2 chromatiques en trop
   expect(excess.every((m) => !s.team.includes(m.uid))).toBe(true);
   const cp = (m: (typeof excess)[number]) => combatPower(finalStats(m, emptyBonuses()));
   const normalKept = Object.values(s.mons).filter((m) => m.speciesId === 46 && !m.shiny && !excess.includes(m));
-  expect(normalKept.length).toBe(2);
+  expect(normalKept.length).toBe(1);
   const minKeptCp = Math.min(...normalKept.map(cp));
   const maxExcessCp = Math.max(...excess.filter((m) => !m.shiny).map(cp));
-  expect(minKeptCp).toBeGreaterThanOrEqual(maxExcessCp); // les plus forts sont gardés
+  expect(minKeptCp).toBeGreaterThanOrEqual(maxExcessCp); // le plus fort est gardé
   const r = releaseExcess(s);
   expect(r.count).toBe(excess.length);
   expect(r.candies).toBe(excess.length * 3);
   expect(Object.keys(s.mons).length).toBe(before - excess.length);
+});
+
+test('excessMons : protège les Pokémon postés en pension ou en exploration', () => {
+  const s = newGame();
+  chooseStarter(s, 4, seededRng(1));
+  addMon(s, makeMon(1, 5, seededRng(50)));
+  addMon(s, makeMon(7, 5, seededRng(51)));
+  const a = makeMon(46, 10, seededRng(1), false); addMon(s, a);
+  const b = makeMon(46, 11, seededRng(2), false); addMon(s, b);
+  s.pension.push({ uid: a.uid, since: 0, xpPerHour: 10 });
+  const excess = excessMons(s);
+  expect(excess.some((m) => m.uid === a.uid)).toBe(false);
+  expect(excess.some((m) => m.uid === b.uid)).toBe(true);
+});
+
+test('chooseStarter : équipe le starter avec la panoplie du 1er biome de la région courante (jamais une panoplie Kanto en Johto)', () => {
+  const kanto = newGame();
+  chooseStarter(kanto, 4, seededRng(1));
+  const kantoMon = kanto.mons[kanto.team[0]];
+  const kantoSet = SETS[TEMPLATES.find((t) => t.id === kanto.items[kantoMon.items.offense!].templateId)!.set!];
+  expect(kantoSet.biome).toBe(0);
+
+  const johto = newGame();
+  johto.prestige = 1;
+  chooseStarter(johto, 152, seededRng(1));
+  const johtoMon = johto.mons[johto.team[0]];
+  const johtoSet = SETS[TEMPLATES.find((t) => t.id === johto.items[johtoMon.items.offense!].templateId)!.set!];
+  expect(johtoSet.biome).toBe(10);
+});
+
+test('unequipBox : retire les objets des Pokémon de la boîte, jamais de l’équipe', () => {
+  const s = newGame();
+  chooseStarter(s, 4, seededRng(1));
+  addMon(s, makeMon(1, 5, seededRng(50)));
+  addMon(s, makeMon(7, 5, seededRng(51))); // complète l'équipe à 3
+  const other = makeMon(10, 5, seededRng(2));
+  addMon(s, other); // équipe pleine : va en boîte
+  const item = makeItem('griffe-sylve', 0, 5, seededRng(3));
+  s.items[item.uid] = item;
+  equip(s, other.uid, item.uid);
+  const teamItems = Object.keys(s.mons[s.team[0]].items).length;
+  const n = unequipBox(s);
+  expect(n).toBe(1);
+  expect(s.mons[other.uid].items).toEqual({});
+  expect(Object.keys(s.mons[s.team[0]].items).length).toBe(teamItems); // équipe intacte
+  expect(s.items[item.uid]).toBeDefined(); // reste dans le sac
+});
+
+test('releaseBelowStars / releaseNotShiny : ne gardent que le critère demandé dans la boîte', () => {
+  const s = newGame();
+  chooseStarter(s, 4, seededRng(1));
+  addMon(s, makeMon(1, 5, seededRng(50)));
+  addMon(s, makeMon(7, 5, seededRng(51)));
+  const weak = { ...makeMon(46, 10, seededRng(1), false), genes: { hp: 0, atk: 0, def: 0, spe: 0 } }; // 1★
+  const strong = { ...makeMon(46, 10, seededRng(2), false), genes: { hp: 15, atk: 15, def: 15, spe: 15 } }; // 4★
+  const shiny = { ...makeMon(48, 10, seededRng(3), true), genes: { hp: 15, atk: 15, def: 15, spe: 15 } }; // 4★, pour isoler le critère chromatique du critère étoiles
+  addMon(s, weak); addMon(s, strong); addMon(s, shiny);
+
+  expect(monsBelowStars(s, 3).map((m) => m.uid).sort()).toEqual([weak.uid].sort());
+  const rBelow = releaseBelowStars(s, 3);
+  expect(rBelow.count).toBe(1);
+  expect(s.mons[weak.uid]).toBeUndefined();
+  expect(s.mons[strong.uid]).toBeDefined();
+
+  expect(monsNotShiny(s).some((m) => m.uid === shiny.uid)).toBe(false);
+  const rShiny = releaseNotShiny(s);
+  expect(rShiny.count).toBeGreaterThan(0);
+  expect(s.mons[shiny.uid]).toBeDefined();
+  expect(s.mons[strong.uid]).toBeUndefined();
+});
+
+test('completeDex : évolue le minimum de doublons pour compléter une lignée, en gardant 1 exemplaire de chaque étage déjà possédé', () => {
+  const s = newGame();
+  chooseStarter(s, 4, seededRng(1));
+  addMon(s, makeMon(1, 5, seededRng(50)));
+  addMon(s, makeMon(7, 5, seededRng(51)));
+  // 14 Roucool (id 16) Nv.70, largement au-dessus des niveaux d'évolution de la lignée
+  for (let i = 0; i < 14; i++) addMon(s, makeMon(16, 70, seededRng(i)));
+  const n = completeDex(s);
+  expect(n).toBeGreaterThan(0);
+  const own = (id: number) => Object.values(s.mons).some((m) => m.speciesId === id && !m.shiny);
+  expect(own(16)).toBe(true); // Roucool
+  expect(own(17)).toBe(true); // Roucoups
+  expect(own(18)).toBe(true); // Roucarnage
+  // relancer ne fait plus rien : la lignée est déjà complète
+  expect(completeDex(s)).toBe(0);
 });
 
 test('bestStarsOf : 0 si jamais capturé, sinon le meilleur exemplaire possédé', () => {
@@ -609,17 +695,19 @@ test('recyclage : jamais un objet porté', () => {
   expect(s.items[b.uid]).toBeUndefined();
 });
 
-test('exploration : cycles par poste, plafond 8 h, jamais un membre de l’équipe', () => {
+test('exploration : éclats (3/min/poste), plafond 8 h, jamais un membre de l’équipe', () => {
   const s = strongGame();
   const rng = seededRng(4);
   const extra = makeMon(43, 10, rng);
   addMon(s, extra); // rejoint l'équipe (2e place)
-  expect(assignExploration(s, extra.uid, 'orchard', 0)).toBe(false);
+  expect(assignExploration(s, extra.uid, 0)).toBe(false);
   s.team = [s.team[0]];
-  expect(assignExploration(s, extra.uid, 'orchard', 0)).toBe(true);
-  const h = harvestExploration(s, rng, 24 * H); // 24 h plus tard → plafond 8 h
-  expect(h.berries.length).toBe(8 * 2); // Mystherbe (Plante) : ×2
-  expect(harvestExploration(s, rng, 24 * H).berries.length).toBe(0);
+  expect(assignExploration(s, extra.uid, 0)).toBe(true);
+  const before = s.shards;
+  const gained = harvestExploration(s, 24 * H); // 24 h plus tard → plafond 8 h
+  expect(gained).toBe(8 * 60 * SHARDS_PER_MIN);
+  expect(s.shards).toBe(before + gained);
+  expect(harvestExploration(s, 24 * H)).toBe(0); // rien de nouveau, le poste vient d'être récolté
 });
 
 test('pension : XP passive plafonnée à 8 h, jamais un membre de l’équipe', () => {

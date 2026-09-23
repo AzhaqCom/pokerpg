@@ -1,3 +1,4 @@
+import { BIOMES } from '../content';
 import { addMon, chooseStarter, makeMon, newGame, teamMaxLevel } from '../game';
 import { IDLE_CAP_MS, applyIdleGains, computeIdleGains, teamXpPerHour } from '../idle';
 import { seededRng } from '../rng';
@@ -108,11 +109,51 @@ test('chromatique croisé en idle : capturé d’office, niveau plafonné au mei
   expect(found).not.toBeNull();
 });
 
+test('chromatique croisé en idle : ignoré si skipOwnedShiny et espèce déjà chromatique au Pokédex', () => {
+  let sawSkip = false;
+  for (let seed = 0; seed < 50 && !sawSkip; seed++) {
+    const s = readyGame();
+    // toutes les espèces de la zone 0 déjà chromatiques : n'importe quel croisement doit être ignoré
+    for (const [id] of BIOMES[0].zones[0].pool) s.dex.shiny.push(id);
+    const gains = computeIdleGains(s, IDLE_CAP_MS, seededRng(seed), { skipOwnedShiny: true });
+    if (gains) {
+      expect(gains.shinies.length).toBe(0);
+      // même graine, sans le réglage : au moins un croisement aurait dû produire un chromatique
+      const s2 = readyGame();
+      const gains2 = computeIdleGains(s2, IDLE_CAP_MS, seededRng(seed));
+      if (gains2 && gains2.shinies.length) sawSkip = true;
+    }
+  }
+  expect(sawSkip).toBe(true);
+});
+
 test('teamXpPerHour : un taux par membre de l’équipe, positif si l’équipe est capable de gagner', () => {
   const s = readyGame();
   const rates = teamXpPerHour(s, seededRng(7));
   expect(Object.keys(rates)).toEqual(s.team);
   for (const uid of s.team) expect(rates[uid]).toBeGreaterThan(0);
+});
+
+test('idle : une zone déjà intégralement farmée (boss + tous les sauvages en normal/chromatique) passe à la suivante déjà débloquée', () => {
+  const s = readyGame();
+  // zone 0 « vidée » : boss vaincu, tous ses sauvages vus en normal et en chromatique
+  s.bossesBeaten[0][0] = true;
+  for (const [id] of BIOMES[0].zones[0].pool) { s.dex.caught.push(id); s.dex.shiny.push(id); }
+  s.unlocked[0][1] = Math.max(1, s.unlocked[0][1]); // zone 1 déjà débloquée
+  s.zone = 0; s.stage = 1;
+  const gains = computeIdleGains(s, 4 * H, seededRng(3))!;
+  expect(gains.farmZone).toBe(1);
+  applyIdleGains(s, gains);
+  expect(s.zone).toBe(1);
+});
+
+test('idle : une zone vidée mais dont la suivante n’est pas débloquée ne bouge pas', () => {
+  const s = readyGame();
+  s.bossesBeaten[0][0] = true;
+  for (const [id] of BIOMES[0].zones[0].pool) { s.dex.caught.push(id); s.dex.shiny.push(id); }
+  s.zone = 0; s.stage = 1;
+  const gains = computeIdleGains(s, 4 * H, seededRng(3))!;
+  expect(gains.farmZone).toBe(0);
 });
 
 test('teamXpPerHour : 0 pour une équipe hors de portée de la zone (jamais de victoire)', () => {

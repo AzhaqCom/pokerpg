@@ -24,9 +24,11 @@ export function PensionPanel() {
   const act = useGame((g) => g.act);
   const now = useFrameClock(1);
   const [pick, setPick] = useState(false);
+  const [minStars, setMinStars] = useState(0);
   const ready = pensionXpReady(s, now);
   const free = Object.values(s.mons)
-    .filter((m) => !s.team.includes(m.uid) && !s.pension.some((p) => p.uid === m.uid) && !s.exploration.some((p) => p.uid === m.uid))
+    .filter((m) => !s.team.includes(m.uid) && !s.pension.some((p) => p.uid === m.uid) && !s.exploration.some((p) => p.uid === m.uid)
+      && monStars(m) >= minStars)
     .sort((a, b) => a.speciesId - b.speciesId);
   // les postes en cours suivent le même ordre : meilleur potentiel d'abord
   const starsOf = (uid: string) => (s.mons[uid] ? monStars(s.mons[uid]) : 0);
@@ -88,6 +90,13 @@ export function PensionPanel() {
         <Pressable style={styles.backdrop} onPress={() => setPick(false)}>
           <Pressable style={styles.sheet} onPress={() => {}}>
             <Text style={styles.title}>Qui envoyer en pension ?</Text>
+            <View style={styles.row}>
+              {[0, 2, 3, 4].map((n) => (
+                <Pressable key={n} onPress={() => setMinStars(n)} style={[styles.chip, minStars === n && styles.chipOn]}>
+                  <Text style={styles.chipTxt}>{n === 0 ? 'Tous' : `${n}★+`}</Text>
+                </Pressable>
+              ))}
+            </View>
             <FlatList
               data={free}
               keyExtractor={(m) => m.uid}
@@ -122,4 +131,7 @@ const styles = StyleSheet.create({
   xpFill: { height: '100%', backgroundColor: '#42a5f5' },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: C.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, paddingBottom: 30, gap: 10 },
+  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: C.panel },
+  chipOn: { backgroundColor: C.accent },
+  chipTxt: { color: C.text, fontWeight: '700', fontSize: 12 },
 });

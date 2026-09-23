@@ -11,12 +11,19 @@ interface Props {
   style?: ViewStyle;
   small?: boolean;
   icon?: ReactNode;
+  /** Répétition tant que le bouton est maintenu (ex. achat groupé) : voir `onPressOut`/`delayLongPress`. */
+  onLongPress?: () => void;
+  onPressOut?: () => void;
+  delayLongPress?: number;
 }
 
-export function Button({ label, onPress, color = C.panel2, textColor = C.text, disabled, style, small, icon }: Props) {
+export function Button({ label, onPress, color = C.panel2, textColor = C.text, disabled, style, small, icon, onLongPress, onPressOut, delayLongPress }: Props) {
   return (
     <Pressable
       onPress={onPress}
+      onLongPress={onLongPress}
+      onPressOut={onPressOut}
+      delayLongPress={delayLongPress}
       disabled={disabled}
       style={({ pressed }) => [
         styles.btn, small && styles.small, { backgroundColor: color, opacity: disabled ? 0.4 : pressed ? 0.75 : 1 }, style,

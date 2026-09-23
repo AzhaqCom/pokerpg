@@ -12,7 +12,7 @@ import { Battle } from './battle';
 import { BIOMES } from './content';
 import {
   BETWEEN_WAVES_MS, GameState, LOOT_CHANCE, PENSION_CAP_MS, SHINY_ODDS, addMon, allyFighter,
-  genesMinForBadges, giveXp, makeMon, makeWaves, pickSpecies, teamMaxLevel, wildFighter, xpGapMult,
+  genesMinForBadges, giveXp, idleFarmTarget, makeMon, makeWaves, pickSpecies, teamMaxLevel, wildFighter, xpGapMult,
 } from './game';
 import { recycleValue, rollLoot } from './items';
 import { Item, Mon } from './model';
@@ -44,6 +44,9 @@ export interface IdleGains {
   shardsFromRecycle: number;
   /** Chromatiques croisés pendant l'absence, déjà créés (niveau plafonné), capturés d'office. */
   shinies: Mon[];
+  /** Zone effectivement farmée (peut différer de la zone affichée : voir `idleFarmTarget`). */
+  farmBiome: number;
+  farmZone: number;
 }
 
 interface WaveSample {
@@ -54,8 +57,8 @@ interface WaveSample {
   lootLevel: number;
 }
 
-/** Simule ~`target` vagues réelles de l'étape 1 de la zone en cours, sans toucher à `s`. */
-function sampleWaves(s: GameState, rng: Rng, target: number): WaveSample {
+/** Simule ~`target` vagues réelles de l'étape 1 de la zone `biome`/`zone` (la zone en cours par défaut), sans toucher à `s`. */
+function sampleWaves(s: GameState, rng: Rng, target: number, biome = s.biome, zone = s.zone): WaveSample {
   let sampled = 0;
   let wins = 0;
   let totalMs = 0;
@@ -65,7 +68,7 @@ function sampleWaves(s: GameState, rng: Rng, target: number): WaveSample {
   for (const uid of s.team) xpShareSum[uid] = 0;
 
   while (sampled < target) {
-    const waves = makeWaves('stage', s.biome, s.zone, 1, rng, s.team.length, s.bossesBeaten[s.biome][s.zone]);
+    const waves = makeWaves('stage', biome, zone, 1, rng, s.team.length, s.bossesBeaten[biome][zone]);
     const hp: Record<string, number | undefined> = {};
     for (const wave of waves) {
       if (sampled >= target) break;
@@ -125,7 +128,7 @@ function emptyGains(s: GameState, absenceMs: number, durationMs: number): IdleGa
   return {
     absenceMs, durationMs, wavesWon: 0, kills: 0,
     perMon: s.team.map((uid) => ({ uid, xp: 0, levelBefore: s.mons[uid].level, levelAfter: s.mons[uid].level, newMoves: [] })),
-    bagItems: [], shardsFromRecycle: 0, shinies: [],
+    bagItems: [], shardsFromRecycle: 0, shinies: [], farmBiome: s.biome, farmZone: s.zone,
   };
 }
 
@@ -135,13 +138,15 @@ function emptyGains(s: GameState, absenceMs: number, durationMs: number): IdleGa
  */
 export function computeIdleGains(
   s: GameState, absenceMs: number, rng: Rng,
-  opts: { autoRecycle?: boolean; recycleMaxRarity?: number } = {},
+  opts: { autoRecycle?: boolean; recycleMaxRarity?: number; skipOwnedShiny?: boolean } = {},
 ): IdleGains | null {
   const autoRecycle = opts.autoRecycle ?? true;
   const recycleMaxRarity = opts.recycleMaxRarity ?? 1;
+  const skipOwnedShiny = opts.skipOwnedShiny ?? false;
   if (absenceMs < IDLE_MIN_MS || !s.team.length) return null;
   const durationMs = Math.min(absenceMs, IDLE_CAP_MS);
-  const sample = sampleWaves(s, rng, SAMPLE_WAVES);
+  const { biome: farmBiome, zone: farmZone } = idleFarmTarget(s);
+  const sample = sampleWaves(s, rng, SAMPLE_WAVES, farmBiome, farmZone);
   if (sample.winRate <= 0) return emptyGains(s, absenceMs, durationMs);
 
   const wavesWon = Math.floor((durationMs / sample.avgWaveMs) * sample.winRate);
@@ -161,24 +166,25 @@ export function computeIdleGains(
   let shardsFromRecycle = 0;
   for (let i = 0; i < kills; i++) {
     if (rng.int(100) < LOOT_CHANCE) {
-      const it = rollLoot(rng, sample.lootLevel, s.biome);
+      const it = rollLoot(rng, sample.lootLevel, farmBiome);
       if (autoRecycle && it.rarity <= recycleMaxRarity) shardsFromRecycle += recycleValue(it);
       else bagItems.push(it);
     }
   }
 
   const shinies: Mon[] = [];
-  const zone = BIOMES[s.biome].zones[s.zone];
+  const zone = BIOMES[farmBiome].zones[farmZone];
   const cap = teamMaxLevel(s);
   for (let i = 0; i < kills; i++) {
     if (rng.int(SHINY_ODDS) === 0) {
       const speciesId = pickSpecies(zone, rng);
+      if (skipOwnedShiny && s.dex.shiny.includes(speciesId)) continue;
       const level = Math.min(Math.max(2, zone.minLv - 1 + rng.int(2)), cap);
       shinies.push(makeMon(speciesId, level, rng, true, genesMinForBadges(s.badges)));
     }
   }
 
-  return { absenceMs, durationMs, wavesWon, kills, perMon, bagItems, shardsFromRecycle, shinies };
+  return { absenceMs, durationMs, wavesWon, kills, perMon, bagItems, shardsFromRecycle, shinies, farmBiome, farmZone };
 }
 
 /** Encaisse un résultat de `computeIdleGains` : déterministe, ne tire plus de hasard. */
@@ -188,4 +194,11 @@ export function applyIdleGains(s: GameState, gains: IdleGains) {
   s.shards += gains.shardsFromRecycle;
   for (const mon of gains.shinies) addMon(s, mon);
   s.totals.kills += gains.kills;
+  // la zone farmée en idle a avancé (ancienne zone vidée de tout intérêt) : la position affichée suit,
+  // toujours vers une zone déjà débloquée (voir `idleFarmTarget`).
+  if (gains.farmBiome !== s.biome || gains.farmZone !== s.zone) {
+    s.biome = gains.farmBiome;
+    s.zone = gains.farmZone;
+    s.stage = s.unlocked[gains.farmBiome][gains.farmZone];
+  }
 }
