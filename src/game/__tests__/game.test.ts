@@ -1,7 +1,7 @@
 import { BIOMES, STAGES_PER_ZONE } from '../content';
 import { ALL_SPECIES } from '../data';
 import {
-  GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, arenaAvailable, assignExploration, assignPension, autoCaptureBall, autoEquipBest, bestStarsOf, biomeAvailable, bossAvailable,
+  GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, applyMegaCandy, craftMegaCandy, arenaAvailable, assignExploration, assignPension, autoCaptureBall, autoEquipBest, bestStarsOf, biomeAvailable, bossAvailable,
   canCompleteDex, canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
   harvestExploration, harvestPension, holder, isRareInZone, makeMon, addMon, makeWaves, migrateSave, monsBelowStars, monsNotShiny, newGame, pickSpecies, rankUpTalent, recycle, release, releaseBelowStars, SHARDS_PER_MIN,
   releaseExcess, releaseNotShiny, remainingEvolutions, removePension, selectStage, startPrestige, teamMaxLevel, tryCapture, unequipBox, xpGapMult,
@@ -175,6 +175,29 @@ test('prestige : indisponible tant que le Champion Kanto n’est pas battu, puis
   expect(s.prestige).toBe(1);
   expect(s.dex).toEqual({ seen: [], caught: [], shiny: [] }); // Pokédex remis à zéro (1/251 après le starter)
   expect(canPrestige(s)).toBe(false); // ne se relance pas une 2e fois
+});
+
+test('méga bonbons : 30 bonbons de la lignée → 1 méga bonbon, +1 à un gène d’un Pokémon de la lignée, plafond 15', () => {
+  const s = newGame();
+  const mon = makeMon(2, 20, seededRng(1)); // Herbizarre : lignée Bulbizarre
+  mon.genes = { hp: 14, atk: 15, def: 3, spe: 3 };
+  addMon(s, mon);
+  s.candies[1] = 29;
+  expect(craftMegaCandy(s, 2)).toBe(false); // pas assez
+  s.candies[1] = 65;
+  expect(craftMegaCandy(s, 2)).toBe(true);
+  expect(craftMegaCandy(s, 1)).toBe(true); // même lignée, depuis n'importe quel étage
+  expect(s.candies[1]).toBe(5);
+  expect(s.megaCandies[1]).toBe(2);
+  expect(applyMegaCandy(s, mon.uid, 'atk')).toBe(false); // déjà 15
+  expect(applyMegaCandy(s, mon.uid, 'hp')).toBe(true);
+  expect(mon.genes.hp).toBe(15);
+  expect(s.megaCandies[1]).toBe(1);
+  expect(applyMegaCandy(s, mon.uid, 'hp')).toBe(false); // plafond atteint, méga bonbon non consommé
+  expect(s.megaCandies[1]).toBe(1);
+  const other = makeMon(4, 20, seededRng(2)); // autre lignée : aucun méga bonbon Salamèche
+  addMon(s, other);
+  expect(applyMegaCandy(s, other.uid, 'def')).toBe(false);
 });
 
 test('migrateSave : nettoie les uid fantômes de l’équipe (Pokémon relâché/supprimé jamais retiré de team)', () => {

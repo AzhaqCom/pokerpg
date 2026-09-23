@@ -58,6 +58,8 @@ export interface GameState {
   badges: number;
   dex: { seen: number[]; caught: number[]; shiny: number[] };
   candies: Record<string, number>;
+  /** Méga bonbons par lignée (même clé que `candies`) : +1 à un gène d'un Pokémon de la lignée. */
+  megaCandies: Record<string, number>;
   totals: { kills: number; captures: number; fusions: number; stagesCleared: number };
   /** Horodatage (ms) de la dernière activité : combat affiché ou passage en arrière-plan. Sert au calcul idle. */
   lastActive: number;
@@ -76,7 +78,7 @@ export function newGame(): GameState {
     bossesBeaten: BIOMES.map((b) => b.zones.map(() => false)),
     arenaBeaten: BIOMES.map(() => false),
     badges: 0,
-    dex: { seen: [], caught: [], shiny: [] }, candies: {},
+    dex: { seen: [], caught: [], shiny: [] }, candies: {}, megaCandies: {},
     totals: { kills: 0, captures: 0, fusions: 0, stagesCleared: 0 },
     lastActive: Date.now(),
     prestige: 0,
@@ -489,6 +491,32 @@ export function feedCandy(s: GameState, uid: string, n = 1) {
   if (!k) return null;
   s.candies[base] = have - k;
   return giveXp(mon, k * CANDY_XP);
+}
+
+/** Bonbons d'une lignée pour fabriquer 1 méga bonbon de cette lignée (= 10 Pokémon relâchés). */
+export const MEGA_CANDY_COST = 30;
+export const GENE_MAX = 15;
+export type GeneKey = keyof Mon['genes'];
+
+export function craftMegaCandy(s: GameState, speciesId: number): boolean {
+  const base = lineBase(speciesId);
+  const have = s.candies[base] ?? 0;
+  if (have < MEGA_CANDY_COST) return false;
+  s.candies[base] = have - MEGA_CANDY_COST;
+  s.megaCandies[base] = (s.megaCandies[base] ?? 0) + 1;
+  return true;
+}
+
+/** Consomme 1 méga bonbon de la lignée pour +1 à un gène (plafond 15) : seule façon d'améliorer des gènes. */
+export function applyMegaCandy(s: GameState, uid: string, gene: GeneKey): boolean {
+  const mon = s.mons[uid];
+  if (!mon) return false;
+  const base = lineBase(mon.speciesId);
+  const have = s.megaCandies[base] ?? 0;
+  if (have < 1 || mon.genes[gene] >= GENE_MAX) return false;
+  s.megaCandies[base] = have - 1;
+  mon.genes[gene]++;
+  return true;
 }
 
 export function setTeam(s: GameState, uids: string[]) {

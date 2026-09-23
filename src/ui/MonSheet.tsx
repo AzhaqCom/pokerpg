@@ -3,8 +3,8 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { cdFactor } from '../game/battle';
 import { Move, learnedMoves, move, species } from '../game/data';
 import {
-  CANDY_XP, TEAM_SIZE, autoEquipBest, canEvolve, equip, evolve, feedCandy, heldItems, holder, lineBase, rankUpTalent,
-  release, resetTalents, setMoves, setTeam, unequip,
+  CANDY_XP, GENE_MAX, GeneKey, MEGA_CANDY_COST, TEAM_SIZE, applyMegaCandy, autoEquipBest, canEvolve, craftMegaCandy, equip,
+  evolve, feedCandy, heldItems, holder, lineBase, rankUpTalent, release, resetTalents, setMoves, setTeam, unequip,
 } from '../game/game';
 import { itemScore, slotOf, template } from '../game/items';
 import { BattleBonuses, ItemSlot } from '../game/model';
@@ -26,6 +26,9 @@ import { C } from './theme';
 
 const SLOTS: { slot: ItemSlot; label: string }[] = [
   { slot: 'offense', label: 'Offensif' }, { slot: 'defense', label: 'Défensif' }, { slot: 'berry', label: 'Baie' },
+];
+const GENES: { key: GeneKey; label: string }[] = [
+  { key: 'hp', label: 'PV' }, { key: 'atk', label: 'Atq' }, { key: 'def', label: 'Déf' }, { key: 'spe', label: 'Vit' },
 ];
 /** `cdf` : multiplicateur de recharge actuel du Pokémon (`cdFactor` dans `battle.ts`, dépend de sa
  * Vitesse et de son bonus `cdrPct`) — sans lui, `m.cd` n'est que le temps de base, jamais celui
@@ -88,6 +91,7 @@ export function MonSheet() {
   const spent = spentPoints(mon.talents);
   const learned = learnedMoves(sp, mon.level).filter((id) => !mon.moves.includes(id));
   const candies = s.candies[lineBase(mon.speciesId)] ?? 0;
+  const megaCandies = s.megaCandies[lineBase(mon.speciesId)] ?? 0;
   const changed = () => runner.restart(); // l'équipe change : la vague repart avec les nouvelles stats
 
   const moveUp = (i: number) => {
@@ -259,6 +263,22 @@ export function MonSheet() {
           <Text style={styles.section}>Bonbons {sp.name} · {candies}</Text>
           <Button small label={`Donner un bonbon (+${CANDY_XP} XP)`} disabled={!candies}
             onPress={() => { const r = act((g) => feedCandy(g, mon.uid)); if (r?.levels) toast(`${sp.name} passe au niveau ${mon.level} !`); }} />
+
+          <Text style={styles.section}>Méga bonbons · {megaCandies}</Text>
+          <Button small label={`Fabriquer 1 méga bonbon (${MEGA_CANDY_COST} bonbons)`} disabled={candies < MEGA_CANDY_COST}
+            onPress={() => { if (act((g) => craftMegaCandy(g, mon.speciesId))) feedback(); }} />
+          <Text style={styles.sub}>Améliorer un gène (1 méga bonbon)</Text>
+          <View style={styles.row}>
+            {GENES.map(({ key, label }) => {
+              const v = mon.genes[key];
+              const maxed = v >= GENE_MAX;
+              return (
+                <Button key={key} small style={{ flex: 1 }} disabled={maxed || megaCandies < 1}
+                  label={maxed ? `${label} max` : `${label} ${v}→${v + 1}`}
+                  onPress={() => { if (act((g) => applyMegaCandy(g, mon.uid, key))) feedback(); }} />
+              );
+            })}
+          </View>
 
           <View style={[styles.row, { marginTop: 12 }]}>
             {inTeam ? (
