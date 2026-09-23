@@ -67,7 +67,7 @@ class Runner {
     this.resetAnims();
     const biome = BIOMES[s.biome];
     const zone = biome.zones[s.zone];
-    if (kind === 'boss') this.showBanner(`Boss : ${zone.boss.title} !`, '#ff5252');
+    if (kind === 'boss') this.showBanner(`Boss : ${species(zone.boss.speciesId).name} !`, '#ff5252');
     else if (kind === 'arena') this.showBanner(`${biome.arena.name} : ${biome.arena.leader} vous défie !`, '#ffb300');
   }
 
@@ -119,7 +119,7 @@ class Runner {
     if (run.result) {
       const s = useGame.getState().s!;
       if (run.result === 'win') {
-        if (run.kind === 'boss') { sfx('medal'); toast(`${BIOMES[run.biome].zones[run.zone].boss.title} vaincu !`, '#ffb300'); }
+        if (run.kind === 'boss') { sfx('medal'); toast(`${species(BIOMES[run.biome].zones[run.zone].boss.speciesId).name} vaincu !`, '#ffb300'); }
         else if (run.kind === 'arena') {
           sfx('evolve');
           // Champion Kanto : on coupe l'enchaînement automatique vers Johto — le joueur doit d'abord

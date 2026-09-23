@@ -8,6 +8,7 @@ import {
 import { Mon } from '../../game/model';
 import { monStars, primaryType } from '../../game/stats';
 import { useGame } from '../../store/game';
+import { useSettings } from '../../store/settings';
 import { toast, useUi } from '../../store/ui';
 import { Button } from '../components/Button';
 import { Dialog, DialogSpec } from '../components/Dialog';
@@ -53,7 +54,8 @@ export function TeamPanel() {
   const explorationUids = new Set(s.exploration.map((p) => p.uid));
   const { width } = useWindowDimensions();
   const cellWidth = (width - SCREEN_PADDING - BOX_GAP * (BOX_COLS - 1)) / BOX_COLS;
-  const excess = excessMons(s);
+  const keepEvolutionMaterial = useSettings((st) => st.keepEvolutionMaterial);
+  const excess = excessMons(s, { keepEvolutionMaterial });
   const belowStars = monsBelowStars(s, 3);
   const notShiny = monsNotShiny(s);
 
@@ -139,10 +141,10 @@ export function TeamPanel() {
                   const candies = excess.length * 3;
                   setCleanup({
                     title: 'Relâcher les doublons ?',
-                    message: `${excess.length} Pokémon en excès seront relâchés (1 seul exemplaire gardé par espèce, chromatiques et normaux comptés à part, le plus fort en premier). Tu gagneras ${candies} bonbons.`,
+                    message: `${excess.length} Pokémon en excès seront relâchés (le plus fort gardé par étage déjà possédé, chromatiques et normaux comptés à part${keepEvolutionMaterial ? ', avec de la matière en réserve pour les évolutions manquantes' : ''}). Tu gagneras ${candies} bonbons.`,
                     primary: {
                       label: 'Relâcher', color: '#8d6e63', onPress: () => {
-                        const r = act((g: GameState) => releaseExcess(g));
+                        const r = act((g: GameState) => releaseExcess(g, { keepEvolutionMaterial }));
                         if (r) { feedback('medal'); toast(`${r.count} Pokémon relâchés, +${r.candies} bonbons`, '#69f0ae'); }
                       },
                     },

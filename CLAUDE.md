@@ -249,6 +249,34 @@ y compris la simulation d'équilibrage bout en bout) :
   déjà obtenu » — ignore la capture garantie d'un chromatique dont l'espèce est déjà dans `dex.shiny`, en
   combat (`runner.ts`) comme hors ligne (`idle.ts`, nouvel opt `skipOwnedShiny` de `computeIdleGains`).
 
-**Reste ouvert** : `src/ui/CrashScreen.tsx` a toujours un diff local non commité (« TamaPoké » → « Pokerpg »
-dans le message de crash) — jamais écrit par Claude, signalé à Arno à plusieurs reprises, toujours pas
-résolu ni intentionnellement écarté.
+`src/ui/CrashScreen.tsx` (« TamaPoké » → « Pokeloot ») commité (`cb8a3a8`), plus de diff en suspens.
+
+---
+
+## Fait — suite du 2026-09-23 (2e partie : titres de boss, pools Johto enrichis, sprites géants, mode collectionneur)
+
+- **Titres de boss supprimés** : `ZoneDef.boss` n'a plus de champ `title` (~60 entrées épurées dans
+  `content.ts`) — l'UI affiche `species(boss.speciesId).name` directement (`runner.ts`, `Hud.tsx`), plus
+  d'épithètes du genre « Coconfort blindé ».
+- **4 biomes Johto enrichis à 6 espèces/zone minimum** (Tour Hantée, Phare d'Olivia, Tanière des Dragons,
+  Grotte Sombre — chacun canoniquement limité à 4-6 espèces du type dominant en Gen 1-2) : complétés par
+  des espèces **jamais utilisées ailleurs dans le jeu**, choisies pour leur cohérence thématique (Zarbi/
+  Simularbre/Roigada pour la Tour ; Wattouat/Lainergie, pré-évolutions inédites du véritable gardien
+  canon du phare d'Olivine, pour le Phare ; Aquali/Amonistar/Kabutops pour la Tanière ; Embrylex/Ymphect,
+  pré-évolutions de Tyranocif déjà présent, pour la Grotte Sombre). Composition différente par zone d'un
+  même biome pour varier les rencontres.
+- **Sprites démesurés (Onix/Steelix/Lugia) qui poussaient leur barre de vie hors du cadre** : plutôt que
+  de réduire leur taille (essayé puis abandonné, Arno préférait les garder immenses), la barre de vie et
+  le label niveau sont désormais « clampés » à une position plancher (`HUD_MIN_TOP_BY_SLOT` dans
+  `BattleView.tsx`, un plancher distinct par emplacement avant/arrière-haut/arrière-bas pour que deux
+  géants côte à côte au même X ne se retrouvent jamais avec des barres superposées). Le sprite garde sa
+  taille réelle, tête coupée par le cadre si besoin.
+  Nouveau bouton debug (`__DEV__`) dans Réglages : « Onix/Steelix/Lugia en équipe (test sprites géants) ».
+- **Bug corrigé + nouveau réglage sur `excessMons`/`releaseExcess` (nettoyage des doublons)** : la version
+  « garde 1 seul exemplaire » codée plus tôt dans la journée ne réservait plus de matière pour les étages
+  d'évolution manquants — repéré par Arno sur 14 Bulbizarre chromatiques (aucun Herbizarre/Florizarre
+  chromatique) ramenés à 1 seul exemplaire au lieu de 3. Corrigé : garde 1 exemplaire par étage déjà
+  possédé (équipe/pension/exploration/boîte, peu importe où) + 1 de réserve par étage **manquant** de la
+  lignée — matière pour `completeDex` plus tard. Nouveau réglage `keepEvolutionMaterial`
+  (`store/settings.ts`, **activé par défaut**) : off = « mode léger », ne garde plus que ce qui est déjà
+  possédé sans réserve (pour un joueur qui se fiche de garder du stock d'évolution, ex. la copine d'Arno).

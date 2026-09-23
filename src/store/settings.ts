@@ -28,12 +28,16 @@ export interface Settings {
   /** ignore la capture (garantie) d'un chromatique dont l'espèce est déjà chromatique dans le Pokédex,
    *  en combat comme hors ligne */
   skipOwnedShiny: boolean;
+  /** « Nettoyer les doublons » garde en plus 1 exemplaire de réserve par étage d'évolution pas encore
+   *  possédé (mode collectionneur complet) ; désactivé = mode léger, ne garde que ce qui est déjà possédé */
+  keepEvolutionMaterial: boolean;
 }
 
 const DEFAULTS: Settings = {
   sound: true, music: true, haptics: true, fast: false,
   autoCapture: false, autoCaptureBestBall: false, autoCaptureUpgrade: false, hideOwnedOffers: false,
   recycleMaxRarity: 1, idleAutoRecycle: true, idleRecycleMaxRarity: 1, skipOwnedShiny: false,
+  keepEvolutionMaterial: true,
 };
 
 interface Store extends Settings {
@@ -53,11 +57,11 @@ export const useSettings = create<Store>((set, get) => ({
     set(patch);
     const {
       sound, music, haptics, fast, autoCapture, autoCaptureBestBall, autoCaptureUpgrade, hideOwnedOffers,
-      recycleMaxRarity, idleAutoRecycle, idleRecycleMaxRarity, skipOwnedShiny,
+      recycleMaxRarity, idleAutoRecycle, idleRecycleMaxRarity, skipOwnedShiny, keepEvolutionMaterial,
     } = { ...get(), ...patch };
     AsyncStorage.setItem(KEY, JSON.stringify({
       sound, music, haptics, fast, autoCapture, autoCaptureBestBall, autoCaptureUpgrade, hideOwnedOffers,
-      recycleMaxRarity, idleAutoRecycle, idleRecycleMaxRarity, skipOwnedShiny,
+      recycleMaxRarity, idleAutoRecycle, idleRecycleMaxRarity, skipOwnedShiny, keepEvolutionMaterial,
     })).catch(() => {});
   },
 }));

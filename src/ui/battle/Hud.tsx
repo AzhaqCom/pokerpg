@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { BIOMES, STAGES_PER_ZONE } from '../../game/content';
+import { species } from '../../game/data';
 import { addMon, arenaAvailable, bossAvailable, equip, makeMon, setTeam } from '../../game/game';
 import { makeItem } from '../../game/items';
 import { RARITIES, RARITY_COLOR } from '../../game/model';
@@ -52,7 +53,7 @@ export function HudBottom() {
     <View style={{ gap: 6 }}>
       {(canBoss || canArena) && (
         <View style={styles.row}>
-          {canBoss && <Button small label={`⚔ Défier le boss : ${BIOMES[s.biome].zones[s.zone].boss.title}`} color="#c62828" style={{ flex: 1 }}
+          {canBoss && <Button small label={`⚔ Défier le boss : ${species(BIOMES[s.biome].zones[s.zone].boss.speciesId).name}`} color="#c62828" style={{ flex: 1 }}
             onPress={() => { feedback('tap', true); runner.request('boss'); }} />}
           {canArena && <Button small label={`🏟 Défier ${BIOMES[s.biome].arena.leader}`} color="#ef6c00" style={{ flex: 1 }}
             onPress={() => { feedback('tap', true); runner.request('arena'); }} />}
@@ -90,6 +91,7 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
             )}
             <Row label="Ne pas proposer un Pokémon déjà possédé (3★+)" value={st.hideOwnedOffers} onChange={(v) => st.set({ hideOwnedOffers: v })} />
             <Row label="Ne pas capturer un chromatique déjà obtenu" value={st.skipOwnedShiny} onChange={(v) => st.set({ skipOwnedShiny: v })} />
+            <Row label="Nettoyage des doublons : garder de la matière pour les évolutions manquantes" value={st.keepEvolutionMaterial} onChange={(v) => st.set({ keepEvolutionMaterial: v })} />
             <View style={{ gap: 6 }}>
               <Text style={styles.setLabel}>Recyclage groupé du Sac (Sac → Recycler) : jusqu'à</Text>
               <View style={styles.chipsRow}>
@@ -148,6 +150,17 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
                   }
                   g.unlocked[8][0] = Math.max(1, g.unlocked[8][0]);
                   g.biome = 8; g.zone = 0; g.stage = 1;
+                });
+                runner.restart();
+                feedback();
+              }} />
+            )}
+            {__DEV__ && (
+              <Button label="🐛 Debug : Onix/Steelix/Lugia en équipe (test sprites géants)" color="#37474f" onPress={() => {
+                act((g) => {
+                  const team = [95, 208, 249].map((id) => makeMon(id, 50, rng, false, 15));
+                  for (const m of team) addMon(g, m);
+                  setTeam(g, team.map((m) => m.uid));
                 });
                 runner.restart();
                 feedback();

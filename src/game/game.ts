@@ -323,36 +323,56 @@ export function remainingEvolutions(speciesId: number): number {
 }
 
 /**
- * Doublons en excès dans la boîte (jamais l'équipe, ni la pension/exploration) : pour chaque (espèce,
- * chromatique ou non), on garde le strict minimum — 1 seul exemplaire, le plus fort (PC) — le reste est
- * en excès. Compléter une lignée d'évolution (garder un exemplaire de chaque palier) est le rôle du
- * bouton « Compléter le Pokédex » (`completeDex`), pas de ce nettoyage.
+ * Doublons en excès dans la boîte (jamais l'équipe, ni la pension/exploration) : pour chaque lignée
+ * (chromatique ou non à part), on garde 1 exemplaire par étage déjà possédé (équipe/pension/exploration/
+ * boîte, peu importe où) — le strict nécessaire pour rester complet.
+ *
+ * Mode « complet » (`keepEvolutionMaterial: true`, réglage par défaut, pour un collectionneur qui vise
+ * les 251×2 formes) : garde EN PLUS, pour chaque étage de la lignée pas encore possédé du tout, 1
+ * exemplaire de réserve (le plus fort) — de la matière pour compléter la lignée plus tard via
+ * « Compléter le Pokédex » (`completeDex`). Exemple : 14 Bulbizarre chromatiques, aucun Herbizarre/
+ * Florizarre chromatique → garde 1 Bulbizarre (déjà possédé) + 2 de réserve (étages manquants) = 3.
+ *
+ * Mode « léger » (`keepEvolutionMaterial: false`) : ne garde que ce qui est déjà possédé, sans réserve —
+ * dans le même exemple, garde 1 seul Bulbizarre et relâche les 13 autres.
  */
-export function excessMons(s: GameState): Mon[] {
-  const groups = new Map<string, Mon[]>();
-  for (const m of Object.values(s.mons)) {
-    if (s.team.includes(m.uid)) continue;
-    const key = `${m.speciesId}:${m.shiny ? 1 : 0}`;
-    groups.set(key, [...(groups.get(key) ?? []), m]);
-  }
+export function excessMons(s: GameState, opts: { keepEvolutionMaterial?: boolean } = {}): Mon[] {
+  const keepEvolutionMaterial = opts.keepEvolutionMaterial ?? true;
   const out: Mon[] = [];
-  const keep = 1;
-  // un Pokémon posté en pension/exploration compte pour l'exemplaire gardé, mais n'est jamais lui-même
-  // relâché ici (utiliser « Retirer » dans le panneau concerné pour le libérer).
   const isProtected = (m: Mon) => s.pension.some((p) => p.uid === m.uid) || s.exploration.some((p) => p.uid === m.uid);
-  for (const mons of groups.values()) {
-    if (mons.length <= keep) continue;
-    const sorted = [...mons].sort((a, b) => combatPower(finalStats(b, emptyBonuses())) - combatPower(finalStats(a, emptyBonuses())));
-    const releasable = sorted.filter((m) => !isProtected(m));
-    const stillNeeded = Math.max(0, keep - (sorted.length - releasable.length));
-    if (releasable.length > stillNeeded) out.push(...releasable.slice(stillNeeded));
+  const bases = new Set<number>();
+  for (const m of Object.values(s.mons)) bases.add(lineBase(m.speciesId));
+  for (const base of bases) {
+    const chain: number[] = [];
+    for (let id = base; id; id = species(id).evolvesTo || 0) chain.push(id);
+    for (const shiny of [false, true]) {
+      const all = Object.values(s.mons).filter((m) => m.shiny === shiny && chain.includes(m.speciesId));
+      if (!all.length) continue;
+      const cnt = new Map<number, number>();
+      for (const m of all) cnt.set(m.speciesId, (cnt.get(m.speciesId) ?? 0) + 1);
+      // 1 exemplaire protégé par étage déjà possédé : un porteur équipe/pension/exploration en priorité
+      // (de toute façon irrécupérable ici), sinon le plus fort de la boîte à cet étage.
+      const protectedUids = new Set<string>();
+      for (const stage of chain) {
+        if (!(cnt.get(stage) ?? 0)) continue;
+        const atStage = all.filter((m) => m.speciesId === stage);
+        const held = atStage.find((m) => s.team.includes(m.uid) || s.pension.some((p) => p.uid === m.uid) || s.exploration.some((p) => p.uid === m.uid))
+          ?? [...atStage].sort((a, b) => combatPower(finalStats(b, emptyBonuses())) - combatPower(finalStats(a, emptyBonuses())))[0];
+        if (held) protectedUids.add(held.uid);
+      }
+      const missing = keepEvolutionMaterial ? chain.filter((stage) => !(cnt.get(stage) ?? 0)).length : 0;
+      const freeSpares = all
+        .filter((m) => !protectedUids.has(m.uid) && !s.team.includes(m.uid) && !isProtected(m))
+        .sort((a, b) => combatPower(finalStats(b, emptyBonuses())) - combatPower(finalStats(a, emptyBonuses())));
+      if (freeSpares.length > missing) out.push(...freeSpares.slice(missing));
+    }
   }
   return out;
 }
 
 /** Relâche tous les doublons en excès (voir `excessMons`). */
-export function releaseExcess(s: GameState): { count: number; candies: number } {
-  const excess = excessMons(s);
+export function releaseExcess(s: GameState, opts: { keepEvolutionMaterial?: boolean } = {}): { count: number; candies: number } {
+  const excess = excessMons(s, opts);
   for (const m of excess) release(s, m.uid);
   return { count: excess.length, candies: excess.length * 3 };
 }

@@ -4,7 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Fighter } from '../../game/battle';
 import { BIOMES } from '../../game/content';
 import { ActionKey, attackFrameLimit, getSprite, resolveAction } from '../../sprites/manifest';
-import { PmdSprite, autoScale, totalMs } from '../../sprites/PmdSprite';
+import { PmdSprite, totalMs } from '../../sprites/PmdSprite';
 import { CaptureBar } from './CaptureBar';
 import { STATUS_COLOR, STATUS_LABEL, runner } from './runner';
 
@@ -23,6 +23,14 @@ const SKIES: Record<string, [string, string, string]> = {
   volcano: ['#7a2e12', '#ffb066', '#2b1208'],
   desert: ['#d9a24a', '#f5dfb0', '#8a5a2b'],
 };
+
+/** Position minimale (px) de la barre de vie / du label niveau, par emplacement (avant / arrière-haut /
+ * arrière-bas — index = `slot`, voir `ALLY_POS`/`ENEMY_POS`), pour qu'un très grand sprite (Onix,
+ * Steelix, Lugia…) garde sa taille réelle sans pousser ces éléments hors du cadre par le haut — sa tête
+ * peut dépasser/être coupée par le cadre, mais la barre de vie et le niveau restent toujours visibles.
+ * Un plancher distinct par emplacement évite que deux géants côte à côte (arrière-haut/arrière-bas
+ * partagent le même X) se retrouvent avec des barres superposées au même plancher. */
+const HUD_MIN_TOP_BY_SLOT = [48, 22, 74];
 
 /** Boucle d'affichage : fait avancer le combat et redessine ~30 fois par seconde. */
 function useRunnerFrame() {
@@ -80,7 +88,7 @@ function FighterDraw({ f, image, meta, W, H, px }: {
   const x = pos.x * W + lunge;
   const y = pos.y * H + (anim.faintAt !== null ? (1 - fade) * 10 : 0);
   const idle = meta.actions.idle!;
-  const top = y - idle.fh * s - 8;
+  const top = Math.max(HUD_MIN_TOP_BY_SLOT[slot] ?? 22, y - idle.fh * s - 8);
   const barW = Math.min(W * 0.17, 70);
   const hpPct = Math.max(0, f.hp / f.maxHp);
   return (
@@ -126,7 +134,8 @@ export function BattleView({ width }: { width: number }) {
         const slot = fighters.filter((x) => x.side === side).indexOf(f);
         const pos = (side === 0 ? ALLY_POS : ENEMY_POS)[slot];
         const sprite = getSprite(f.speciesId, !!f.shiny)!;
-        const topY = pos.y * H - sprite.meta.actions.idle!.fh * (f.boss ? px + 1 : px) - 26;
+        const s = f.boss ? px + 1 : px;
+        const topY = Math.max((HUD_MIN_TOP_BY_SLOT[slot] ?? 22) - 18, pos.y * H - sprite.meta.actions.idle!.fh * s - 26);
         return (
           <View key={`lbl-${f.id}`} pointerEvents="none" style={[styles.label, { left: pos.x * W - 40, top: topY }]}>
             <Text style={styles.lv}>Nv.{f.level}{f.shiny ? ' ✨' : ''}</Text>

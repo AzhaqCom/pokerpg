@@ -301,28 +301,77 @@ test('remainingEvolutions : 0 pour une forme finale, 1/2 pour Paras/Aspicot', ()
   expect(remainingEvolutions(13)).toBe(2); // Aspicot → Coconfort → Dardargnan
 });
 
-test('excessMons / releaseExcess : garde le strict minimum (1), jamais l’équipe/pension/exploration, chromatique à part', () => {
+test('excessMons / releaseExcess : garde 1 exemplaire par étage possédé + 1 de réserve par étage manquant, chromatique à part', () => {
   const s = newGame();
   chooseStarter(s, 4, seededRng(1));
   addMon(s, makeMon(1, 5, seededRng(50))); // complète l'équipe à 3 pour que les Paras aillent en boîte
   addMon(s, makeMon(7, 5, seededRng(51)));
-  // 5 Paras normaux (garde 1) + 3 Paras chromatiques (garde 1, quota séparé)
+  // Parasect (évolution de Paras) jamais possédé : garde 1 Paras (déjà possédé) + 1 de réserve (étage
+  // manquant) = 2, par quota séparé normal/chromatique — même calcul que l'ancienne formule quand rien
+  // n'est encore évolué.
   for (let i = 0; i < 5; i++) addMon(s, makeMon(46, 10 + i, seededRng(i), false));
   for (let i = 0; i < 3; i++) addMon(s, makeMon(46, 10 + i, seededRng(100 + i), true));
   const before = Object.keys(s.mons).length;
   const excess = excessMons(s);
-  expect(excess.length).toBe(5 - 1 + (3 - 1)); // 4 normaux + 2 chromatiques en trop
+  expect(excess.length).toBe(5 - 2 + (3 - 2)); // 3 normaux + 1 chromatique en trop
   expect(excess.every((m) => !s.team.includes(m.uid))).toBe(true);
   const cp = (m: (typeof excess)[number]) => combatPower(finalStats(m, emptyBonuses()));
   const normalKept = Object.values(s.mons).filter((m) => m.speciesId === 46 && !m.shiny && !excess.includes(m));
-  expect(normalKept.length).toBe(1);
+  expect(normalKept.length).toBe(2);
   const minKeptCp = Math.min(...normalKept.map(cp));
   const maxExcessCp = Math.max(...excess.filter((m) => !m.shiny).map(cp));
-  expect(minKeptCp).toBeGreaterThanOrEqual(maxExcessCp); // le plus fort est gardé
+  expect(minKeptCp).toBeGreaterThanOrEqual(maxExcessCp); // les plus forts sont gardés
   const r = releaseExcess(s);
   expect(r.count).toBe(excess.length);
   expect(r.candies).toBe(excess.length * 3);
   expect(Object.keys(s.mons).length).toBe(before - excess.length);
+});
+
+test('excessMons : les étages déjà possédés séparément (évolutions déjà réalisées) ne comptent plus comme manquants', () => {
+  // Retour d'Arno : Roucool + Roucoups + Roucarnage déjà possédés chacun séparément → ne garder qu'1
+  // seul Roucool en trop, pas plusieurs « juste au cas où » puisque la lignée est déjà complète.
+  const s = newGame();
+  chooseStarter(s, 4, seededRng(1));
+  addMon(s, makeMon(1, 5, seededRng(50)));
+  addMon(s, makeMon(7, 5, seededRng(51)));
+  addMon(s, makeMon(17, 15, seededRng(1))); // Roucoups déjà possédé
+  addMon(s, makeMon(18, 20, seededRng(2))); // Roucarnage déjà possédé
+  for (let i = 0; i < 4; i++) addMon(s, makeMon(16, 10 + i, seededRng(10 + i))); // 4 Roucool
+  const excess = excessMons(s);
+  const roucoolExcess = excess.filter((m) => m.speciesId === 16);
+  expect(roucoolExcess.length).toBe(3); // garde 1 seul Roucool (lignée déjà complète par ailleurs)
+  expect(excess.some((m) => m.speciesId === 17 || m.speciesId === 18)).toBe(false); // Roucoups/Roucarnage jamais en trop (1 seul exemplaire chacun)
+});
+
+test('excessMons : chromatique — garde de la matière pour chaque étage manquant de la lignée (bug rapporté par Arno)', () => {
+  // 14 Bulbizarre chromatiques, aucun Herbizarre/Florizarre chromatique → 2 étages manquants + 1 déjà
+  // possédé (Bulbizarre lui-même) = garde 3, relâche les 11 autres. Les Bulbizarre/Herbizarre/Florizarre
+  // NORMAUX déjà possédés par ailleurs ne doivent jamais influencer le quota chromatique (à part).
+  const s = newGame();
+  chooseStarter(s, 4, seededRng(1)); // starter Bulbizarre normal (déjà possédé, quota séparé)
+  addMon(s, makeMon(1, 5, seededRng(50)));
+  addMon(s, makeMon(7, 5, seededRng(51))); // équipe complète à 3
+  addMon(s, makeMon(2, 16, seededRng(52))); // Herbizarre normal déjà possédé
+  addMon(s, makeMon(3, 32, seededRng(53))); // Florizarre normal déjà possédé
+  for (let i = 0; i < 14; i++) addMon(s, makeMon(1, 10 + i, seededRng(100 + i), true));
+  const excess = excessMons(s);
+  const bulbaChroExcess = excess.filter((m) => m.speciesId === 1 && m.shiny);
+  expect(bulbaChroExcess.length).toBe(11);
+  const bulbaChroKept = Object.values(s.mons).filter((m) => m.speciesId === 1 && m.shiny && !excess.includes(m));
+  expect(bulbaChroKept.length).toBe(3);
+  expect(excess.some((m) => !m.shiny)).toBe(false); // les normaux (déjà complets) ne sont jamais concernés ici
+});
+
+test('excessMons : mode léger (keepEvolutionMaterial: false) ne garde aucune matière de réserve', () => {
+  const s = newGame();
+  chooseStarter(s, 4, seededRng(1));
+  addMon(s, makeMon(1, 5, seededRng(50)));
+  addMon(s, makeMon(7, 5, seededRng(51)));
+  for (let i = 0; i < 14; i++) addMon(s, makeMon(1, 10 + i, seededRng(100 + i), true));
+  const excessLight = excessMons(s, { keepEvolutionMaterial: false });
+  const keptLight = Object.values(s.mons).filter((m) => m.speciesId === 1 && m.shiny && !excessLight.includes(m));
+  expect(keptLight.length).toBe(1); // aucune réserve pour Herbizarre/Florizarre chromatiques manquants
+  expect(excessLight.length).toBe(13);
 });
 
 test('excessMons : protège les Pokémon postés en pension ou en exploration', () => {
@@ -330,12 +379,16 @@ test('excessMons : protège les Pokémon postés en pension ou en exploration', 
   chooseStarter(s, 4, seededRng(1));
   addMon(s, makeMon(1, 5, seededRng(50)));
   addMon(s, makeMon(7, 5, seededRng(51)));
-  const a = makeMon(46, 10, seededRng(1), false); addMon(s, a);
+  const a = makeMon(46, 10, seededRng(1), false); addMon(s, a); // posté en pension
   const b = makeMon(46, 11, seededRng(2), false); addMon(s, b);
+  const c = makeMon(46, 12, seededRng(3), false); addMon(s, c);
+  const d = makeMon(46, 13, seededRng(4), false); addMon(s, d); // le plus fort, gardé en réserve
   s.pension.push({ uid: a.uid, since: 0, xpPerHour: 10 });
   const excess = excessMons(s);
-  expect(excess.some((m) => m.uid === a.uid)).toBe(false);
+  expect(excess.some((m) => m.uid === a.uid)).toBe(false); // protégé (posté en pension)
+  expect(excess.some((m) => m.uid === d.uid)).toBe(false); // gardé en réserve (Parasect toujours manquant)
   expect(excess.some((m) => m.uid === b.uid)).toBe(true);
+  expect(excess.some((m) => m.uid === c.uid)).toBe(true);
 });
 
 test('chooseStarter : équipe le starter avec la panoplie du 1er biome de la région courante (jamais une panoplie Kanto en Johto)', () => {
