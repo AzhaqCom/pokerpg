@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { PENSION_CAP_MS, PENSION_XP_SHARE, assignPension, harvestPension, pensionSlots, pensionXpReady, removePension } from '../../game/game';
 import { teamXpPerHour } from '../../game/idle';
 import { monStars } from '../../game/stats';
@@ -25,10 +25,11 @@ export function PensionPanel() {
   const now = useFrameClock(1);
   const [pick, setPick] = useState(false);
   const [minStars, setMinStars] = useState(0);
+  const [query, setQuery] = useState('');
   const ready = pensionXpReady(s, now);
   const free = Object.values(s.mons)
     .filter((m) => !s.team.includes(m.uid) && !s.pension.some((p) => p.uid === m.uid) && !s.exploration.some((p) => p.uid === m.uid)
-      && monStars(m) >= minStars)
+      && monStars(m) >= minStars && (!query.trim() || monName(m).toLowerCase().startsWith(query.trim().toLowerCase())))
     .sort((a, b) => a.speciesId - b.speciesId);
   // les postes en cours suivent le même ordre : meilleur potentiel d'abord
   const starsOf = (uid: string) => (s.mons[uid] ? monStars(s.mons[uid]) : 0);
@@ -48,11 +49,11 @@ export function PensionPanel() {
         Les Pokémon hors équipe postés ici gagnent de l'XP passive, chacun sur sa propre horloge
         (8 h d'accumulation maximum) — idéal pour monter en niveau une lignée sans la sortir de la boîte.
         Le taux ({Math.round(PENSION_XP_SHARE * 100)} % de ce que ton équipe actuelle encaisse au combat)
-        est fixé au moment où tu postes un Pokémon et suit ta progression. Ils donnent aussi la moitié de
-        leur aura à l'équipe.
+        se rafraîchit à chaque récolte, pas besoin de retirer/reposter pour suivre ta progression. Ils
+        donnent aussi la moitié de leur aura à l'équipe.
       </Text>
       <Button label={ready ? `Récolter (+${ready} XP)` : 'Rien à récolter pour l’instant'} color={ready ? '#2e7d32' : C.panel2} disabled={!ready} onPress={() => {
-        const h = act((g) => harvestPension(g));
+        const h = act((g) => harvestPension(g, nextRate()));
         if (!h || !h.gains.length) return;
         feedback('level');
         const totalXp = h.gains.reduce((a, g) => a + g.xp, 0);
@@ -90,6 +91,13 @@ export function PensionPanel() {
         <Pressable style={styles.backdrop} onPress={() => setPick(false)}>
           <Pressable style={styles.sheet} onPress={() => {}}>
             <Text style={styles.title}>Qui envoyer en pension ?</Text>
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Rechercher un Pokémon…"
+              placeholderTextColor={C.dim}
+              style={styles.search}
+            />
             <View style={styles.row}>
               {[0, 2, 3, 4].map((n) => (
                 <Pressable key={n} onPress={() => setMinStars(n)} style={[styles.chip, minStars === n && styles.chipOn]}>
@@ -97,6 +105,7 @@ export function PensionPanel() {
                 </Pressable>
               ))}
             </View>
+            {!free.length && <Text style={styles.hint}>Aucun Pokémon ne correspond.</Text>}
             <FlatList
               data={free}
               keyExtractor={(m) => m.uid}
@@ -133,5 +142,6 @@ const styles = StyleSheet.create({
   sheet: { backgroundColor: C.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, paddingBottom: 30, gap: 10 },
   chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: C.panel },
   chipOn: { backgroundColor: C.accent },
+  search: { backgroundColor: C.panel, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, color: C.text, fontSize: 14 },
   chipTxt: { color: C.text, fontWeight: '700', fontSize: 12 },
 });

@@ -280,3 +280,11 @@ y compris la simulation d'équilibrage bout en bout) :
   lignée — matière pour `completeDex` plus tard. Nouveau réglage `keepEvolutionMaterial`
   (`store/settings.ts`, **activé par défaut**) : off = « mode léger », ne garde plus que ce qui est déjà
   possédé sans réserve (pour un joueur qui se fiche de garder du stock d'évolution, ex. la copine d'Arno).
+- **Pension : taux d'XP rafraîchi à chaque récolte** au lieu d'être figé pour toujours au moment du
+  premier envoi (Arno devait retirer/reposter pour suivre la progression de l'équipe). `harvestPension(s,
+  freshRate, now?)` prend maintenant le taux frais en paramètre (calculé par `PensionPanel` via
+  `teamXpPerHour × PENSION_XP_SHARE`, même formule qu'au premier envoi) : la période déjà écoulée est
+  comptée à l'ancien taux, le nouveau s'applique ensuite pour tous les postes.
+- **Recherche par nom** dans le picker « Qui envoyer en pension ? » (`PensionPanel`), combinable avec le
+  filtre par étoiles — préfixe uniquement (`startsWith`, pas `includes`) : « cara » trouve Carabaffe mais
+  pas Scarabrute.

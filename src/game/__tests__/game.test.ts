@@ -772,14 +772,24 @@ test('pension : XP passive plafonnée à 8 h, jamais un membre de l’équipe', 
   s.team = [s.team[0]];
   expect(assignPension(s, extra.uid, rate, 0)).toBe(true);
   const before = s.mons[extra.uid].xp;
-  const h = harvestPension(s, 24 * H); // 24 h plus tard → plafond 8 h (donc 8 × rate)
+  const h = harvestPension(s, rate, 24 * H); // 24 h plus tard → plafond 8 h (donc 8 × rate)
   expect(h.gains).toHaveLength(1);
   expect(h.gains[0].xp).toBe(8 * rate);
   expect(s.mons[extra.uid].xp).toBe(before + 8 * rate);
-  expect(harvestPension(s, 24 * H).gains).toHaveLength(0); // rien de plus juste après
+  expect(harvestPension(s, rate, 24 * H).gains).toHaveLength(0); // rien de plus juste après
   expect(assignPension(s, extra.uid, rate, 0)).toBe(true); // déjà en pension : no-op, pas d'erreur
   expect(removePension(s, extra.uid) === undefined).toBe(true);
   expect(s.pension.length).toBe(0);
+});
+
+test('harvestPension : rafraîchit xpPerHour de tous les postes pour la période suivante', () => {
+  const s = strongGame();
+  const extra = makeMon(43, 5, seededRng(4));
+  addMon(s, extra);
+  s.team = [s.team[0]];
+  assignPension(s, extra.uid, 50, 0);
+  harvestPension(s, 200, 3600_000); // 1 h plus tard, nouveau taux 200/h
+  expect(s.pension[0].xpPerHour).toBe(200);
 });
 
 test('relâcher donne des bonbons de la lignée', () => {

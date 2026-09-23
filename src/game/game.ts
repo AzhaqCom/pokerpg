@@ -38,7 +38,7 @@ export interface GameState {
   starterChosen: boolean;
   mons: Record<string, Mon>;
   team: string[];
-  /** Pension : gagne de l'XP passive (voir `harvestPension`). `xpPerHour` figé au moment de l'affectation. */
+  /** Pension : gagne de l'XP passive (voir `harvestPension`). `xpPerHour` rafraîchi à chaque récolte. */
   pension: { uid: string; since: number; xpPerHour: number }[];
   /** Exploration : farm passif d'éclats (ex-pension). */
   exploration: { uid: string; since: number }[];
@@ -1043,16 +1043,22 @@ export function pensionXpReady(s: GameState, now = Date.now()): number {
 
 export interface PensionHarvest { gains: { uid: string; xp: number; levels: number; newMoves: number[] }[] }
 
-/** Récolte l'XP accumulée (plafond 8 h) de chaque Pokémon en pension. */
-export function harvestPension(s: GameState, now = Date.now()): PensionHarvest {
+/**
+ * Récolte l'XP accumulée (plafond 8 h) de chaque Pokémon en pension, à l'ancien taux (celui qui courait
+ * réellement pendant la période écoulée) — puis rafraîchit `xpPerHour` de tous les postes à `freshRate`
+ * (calculé par l'appelant via `teamXpPerHour(s, rng) * PENSION_XP_SHARE`, voir `PensionPanel`) pour la
+ * période suivante : le taux suit ainsi la progression de l'équipe sans qu'il faille retirer/reposter le
+ * Pokémon à la main pour le rafraîchir.
+ */
+export function harvestPension(s: GameState, freshRate: number, now = Date.now()): PensionHarvest {
   const gains: PensionHarvest['gains'] = [];
   for (const p of s.pension) {
     const mon = s.mons[p.uid];
     const elapsed = Math.min(now - p.since, PENSION_CAP_MS);
-    p.since = now;
-    if (!mon || elapsed <= 0) continue;
     const xp = Math.floor((elapsed / 3600_000) * p.xpPerHour);
-    if (xp <= 0) continue;
+    p.since = now;
+    p.xpPerHour = Math.max(0, freshRate);
+    if (!mon || elapsed <= 0 || xp <= 0) continue;
     const r = giveXp(mon, xp);
     gains.push({ uid: p.uid, xp, levels: r.levels, newMoves: r.newMoves });
   }
