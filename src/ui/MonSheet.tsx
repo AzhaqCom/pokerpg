@@ -51,10 +51,6 @@ const STAT: Record<string, string> = { atk: 'Attaque', def: 'Défense', spe: 'Vi
  * critique déjà affiché en permanence) : label + valeur formatée. */
 const SUB_STAT_LABEL: [key: keyof BattleBonuses, label: string, fmt: (v: number) => string][] = [
   ['typeDmgPct', 'Dégâts de son type', (v) => `+${v} %`],
-  ['basicDmgPct', 'Attaque de base', (v) => `+${v} %`],
-  ['aoeDmgPct', 'Dégâts de zone', (v) => `+${v} %`],
-  ['dmgVsStatusPct', 'Dégâts vs statut', (v) => `+${v} %`],
-  ['ailmentChancePct', 'Chance de statut', (v) => `+${v} %`],
   ['lifestealPct', 'Vol de vie', (v) => `${v} %`],
   ['dodgePct', 'Esquive', (v) => `${v} %`],
   ['cdrPct', 'Recharge', (v) => `−${v} %`],

@@ -65,11 +65,7 @@ export interface BattleBonuses {
   atkPct: number; defPct: number; hpPct: number; spePct: number;
   critPct: number; critDmgPct: number; typeDmgPct: number; cdrPct: number;
   /** effets de talents */
-  dmgVsStatusPct: number;
-  ailmentChancePct: number;
   lifestealPct: number;
-  basicDmgPct: number;
-  aoeDmgPct: number;
   dodgePct: number;
   /** talents « au choix » (palier 4/5) : +pct % de dégâts sur les capacités du type choisi */
   affinities: { type: PType; pct: number }[];
@@ -78,7 +74,7 @@ export interface BattleBonuses {
 export function emptyBonuses(): BattleBonuses {
   return {
     atkPct: 0, defPct: 0, hpPct: 0, spePct: 0, critPct: 0, critDmgPct: 0, typeDmgPct: 0, cdrPct: 0,
-    dmgVsStatusPct: 0, ailmentChancePct: 0, lifestealPct: 0, basicDmgPct: 0, aoeDmgPct: 0, dodgePct: 0,
+    lifestealPct: 0, dodgePct: 0,
     affinities: [],
   };
 }

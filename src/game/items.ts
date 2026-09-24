@@ -121,8 +121,8 @@ export const SETS: Record<string, {
   },
   brume: {
     name: 'Brume Toxique', biome: 4,
-    two: { stat: 'ailmentChancePct', value: 8, label: 'Chance de statut +8 %' },
-    three: { stat: 'dmgVsStatusPct', value: 10, label: 'Dégâts vs statut +10 %' },
+    two: { stat: 'lifestealPct', value: 5, label: 'Vol de vie 5 %' },
+    three: { stat: 'atkPct', value: 8, label: 'Attaque +8 %' },
   },
   oeil: {
     name: 'Troisième Œil', biome: 5,
@@ -132,12 +132,12 @@ export const SETS: Record<string, {
   cendres: {
     name: 'Cendres Ardentes', biome: 6,
     two: { stat: 'atkPct', value: 8, label: 'Attaque +8 %' },
-    three: { stat: 'dmgVsStatusPct', value: 10, label: 'Dégâts vs statut +10 %' },
+    three: { stat: 'critPct', value: 6, label: 'Critique +6 %' },
   },
   aride: {
     name: 'Poussière Aride', biome: 7,
     two: { stat: 'defPct', value: 8, label: 'Défense +8 %' },
-    three: { stat: 'aoeDmgPct', value: 10, label: 'Dégâts de zone +10 %' },
+    three: { stat: 'hpPct', value: 7, label: 'PV +7 %' },
   },
   epreuve: {
     name: 'Épreuve du Sage', biome: 8,
@@ -413,7 +413,7 @@ export function addItemBonuses(b: BattleBonuses, held: Item[]) {
  */
 export const STAT_WEIGHT: Record<NumericBonusStat, number> = {
   atkPct: 1, defPct: 0.8, hpPct: 0.7, spePct: 0.8, critPct: 2, critDmgPct: 0.5, typeDmgPct: 0.8, cdrPct: 2,
-  dmgVsStatusPct: 0.6, ailmentChancePct: 0.8, lifestealPct: 1.2, basicDmgPct: 0.5, aoeDmgPct: 0.8, dodgePct: 1.5,
+  lifestealPct: 1.2, dodgePct: 1.5,
 };
 
 /** Compare un objet à celui équipé : somme pondérée simple (pour la flèche verte/rouge). */

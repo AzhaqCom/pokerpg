@@ -278,9 +278,6 @@ export class Battle {
     const crit = this.rng.int(1000) < Math.min(100, f.stats.crit) * 10;
     let bonus = 1;
     if (m.id !== 0 && f.types.includes(m.type)) bonus += f.bonuses.typeDmgPct / 100;
-    if (m.id === 0) bonus += f.bonuses.basicDmgPct / 100;
-    if (m.aoe) bonus += f.bonuses.aoeDmgPct / 100;
-    if (tg.status) bonus += f.bonuses.dmgVsStatusPct / 100;
     for (const a of f.bonuses.affinities) if (a.type === m.type) bonus += a.pct / 100;
     const critMult = crit ? 1.5 + f.bonuses.critDmgPct / 100 : 1;
     const rand = 0.85 + this.rng.int(16) / 100;
@@ -295,7 +292,7 @@ export class Battle {
     if (ailment === 'freeze' && tg.types.includes('ice')) return;
     if (ailment === 'poison' && tg.types.includes('poison')) return;
     if (ailment === 'paralysis' && tg.types.includes('electric')) return;
-    const c = chance * (1 + f.bonuses.ailmentChancePct / 100);
+    const c = chance;
     if (this.rng.int(100) >= c) return;
     const dur = STATUS_TIME[ailment] * (tg.boss && (ailment === 'sleep' || ailment === 'freeze') ? 0.5 : 1);
     tg.status = { kind: ailment, until: this.t + dur, nextTick: this.t + 1 };
