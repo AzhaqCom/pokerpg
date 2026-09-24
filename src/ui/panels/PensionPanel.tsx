@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { FlatList, Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { PType, species } from '../../game/data';
 import { PENSION_CAP_MS, PENSION_XP_SHARE, assignPension, harvestPension, pensionSlots, pensionXpReady, removePension } from '../../game/game';
 import { teamXpPerHour } from '../../game/idle';
 import { monStars } from '../../game/stats';
@@ -9,7 +10,7 @@ import { Button } from '../components/Button';
 import { MonThumb } from '../components/MonThumb';
 import { Stars } from '../components/Stars';
 import { feedback } from '../components/feedback';
-import { monName, xpProgress } from '../helpers';
+import { TYPE_COLOR, monName, textOn, typeLabel, xpProgress } from '../helpers';
 import { C } from '../theme';
 import { useFrameClock } from '../useFrameClock';
 
@@ -26,10 +27,20 @@ export function PensionPanel() {
   const [pick, setPick] = useState(false);
   const [minStars, setMinStars] = useState(0);
   const [query, setQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState<PType | null>(null);
   const ready = pensionXpReady(s, now);
-  const free = Object.values(s.mons)
-    .filter((m) => !s.team.includes(m.uid) && !s.pension.some((p) => p.uid === m.uid) && !s.exploration.some((p) => p.uid === m.uid)
-      && monStars(m) >= minStars && (!query.trim() || monName(m).toLowerCase().startsWith(query.trim().toLowerCase())))
+  const candidates = Object.values(s.mons)
+    .filter((m) => !s.team.includes(m.uid) && !s.pension.some((p) => p.uid === m.uid) && !s.exploration.some((p) => p.uid === m.uid));
+  /** Types présents parmi les Pokémon disponibles (un bi-type compte pour ses deux types), dans l'ordre habituel. */
+  const candTypes = useMemo(() => {
+    const present = new Set<PType>();
+    for (const m of candidates) for (const t of species(m.speciesId).types) present.add(t);
+    return (Object.keys(TYPE_COLOR) as PType[]).filter((t) => present.has(t));
+  }, [candidates.length, s.mons]);
+  const activeType = typeFilter && candTypes.includes(typeFilter) ? typeFilter : null;
+  const free = candidates
+    .filter((m) => monStars(m) >= minStars && (!activeType || species(m.speciesId).types.includes(activeType))
+      && (!query.trim() || monName(m).toLowerCase().startsWith(query.trim().toLowerCase())))
     .sort((a, b) => a.speciesId - b.speciesId);
   // les postes en cours suivent le même ordre : meilleur potentiel d'abord
   const starsOf = (uid: string) => (s.mons[uid] ? monStars(s.mons[uid]) : 0);
@@ -103,6 +114,19 @@ export function PensionPanel() {
                 </Pressable>
               ))}
             </View>
+            {candTypes.length > 0 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }} style={{ flexGrow: 0 }}>
+                <Pressable onPress={() => setTypeFilter(null)} style={[styles.chip, !activeType && styles.chipOn]}>
+                  <Text style={styles.chipTxt}>Tous types</Text>
+                </Pressable>
+                {candTypes.map((t) => (
+                  <Pressable key={t} onPress={() => setTypeFilter(activeType === t ? null : t)}
+                    style={[styles.chip, { borderWidth: 1, borderColor: TYPE_COLOR[t] }, activeType === t && { backgroundColor: TYPE_COLOR[t] }]}>
+                    <Text style={[styles.chipTxt, activeType === t && { color: textOn(TYPE_COLOR[t]) }]}>{typeLabel(t)}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
             {!free.length && <Text style={styles.hint}>Aucun Pokémon ne correspond.</Text>}
             <FlatList
               data={free}
