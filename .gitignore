@@ -43,3 +43,6 @@ tools/.pmd_cache/
 
 # carte du code perso, jamais poussée sur le repo
 /CODEMAP.md
+
+# scripts de mesure locaux (simulations, calculs ponctuels)
+tools/scratch/
