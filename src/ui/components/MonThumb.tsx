@@ -16,6 +16,7 @@ export function MonThumb({ speciesId, shiny = false, size, silhouette = false, s
       style={[{ width: size, height: size }, silhouette && { opacity: 0.6 }, style]}
       tintColor={silhouette ? '#0e1118' : undefined}
       resizeMode="contain"
+      resizeMethod="resize"
     />
   );
   if (!shiny) return img;

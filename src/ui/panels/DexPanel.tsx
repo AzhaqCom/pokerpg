@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 import { FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { regionOf } from '../../game/content';
 import { ALL_SPECIES, species as speciesOf } from '../../game/data';
@@ -13,6 +13,20 @@ const GRID_GAP = 8;
 /** Padding horizontal du conteneur scrollable (`App.tsx` styles.panel) : 12 de chaque côté. */
 const SCREEN_PADDING = 24;
 
+/** Case du Pokédex, mémoïsée : ne se redessine que si SON état (vu/capturé/chromatique) change, pas à chaque
+ * mise à jour du store. */
+const DexCell = memo(function DexCell({ id, name, got, saw, shiny, width, onOpen }: {
+  id: number; name: string; got: boolean; saw: boolean; shiny: boolean; width: number; onOpen: (id: number) => void;
+}) {
+  return (
+    <Pressable style={[styles.cell, { width }]} onPress={() => { if (saw || got) onOpen(id); }}>
+      <MonThumb speciesId={id} shiny={shiny} size={46} silhouette={!got} style={!got && !saw ? { opacity: 0.25 } : undefined} />
+      <Text style={styles.num}>#{String(id).padStart(3, '0')}</Text>
+      <Text style={[styles.name, !got && { color: C.dim }]} numberOfLines={1}>{saw || got ? name : '???'}</Text>
+    </Pressable>
+  );
+});
+
 export function DexPanel() {
   const s = useGame((g) => g.s)!;
   useGame((g) => g.rev);
@@ -26,6 +40,7 @@ export function DexPanel() {
   // doit pas trahir la génération suivante avant que le joueur l'ait débloquée.
   const maxId = regionOf(s.prestige).dexMax;
   const species = ALL_SPECIES.filter((sp) => sp.id <= maxId);
+  const openCell = useCallback((id: number) => setOpen(id), []);
   const header = (
     <View style={{ gap: 10, marginBottom: 10 }}>
       <View style={styles.row}>
@@ -49,21 +64,14 @@ export function DexPanel() {
         contentContainerStyle={{ padding: SCREEN_PADDING / 2, paddingBottom: 40 }}
         columnWrapperStyle={{ gap: GRID_GAP }}
         ListHeaderComponent={header}
-        initialNumToRender={28}
-        windowSize={5}
+        initialNumToRender={24}
+        windowSize={7}
         removeClippedSubviews
-        extraData={[shiny, s.dex.caught.length, s.dex.seen.length, s.dex.shiny.length]}
-        renderItem={({ item: sp }) => {
-          const got = caught.has(sp.id);
-          const saw = seen.has(sp.id);
-          return (
-            <Pressable style={[styles.cell, { width: cellWidth }]} onPress={() => { if (saw || got) setOpen(sp.id); }}>
-              <MonThumb speciesId={sp.id} shiny={shiny} size={46} silhouette={!got} style={!got && !saw ? { opacity: 0.25 } : undefined} />
-              <Text style={styles.num}>#{String(sp.id).padStart(3, '0')}</Text>
-              <Text style={[styles.name, !got && { color: C.dim }]} numberOfLines={1}>{saw || got ? sp.name : '???'}</Text>
-            </Pressable>
-          );
-        }}
+        extraData={`${shiny}-${s.dex.caught.length}-${s.dex.seen.length}-${s.dex.shiny.length}`}
+        maxToRenderPerBatch={12}
+        renderItem={({ item: sp }) => (
+          <DexCell id={sp.id} name={sp.name} got={caught.has(sp.id)} saw={seen.has(sp.id)} shiny={shiny} width={cellWidth} onOpen={openCell} />
+        )}
       />
       {open !== null && <WhereModal id={open} prestige={s.prestige} onClose={() => setOpen(null)} />}
     </>
