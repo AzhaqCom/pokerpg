@@ -11,7 +11,7 @@ ligne. Arno veut des propositions arrêtées et structurées, pas une liste d'op
 
 **État** : 4 régions jouables et testées en simulation — Kanto (151), Johto (251), Hoenn (386), Sinnoh (493) — reliées
 par un prestige. 47 biomes. Fonctionnement des régions et recette d'ajout : `REGIONS.md`. Historique des sessions :
-`HISTORIQUE.md` (périmé, ne pas s'y fier). Pistes et écarts connus : `IDEES.md`.
+`HISTORIQUE.md` (périmé, ne pas s'y fier). Pistes et écarts connus : `IDEES.md`. **Dernière passation : `SESSION_2026-09-24.md`.**
 
 ## Commandes
 ```
