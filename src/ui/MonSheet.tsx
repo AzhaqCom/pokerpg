@@ -5,7 +5,7 @@ import { Move, learnedMoves, move, evolutionTargets, species } from '../game/dat
 import { regionOf } from '../game/content';
 import {
   CANDY_XP, GENE_MAX, GeneKey, MEGA_CANDY_COST, TEAM_SIZE, applyMegaCandy, autoEquipBest, canEvolve, craftMegaCandy, equip,
-  evolve, feedCandy, heldItems, holder, lineBase, rankUpTalent, autoTalents, release, resetTalents, setMoves, setTeam, unequip,
+  evolve, feedCandy, heldItems, holder, lineBase, rankUpTalent, autoTalents, equipGain, release, resetTalents, setMoves, setTeam, unequip,
 } from '../game/game';
 import { itemScore, slotOf, template } from '../game/items';
 import { BattleBonuses, ItemSlot } from '../game/model';
@@ -334,7 +334,9 @@ function ItemPicker({ slot, monUid, onClose, onChanged }: { slot: ItemSlot; monU
   const [dialog, setDialog] = useState<DialogSpec | null>(null);
   const mon = s.mons[monUid];
   const current = mon.items[slot] ? s.items[mon.items[slot]!] : undefined;
-  const list = Object.values(s.items).filter((i) => slotOf(i) === slot).sort((a, b) => itemScore(b) - itemScore(a));
+  // tri et flèches selon la valeur POUR CE Pokémon (ses talents : Critique et Dégâts critiques se renforcent)
+  const gains = new Map(Object.values(s.items).filter((i) => slotOf(i) === slot).map((i) => [i.uid, equipGain(s, monUid, i)]));
+  const list = Object.values(s.items).filter((i) => slotOf(i) === slot).sort((a, b) => gains.get(b.uid)! - gains.get(a.uid)!);
   const doEquip = (uid: string) => { feedback(); act((g) => equip(g, monUid, uid)); onChanged(); onClose(); };
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
@@ -346,7 +348,8 @@ function ItemPicker({ slot, monUid, onClose, onChanged }: { slot: ItemSlot; monU
             {list.map((it) => {
               const w = holder(s, it.uid);
               const wornByOther = w && w.uid !== monUid ? monName(w) : undefined;
-              const cmp = current ? (itemScore(it) > itemScore(current) ? 'up' : itemScore(it) < itemScore(current) ? 'down' : null) : 'up';
+              const g = gains.get(it.uid)!;
+              const cmp = current ? (g > 0.05 ? 'up' : g < -0.05 ? 'down' : null) : 'up';
               return (
                 <ItemCard key={it.uid} item={it} selected={it.uid === current?.uid} wornBy={wornByOther}
                   compare={it.uid === current?.uid ? null : cmp}

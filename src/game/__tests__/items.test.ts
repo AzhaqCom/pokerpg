@@ -1,4 +1,4 @@
-import { BIOME_SET, SETS, TEMPLATES, addItemBonuses, canFuse, fuse, itemScore, makeItem, mainValue, recycleValue, rollLoot, setOfBiome, template, upgrade } from '../items';
+import { BIOME_SET, SETS, combatValue, TEMPLATES, addItemBonuses, canFuse, fuse, itemScore, makeItem, mainValue, recycleValue, rollLoot, setOfBiome, template, upgrade } from '../items';
 import { emptyBonuses } from '../model';
 import { seededRng } from '../rng';
 
@@ -39,7 +39,7 @@ test('panoplie Sylvestre : bonus à 2 et 3 pièces', () => {
   expect(b2.atkPct).toBeCloseTo(6 + 8);
   const b3 = emptyBonuses();
   addItemBonuses(b3, [makeItem('griffe-sylve', 0, 1, rng), makeItem('cape-sylve', 0, 1, rng), makeItem('baie-sylve', 0, 1, rng)]);
-  expect(b3.lifestealPct).toBe(8);
+  expect(b3.lifestealPct).toBe(SETS.sylve.three.value);
 });
 
 describe('panoplies réutilisées par thème (Hoenn) et puissance par région', () => {
@@ -83,5 +83,25 @@ describe('panoplies réutilisées par thème (Hoenn) et puissance par région', 
     const t = TEMPLATES.find((x) => x.id === 'poing-aride')!;
     const items = [1, 2, 3].map((i) => makeItem(t.id, 0, 5, seededRng(i), 24));
     expect(fuse(items, seededRng(9)).tier).toBe(items[0].tier);
+  });
+});
+
+describe('valeur de combat des équipements (poids mesurés)', () => {
+  const b = (o: Partial<ReturnType<typeof emptyBonuses>>) => ({ ...emptyBonuses(), ...o });
+  test('Dégâts critiques : presque rien sans Critique, beaucoup avec', () => {
+    const sansCrit = combatValue(b({ critDmgPct: 20 }));
+    const avecCrit = combatValue(b({ critPct: 50, critDmgPct: 20 })) - combatValue(b({ critPct: 50 }));
+    expect(sansCrit).toBeLessThan(2);
+    expect(avecCrit).toBeGreaterThan(sansCrit * 5);
+  });
+  test('ordre des stats conforme aux mesures : Attaque ≈ Défense ≈ PV > Critique > Recharge > Vitesse', () => {
+    const v = (k: string) => combatValue(b({ [k]: 20 }));
+    expect(Math.abs(v('atkPct') - v('defPct'))).toBeLessThan(2);
+    expect(v('atkPct')).toBeGreaterThan(v('critPct'));
+    expect(v('critPct')).toBeGreaterThan(v('cdrPct'));
+    expect(v('cdrPct')).toBeGreaterThan(v('spePct'));
+  });
+  test('Recharge plafonnée à 40 % comme en combat', () => {
+    expect(combatValue(b({ cdrPct: 60 }))).toBeCloseTo(combatValue(b({ cdrPct: 40 })), 5);
   });
 });

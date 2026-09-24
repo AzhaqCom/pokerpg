@@ -29,6 +29,13 @@ Limite : le 1 contre 1 surestime sommeil/soin et ignore les capacités de zone ;
   ~15-25 % plus courtes (Johto ~2 h 10, Hoenn 2 h 30-2 h 50, Sinnoh 3 h 15-3 h 35) — le joueur profite plus du meilleur
   kit que les sauvages.
 
+- **Équipement recalé** sur les poids mesurés : Défense/PV −24/−34 % de valeur affichée (ils étaient surévalués),
+  Critique ×3,7, Recharge ×6,7, Vitesse ×5,7, Dégâts critiques ×1,7 (bases des objets, sous-stats, bonus de panoplie).
+  « Équiper le meilleur » et le sélecteur évaluent l'équipement complet pour le Pokémon (Critique et Dégâts critiques
+  liés). Simulations 4 régions : aucun blocage ; régions encore plus courtes (Johto ~2 h, Hoenn ~2 h 25-2 h 50,
+  Sinnoh ~2 h 20-2 h 30).
+- Cas spéciaux : kits classiques (Métamorph, Queulorior, Zarbi, Qulbutoké, Cadoizo, Abra, Togepi, Okéoké), Munja 40 PV.
+
 ## Constats (avant corrections)
 ### Données
 - Types peu fournis en formes finales : Dragon 6, Spectre 12, Acier 13 (Normal 45, Eau 45).

@@ -7,7 +7,7 @@ import {
   BADGE_BONUS, BIOMES, REGIONS, REGION_START, STAGES_PER_ZONE, WAVES_PER_STAGE, ZoneDef, regionLastBiome, regionOf,
 } from './content';
 import { ALL_SPECIES, PType, learnedMoves, evolutionTargets, move, movesAtLevel, species } from './data';
-import { SETS, STAT_WEIGHT, setOfBiome, TEMPLATES, berryHeal, fuse, canFuse, itemScore, makeItem, newUid, recycleValue, rerollCost, rerollSub, rollLoot, rollRarity, slotOf, template, upgrade, upgradeCost } from './items';
+import { SETS, addItemBonuses, berryScore, combatValue, setOfBiome, TEMPLATES, berryHeal, fuse, canFuse, itemScore, makeItem, newUid, recycleValue, rerollCost, rerollSub, rollLoot, rollRarity, slotOf, template, upgrade, upgradeCost } from './items';
 import { BattleBonuses, Item, ItemSlot, MAX_RARITY, Mon, emptyBonuses } from './model';
 import { Rng } from './rng';
 import { MAX_LEVEL, auraBonuses, combatPower, finalStats, levelFromXp, monBonuses, monStars, sumBonuses, xpForLevel } from './stats';
@@ -77,6 +77,8 @@ export interface GameState {
   prestige: number;
   /** Horodatage (ms) du tout début de la partie — sert au récap affiché avant le prestige. */
   startedAt: number;
+  /** Version d'équilibrage des objets déjà convertie (2 = poids mesurés du 2026-09-24, voir `migrateSave`). */
+  balanceVersion: number;
 }
 
 export function newGame(): GameState {
@@ -93,6 +95,7 @@ export function newGame(): GameState {
     lastActive: Date.now(),
     prestige: 0,
     startedAt: Date.now(),
+    balanceVersion: 2,
   };
 }
 
@@ -202,6 +205,17 @@ export function migrateSave(raw: Record<string, unknown>): Record<string, unknow
       delete stock[id];
     }
   }
+  // objets d'avant le recalage sur les poids mesurés (2026-09-24) : les sous-stats tirées gardaient l'ancienne échelle
+  // (`SUB_BASE`) ; la stat principale, elle, est recalculée depuis le modèle d'objet et n'a rien à convertir.
+  if ((raw.balanceVersion as number | undefined ?? 1) < 2 && raw.items && typeof raw.items === 'object') {
+    const SCALE: Record<string, number> = {
+      atkPct: 1, defPct: 0.762, hpPct: 0.66, spePct: 5.71, critPct: 3.7, critDmgPct: 1.667, typeDmgPct: 1.25, cdrPct: 6.67,
+    };
+    for (const it of Object.values(raw.items as Record<string, { subs?: { stat: string; value: number }[] }>)) {
+      for (const sub of it.subs ?? []) sub.value = Math.round(sub.value * (SCALE[sub.stat] ?? 1) * 10) / 10;
+    }
+  }
+  raw.balanceVersion = 2;
   return raw;
 }
 
@@ -639,6 +653,29 @@ export function unequip(s: GameState, monUid: string, slot: ItemSlot) {
  * panoplie ne l'emporte que si elle rapporte vraiment plus, aucune règle spéciale liée au type du
  * Pokémon (les panoplies ne sont pas réservées à un type). Retourne le nombre d'emplacements changés.
  */
+/** Bonus d'un Pokémon hors objets (talents, auras de l'équipe, badges) : contexte pour évaluer un équipement. */
+export function monBaseBonuses(s: GameState, uid: string): BattleBonuses {
+  const mon = s.mons[uid];
+  const offTeam = [...s.pension, ...s.exploration].map((p) => s.mons[p.uid]?.speciesId).filter(Boolean) as number[];
+  const auras = auraBonuses(s.team.map((u) => s.mons[u].speciesId), offTeam);
+  return sumBonuses(monBonuses(mon, [], auras), badgeBonuses(s));
+}
+
+/**
+ * Gain de valeur de combat si `item` remplace l'objet porté dans son emplacement, pour CE Pokémon (flèche du
+ * sélecteur d'objets). Positif = mieux. Les baies se comparent entre elles (`berryScore`).
+ */
+export function equipGain(s: GameState, uid: string, item: Item): number {
+  const mon = s.mons[uid];
+  const slot = slotOf(item);
+  const held = heldItems(s, mon);
+  const current = held.find((it) => slotOf(it) === slot);
+  if (slot === 'berry') return berryScore(item) - (current ? berryScore(current) : 0);
+  const base = monBaseBonuses(s, uid);
+  const withItems = (items: Item[]) => { const b = sumBonuses(base); addItemBonuses(b, items); return combatValue(b); };
+  return withItems([...held.filter((it) => slotOf(it) !== slot), item]) - withItems(held);
+}
+
 export function autoEquipBest(s: GameState, uid: string): number {
   const mon = s.mons[uid];
   if (!mon) return 0;
@@ -650,33 +687,25 @@ export function autoEquipBest(s: GameState, uid: string): number {
   const bestOf = (items: Item[]) => items.reduce<Item | undefined>((best, it) => (!best || itemScore(it) > itemScore(best) ? it : best), undefined);
 
   type Combo = Partial<Record<ItemSlot, Item>>;
-  const independent: Combo = { offense: bestOf(bySlot.offense), defense: bestOf(bySlot.defense), berry: bestOf(bySlot.berry) };
-
+  // la valeur d'un objet dépend du Pokémon (ses talents, les auras, les badges) : Critique et Dégâts critiques
+  // se renforcent, la Recharge est plafonnée — on évalue donc chaque combinaison complète, pas objet par objet
+  const base = monBaseBonuses(s, uid);
   const scoreCombo = (combo: Combo): number => {
-    let total = 0;
-    const setCount: Record<string, number> = {};
-    for (const slot of SLOTS) {
-      const it = combo[slot];
-      if (!it) continue;
-      total += itemScore(it);
-      const set = template(it.templateId).set;
-      if (set) setCount[set] = (setCount[set] ?? 0) + 1;
-    }
-    for (const [key, n] of Object.entries(setCount)) {
-      const set = SETS[key];
-      if (!set) continue;
-      if (n >= 2) total += STAT_WEIGHT[set.two.stat] * set.two.value;
-      if (n >= 3) total += STAT_WEIGHT[set.three.stat] * set.three.value;
-    }
-    return total;
+    const b = sumBonuses(base);
+    addItemBonuses(b, SLOTS.map((slot) => combo[slot]).filter((it): it is Item => !!it));
+    return combatValue(b) + (combo.berry ? berryScore(combo.berry) / 10 : 0);
   };
+  // meilleur objet par emplacement dans le contexte du Pokémon (les autres emplacements vides)
+  const bestFor = (slot: ItemSlot, items: Item[]) => items.reduce<Item | undefined>(
+    (best, it) => (!best || scoreCombo({ [slot]: it }) > scoreCombo({ [slot]: best }) ? it : best), undefined);
+  const independent: Combo = { offense: bestFor('offense', bySlot.offense), defense: bestFor('defense', bySlot.defense), berry: bestOf(bySlot.berry) };
 
   let bestCombo = independent;
   let bestScore = scoreCombo(independent);
   for (const key of Object.keys(SETS)) {
     const combo: Combo = { ...independent };
     for (const slot of SLOTS) {
-      const setItem = bestOf(bySlot[slot].filter((it) => template(it.templateId).set === key));
+      const setItem = (slot === 'berry' ? bestOf : (items: Item[]) => bestFor(slot, items))(bySlot[slot].filter((it) => template(it.templateId).set === key));
       if (setItem) combo[slot] = setItem;
     }
     const sc = scoreCombo(combo);

@@ -76,8 +76,11 @@ Modules natifs : toujours `npx expo install <pkg>`. Skia 2.6.2 (épinglé) **exi
 - **Poids des espèces** : voir `REGIONS.md`. Tous les légendaires sont à 20 (chasse aux chromatiques en hors ligne visée :
   ~5 h Kanto, 9 h Johto, 18 h Hoenn, 40 h Sinnoh).
 - **Butin** : 11 %/sauvage (`LOOT_CHANCE`), boss 3 objets ; niveau = `max(niveau ennemi, meilleur de l'équipe)`.
-- **Objets** : 7 raretés, panoplies (`SETS`), `BIOME_SET` + `biomeTier` pour les régions 3+. `autoEquipBest` compare le
-  meilleur objet par emplacement aux panoplies complétables. Recyclage en éclats (`recycleValue`).
+- **Objets** : 7 raretés, panoplies (`SETS`), `BIOME_SET` + `biomeTier` pour les régions 3+. Puissance calée sur les
+  **poids mesurés** (`STAT_WEIGHT`, 2026-09-24). Comparaison d'équipements par `combatValue` (modèle multiplicatif :
+  Critique × Dégâts critiques liés, Recharge plafonnée à 40 %) dans le contexte du Pokémon (`monBaseBonuses` : talents,
+  auras, badges) : `autoEquipBest` évalue chaque combinaison complète, `equipGain` donne les flèches du sélecteur.
+  Anciennes sauvegardes : sous-stats converties une fois (`balanceVersion`). Recyclage en éclats (`recycleValue`).
 - **Qualité génétique** : gènes 0-15 (PV/Atq/Déf/Vit) tirés à la capture, jamais modifiés (sauf méga bonbons). Étoiles :
   4★ parfait, 3★ ≥ 80 %, 2★ ≥ 50 %. Plancher garanti par badge (`genesMinForBadges` : ≥ 8 dès 4 badges, ≥ 12 dès 8).
 - **Sous-stats** (depuis le 2026-09-24) : Attaque, Défense, PV, Vitesse, Critique, Dégâts critiques, Dégâts du type,

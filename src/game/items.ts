@@ -1,5 +1,5 @@
 import {
-  BattleBonuses, BonusStat, Item, ItemSlot, ItemTemplate, MAX_RARITY, NumericBonusStat, RARITY_MULT, RARITY_SUBS,
+  BattleBonuses, BonusStat, Item, emptyBonuses, ItemSlot, ItemTemplate, MAX_RARITY, NumericBonusStat, RARITY_MULT, RARITY_SUBS,
 } from './model';
 import { BIOMES, REGIONS } from './content';
 import { Rng } from './rng';
@@ -15,83 +15,83 @@ import { Rng } from './rng';
 export const TEMPLATES: ItemTemplate[] = [
   // biome 1 — Forêt de Jade
   { id: 'griffe-sylve', name: 'Griffe Sylvestre', slot: 'offense', main: 'atkPct', base: 6, set: 'sylve' },
-  { id: 'cape-sylve', name: 'Cape Sylvestre', slot: 'defense', main: 'hpPct', base: 8, set: 'sylve' },
+  { id: 'cape-sylve', name: 'Cape Sylvestre', slot: 'defense', main: 'hpPct', base: 5.3, set: 'sylve' },
   { id: 'baie-sylve', name: 'Baie Sylvestre', slot: 'berry', main: 'hpPct', base: 0, set: 'sylve', berry: { heal: 25 } },
   // biome 2 — Biome Aquatique
-  { id: 'nageoire-maree', name: 'Nageoire Rapide', slot: 'offense', main: 'spePct', base: 7.7, set: 'maree' },
-  { id: 'ecaille-maree', name: 'Écaille Robuste', slot: 'defense', main: 'defPct', base: 6, set: 'maree' },
+  { id: 'nageoire-maree', name: 'Nageoire Rapide', slot: 'offense', main: 'spePct', base: 44, set: 'maree' },
+  { id: 'ecaille-maree', name: 'Écaille Robuste', slot: 'defense', main: 'defPct', base: 4.6, set: 'maree' },
   { id: 'baie-maree', name: 'Baie Aquatique', slot: 'berry', main: 'hpPct', base: 0, set: 'maree', berry: { heal: 25 } },
   // biome 3 — Biome Électrique
-  { id: 'bobine-circuit', name: 'Bobine Tesla', slot: 'offense', main: 'critDmgPct', base: 10.5, set: 'circuit' },
-  { id: 'semelle-circuit', name: 'Semelle Isolante', slot: 'defense', main: 'spePct', base: 6.1, set: 'circuit' },
+  { id: 'bobine-circuit', name: 'Bobine Tesla', slot: 'offense', main: 'critDmgPct', base: 17.5, set: 'circuit' },
+  { id: 'semelle-circuit', name: 'Semelle Isolante', slot: 'defense', main: 'spePct', base: 34.9, set: 'circuit' },
   { id: 'ceriz', name: 'Baie Ceriz', slot: 'berry', main: 'hpPct', base: 0, set: 'circuit', berry: { heal: 25, cures: 'paralysis' } },
   // biome 4 — Biome Verdoyant
-  { id: 'feuille-chloro', name: 'Feuille Tranchante', slot: 'offense', main: 'typeDmgPct', base: 8.1, set: 'chloro' },
-  { id: 'ecorce-chloro', name: 'Écorce Vivace', slot: 'defense', main: 'hpPct', base: 7, set: 'chloro' },
+  { id: 'feuille-chloro', name: 'Feuille Tranchante', slot: 'offense', main: 'typeDmgPct', base: 10.1, set: 'chloro' },
+  { id: 'ecorce-chloro', name: 'Écorce Vivace', slot: 'defense', main: 'hpPct', base: 4.6, set: 'chloro' },
   { id: 'baie-chloro', name: 'Baie Feuillue', slot: 'berry', main: 'hpPct', base: 0, set: 'chloro', berry: { heal: 25, cures: 'sleep' } },
   // biome 5 — Marais Toxique
-  { id: 'piquant-brume', name: 'Piquant Empoisonné', slot: 'offense', main: 'critPct', base: 3.3, set: 'brume' },
-  { id: 'carapace-brume', name: 'Carapace Visqueuse', slot: 'defense', main: 'defPct', base: 6, set: 'brume' },
+  { id: 'piquant-brume', name: 'Piquant Empoisonné', slot: 'offense', main: 'critPct', base: 12.2, set: 'brume' },
+  { id: 'carapace-brume', name: 'Carapace Visqueuse', slot: 'defense', main: 'defPct', base: 4.6, set: 'brume' },
   { id: 'pecha', name: 'Baie Pêcha', slot: 'berry', main: 'hpPct', base: 0, set: 'brume', berry: { heal: 25, cures: 'poison' } },
   // biome 6 — Sanctuaire Psy
-  { id: 'amulette-oeil', name: 'Amulette Prescience', slot: 'offense', main: 'critPct', base: 3.4, set: 'oeil' },
-  { id: 'voile-oeil', name: 'Voile Mental', slot: 'defense', main: 'cdrPct', base: 2.4, set: 'oeil' },
+  { id: 'amulette-oeil', name: 'Amulette Prescience', slot: 'offense', main: 'critPct', base: 12.6, set: 'oeil' },
+  { id: 'voile-oeil', name: 'Voile Mental', slot: 'defense', main: 'cdrPct', base: 16, set: 'oeil' },
   { id: 'maron', name: 'Baie Maron', slot: 'berry', main: 'hpPct', base: 0, set: 'oeil', berry: { heal: 25 } },
   // biome 7 — Terres de Feu
   { id: 'griffe-cendres', name: 'Griffe Incandescente', slot: 'offense', main: 'atkPct', base: 7, set: 'cendres' },
-  { id: 'armure-cendres', name: 'Armure Ignifugée', slot: 'defense', main: 'defPct', base: 6, set: 'cendres' },
+  { id: 'armure-cendres', name: 'Armure Ignifugée', slot: 'defense', main: 'defPct', base: 4.6, set: 'cendres' },
   { id: 'baie-cendres', name: 'Baie Braisée', slot: 'berry', main: 'hpPct', base: 0, set: 'cendres', berry: { heal: 25, cures: 'burn' } },
   // biome 8 — Plaines Rocheuses
   { id: 'poing-aride', name: 'Poing Tellurique', slot: 'offense', main: 'atkPct', base: 8, set: 'aride' },
-  { id: 'plastron-aride', name: 'Plastron Rocheux', slot: 'defense', main: 'defPct', base: 7, set: 'aride' },
+  { id: 'plastron-aride', name: 'Plastron Rocheux', slot: 'defense', main: 'defPct', base: 5.3, set: 'aride' },
   { id: 'baie-aride', name: 'Baie Minérale', slot: 'berry', main: 'hpPct', base: 0, set: 'aride', berry: { heal: 25 } },
   // biome 9 — Route Victoire
-  { id: 'lame-epreuve', name: 'Lame du Sage', slot: 'offense', main: 'critDmgPct', base: 13, set: 'epreuve' },
-  { id: 'manteau-epreuve', name: "Manteau d'Ascension", slot: 'defense', main: 'hpPct', base: 8, set: 'epreuve' },
+  { id: 'lame-epreuve', name: 'Lame du Sage', slot: 'offense', main: 'critDmgPct', base: 21.7, set: 'epreuve' },
+  { id: 'manteau-epreuve', name: "Manteau d'Ascension", slot: 'defense', main: 'hpPct', base: 5.3, set: 'epreuve' },
   { id: 'baie-epreuve', name: "Baie de l'Épreuve", slot: 'berry', main: 'hpPct', base: 0, set: 'epreuve', berry: { heal: 25, cures: 'freeze' } },
   // biome 10 — Ligue Pokémon
   { id: 'gantelet-champion', name: 'Gantelet du Champion', slot: 'offense', main: 'atkPct', base: 9, set: 'champion' },
-  { id: 'cape-champion', name: 'Cape du Vainqueur', slot: 'defense', main: 'defPct', base: 8, set: 'champion' },
+  { id: 'cape-champion', name: 'Cape du Vainqueur', slot: 'defense', main: 'defPct', base: 6.1, set: 'champion' },
   { id: 'baie-champion', name: 'Baie du Sacre', slot: 'berry', main: 'hpPct', base: 0, set: 'champion', berry: { heal: 25 } },
   // biome 11 — Route des Cieux (Johto)
-  { id: 'bec-ciel', name: 'Bec Acéré', slot: 'offense', main: 'critPct', base: 3, set: 'ciel' },
-  { id: 'plume-ciel', name: 'Plume Véloce', slot: 'defense', main: 'spePct', base: 7, set: 'ciel' },
+  { id: 'bec-ciel', name: 'Bec Acéré', slot: 'offense', main: 'critPct', base: 11.1, set: 'ciel' },
+  { id: 'plume-ciel', name: 'Plume Véloce', slot: 'defense', main: 'spePct', base: 40, set: 'ciel' },
   { id: 'baie-ciel', name: 'Baie des Cieux', slot: 'berry', main: 'hpPct', base: 0, set: 'ciel', berry: { heal: 25 } },
   // biome 12 — Forêt Fourmillante (Johto)
   { id: 'mandibule-ruche', name: 'Mandibule Acérée', slot: 'offense', main: 'atkPct', base: 7, set: 'ruche' },
-  { id: 'carapace-ruche', name: 'Carapace Chitineuse', slot: 'defense', main: 'defPct', base: 6, set: 'ruche' },
+  { id: 'carapace-ruche', name: 'Carapace Chitineuse', slot: 'defense', main: 'defPct', base: 4.6, set: 'ruche' },
   { id: 'baie-ruche', name: 'Baie Butinée', slot: 'berry', main: 'hpPct', base: 0, set: 'ruche', berry: { heal: 25 } },
   // biome 13 — Prairies de Doré (Johto)
-  { id: 'corne-prairie', name: 'Corne Robuste', slot: 'offense', main: 'critDmgPct', base: 11, set: 'prairie' },
-  { id: 'toison-prairie', name: 'Toison Épaisse', slot: 'defense', main: 'hpPct', base: 7, set: 'prairie' },
+  { id: 'corne-prairie', name: 'Corne Robuste', slot: 'offense', main: 'critDmgPct', base: 18.3, set: 'prairie' },
+  { id: 'toison-prairie', name: 'Toison Épaisse', slot: 'defense', main: 'hpPct', base: 4.6, set: 'prairie' },
   { id: 'baie-prairie', name: 'Baie des Prairies', slot: 'berry', main: 'hpPct', base: 0, set: 'prairie', berry: { heal: 25 } },
   // biome 14 — Tour Hantée (Johto)
-  { id: 'griffe-brume', name: 'Griffe Spectrale', slot: 'offense', main: 'critPct', base: 3.8, set: 'brume2' },
-  { id: 'voile-brume', name: 'Voile Brumeux', slot: 'defense', main: 'cdrPct', base: 2.4, set: 'brume2' },
+  { id: 'griffe-brume', name: 'Griffe Spectrale', slot: 'offense', main: 'critPct', base: 14.1, set: 'brume2' },
+  { id: 'voile-brume', name: 'Voile Brumeux', slot: 'defense', main: 'cdrPct', base: 16, set: 'brume2' },
   { id: 'baie-brume', name: 'Baie Fantomatique', slot: 'berry', main: 'hpPct', base: 0, set: 'brume2', berry: { heal: 25 } },
   // biome 15 — Dojo d'Ébène (Johto)
-  { id: 'poing-dojo', name: 'Poing de Fer', slot: 'offense', main: 'critDmgPct', base: 12, set: 'dojo' },
-  { id: 'ceinture-dojo', name: 'Ceinture Renforcée', slot: 'defense', main: 'defPct', base: 6, set: 'dojo' },
+  { id: 'poing-dojo', name: 'Poing de Fer', slot: 'offense', main: 'critDmgPct', base: 20, set: 'dojo' },
+  { id: 'ceinture-dojo', name: 'Ceinture Renforcée', slot: 'defense', main: 'defPct', base: 4.6, set: 'dojo' },
   { id: 'baie-dojo', name: 'Baie du Dojo', slot: 'berry', main: 'hpPct', base: 0, set: 'dojo', berry: { heal: 25 } },
   // biome 16 — Phare d'Olivia (Johto)
   { id: 'lame-phare', name: "Lame d'Acier", slot: 'offense', main: 'atkPct', base: 8, set: 'phare' },
-  { id: 'armure-phare', name: 'Armure Polie', slot: 'defense', main: 'defPct', base: 7, set: 'phare' },
+  { id: 'armure-phare', name: 'Armure Polie', slot: 'defense', main: 'defPct', base: 5.3, set: 'phare' },
   { id: 'baie-phare', name: 'Baie du Phare', slot: 'berry', main: 'hpPct', base: 0, set: 'phare', berry: { heal: 25 } },
   // biome 17 — Grotte Gelée (Johto)
-  { id: 'croc-givre', name: 'Croc de Glace', slot: 'offense', main: 'critPct', base: 4.3, set: 'givre' },
-  { id: 'manteau-givre', name: 'Manteau Givré', slot: 'defense', main: 'defPct', base: 6, set: 'givre' },
+  { id: 'croc-givre', name: 'Croc de Glace', slot: 'offense', main: 'critPct', base: 15.9, set: 'givre' },
+  { id: 'manteau-givre', name: 'Manteau Givré', slot: 'defense', main: 'defPct', base: 4.6, set: 'givre' },
   { id: 'baie-givre', name: 'Baie Givrée', slot: 'berry', main: 'hpPct', base: 0, set: 'givre', berry: { heal: 25, cures: 'freeze' } },
   // biome 18 — Tanière des Dragons (Johto)
   { id: 'griffe-tanieres', name: 'Griffe Draconique', slot: 'offense', main: 'atkPct', base: 9, set: 'dragon2' },
-  { id: 'ecaille-tanieres', name: 'Écaille Draconique', slot: 'defense', main: 'hpPct', base: 8, set: 'dragon2' },
+  { id: 'ecaille-tanieres', name: 'Écaille Draconique', slot: 'defense', main: 'hpPct', base: 5.3, set: 'dragon2' },
   { id: 'baie-tanieres', name: 'Baie du Dragon', slot: 'berry', main: 'hpPct', base: 0, set: 'dragon2', berry: { heal: 25 } },
   // biome 19 — Grotte Sombre (Johto, Conseil des 4)
-  { id: 'griffe-ombre', name: 'Griffe Sournoise', slot: 'offense', main: 'critDmgPct', base: 14.5, set: 'ombre' },
-  { id: 'cape-ombre', name: "Cape d'Ombre", slot: 'defense', main: 'defPct', base: 8, set: 'ombre' },
+  { id: 'griffe-ombre', name: 'Griffe Sournoise', slot: 'offense', main: 'critDmgPct', base: 24.2, set: 'ombre' },
+  { id: 'cape-ombre', name: "Cape d'Ombre", slot: 'defense', main: 'defPct', base: 6.1, set: 'ombre' },
   { id: 'baie-ombre', name: 'Baie Sombre', slot: 'berry', main: 'hpPct', base: 0, set: 'ombre', berry: { heal: 25 } },
   // biome 20 — Plateau Doré (Johto, Champion)
   { id: 'gantelet-plateau', name: 'Gantelet Doré', slot: 'offense', main: 'atkPct', base: 10, set: 'plateau' },
-  { id: 'cape-plateau', name: 'Cape Dorée', slot: 'defense', main: 'defPct', base: 9, set: 'plateau' },
+  { id: 'cape-plateau', name: 'Cape Dorée', slot: 'defense', main: 'defPct', base: 6.9, set: 'plateau' },
   { id: 'baie-plateau', name: 'Baie Dorée', slot: 'berry', main: 'hpPct', base: 0, set: 'plateau', berry: { heal: 25 } },
 ];
 
@@ -102,107 +102,107 @@ export const SETS: Record<string, {
   sylve: {
     name: 'Tenue Sylvestre', biome: 0,
     two: { stat: 'atkPct', value: 8, label: 'Attaque +8 %' },
-    three: { stat: 'lifestealPct', value: 8, label: 'Vol de vie 8 %' },
+    three: { stat: 'lifestealPct', value: 13, label: 'Vol de vie 13 %' },
   },
   maree: {
     name: 'Marée Vivante', biome: 1,
-    two: { stat: 'defPct', value: 6, label: 'Défense +6 %' },
-    three: { stat: 'lifestealPct', value: 6, label: 'Vol de vie 6 %' },
+    two: { stat: 'defPct', value: 5, label: 'Défense +5 %' },
+    three: { stat: 'lifestealPct', value: 10, label: 'Vol de vie 10 %' },
   },
   circuit: {
     name: 'Circuit Survolté', biome: 2,
-    two: { stat: 'spePct', value: 6, label: 'Vitesse +6 %' },
-    three: { stat: 'critDmgPct', value: 10, label: 'Dégâts critiques +10 %' },
+    two: { stat: 'spePct', value: 34, label: 'Vitesse +34 %' },
+    three: { stat: 'critDmgPct', value: 17, label: 'Dégâts critiques +17 %' },
   },
   chloro: {
     name: 'Chlorophylle Ancienne', biome: 3,
-    two: { stat: 'hpPct', value: 6, label: 'PV +6 %' },
-    three: { stat: 'lifestealPct', value: 6, label: 'Vol de vie 6 %' },
+    two: { stat: 'hpPct', value: 4, label: 'PV +4 %' },
+    three: { stat: 'lifestealPct', value: 10, label: 'Vol de vie 10 %' },
   },
   brume: {
     name: 'Brume Toxique', biome: 4,
-    two: { stat: 'lifestealPct', value: 5, label: 'Vol de vie 5 %' },
+    two: { stat: 'lifestealPct', value: 8, label: 'Vol de vie 8 %' },
     three: { stat: 'atkPct', value: 8, label: 'Attaque +8 %' },
   },
   oeil: {
     name: 'Troisième Œil', biome: 5,
-    two: { stat: 'cdrPct', value: 4, label: 'Recharge −4 %' },
-    three: { stat: 'critPct', value: 6, label: 'Critique +6 %' },
+    two: { stat: 'cdrPct', value: 27, label: 'Recharge −27 %' },
+    three: { stat: 'critPct', value: 22, label: 'Critique +22 %' },
   },
   cendres: {
     name: 'Cendres Ardentes', biome: 6,
     two: { stat: 'atkPct', value: 8, label: 'Attaque +8 %' },
-    three: { stat: 'critPct', value: 6, label: 'Critique +6 %' },
+    three: { stat: 'critPct', value: 22, label: 'Critique +22 %' },
   },
   aride: {
     name: 'Poussière Aride', biome: 7,
-    two: { stat: 'defPct', value: 8, label: 'Défense +8 %' },
-    three: { stat: 'hpPct', value: 7, label: 'PV +7 %' },
+    two: { stat: 'defPct', value: 6, label: 'Défense +6 %' },
+    three: { stat: 'hpPct', value: 5, label: 'PV +5 %' },
   },
   epreuve: {
     name: 'Épreuve du Sage', biome: 8,
-    two: { stat: 'hpPct', value: 7, label: 'PV +7 %' },
-    three: { stat: 'critDmgPct', value: 12, label: 'Dégâts critiques +12 %' },
+    two: { stat: 'hpPct', value: 5, label: 'PV +5 %' },
+    three: { stat: 'critDmgPct', value: 20, label: 'Dégâts critiques +20 %' },
   },
   champion: {
     name: 'Titre de Champion', biome: 9,
     two: { stat: 'atkPct', value: 10, label: 'Attaque +10 %' },
-    three: { stat: 'typeDmgPct', value: 10, label: 'Dégâts de son type +10 %' },
+    three: { stat: 'typeDmgPct', value: 12, label: 'Dégâts de son type +12 %' },
   },
   ciel: {
     name: 'Ailes du Zéphyr', biome: 10,
-    two: { stat: 'spePct', value: 6, label: 'Vitesse +6 %' },
-    three: { stat: 'dodgePct', value: 8, label: 'Esquive +8 %' },
+    two: { stat: 'spePct', value: 34, label: 'Vitesse +34 %' },
+    three: { stat: 'dodgePct', value: 9, label: 'Esquive +9 %' },
   },
   ruche: {
     name: 'Essaim Fourmillant', biome: 11,
     two: { stat: 'atkPct', value: 8, label: 'Attaque +8 %' },
-    three: { stat: 'critPct', value: 6, label: 'Critique +6 %' },
+    three: { stat: 'critPct', value: 22, label: 'Critique +22 %' },
   },
   prairie: {
     name: 'Robe des Prairies', biome: 12,
-    two: { stat: 'hpPct', value: 7, label: 'PV +7 %' },
+    two: { stat: 'hpPct', value: 5, label: 'PV +5 %' },
     three: { stat: 'atkPct', value: 8, label: 'Attaque +8 %' },
   },
   brume2: {
     name: 'Voile de la Tour', biome: 13,
-    two: { stat: 'cdrPct', value: 4, label: 'Recharge −4 %' },
-    three: { stat: 'dodgePct', value: 8, label: 'Esquive +8 %' },
+    two: { stat: 'cdrPct', value: 27, label: 'Recharge −27 %' },
+    three: { stat: 'dodgePct', value: 9, label: 'Esquive +9 %' },
   },
   dojo: {
     name: 'Tenue du Dojo', biome: 14,
     two: { stat: 'atkPct', value: 8, label: 'Attaque +8 %' },
-    three: { stat: 'critDmgPct', value: 12, label: 'Dégâts critiques +12 %' },
+    three: { stat: 'critDmgPct', value: 20, label: 'Dégâts critiques +20 %' },
   },
   phare: {
     name: 'Alliage du Phare', biome: 15,
-    two: { stat: 'defPct', value: 8, label: 'Défense +8 %' },
-    three: { stat: 'critDmgPct', value: 10, label: 'Dégâts critiques +10 %' },
+    two: { stat: 'defPct', value: 6, label: 'Défense +6 %' },
+    three: { stat: 'critDmgPct', value: 17, label: 'Dégâts critiques +17 %' },
   },
   givre: {
     name: 'Manteau Givré', biome: 16,
-    two: { stat: 'defPct', value: 6, label: 'Défense +6 %' },
-    three: { stat: 'critDmgPct', value: 10, label: 'Dégâts critiques +10 %' },
+    two: { stat: 'defPct', value: 5, label: 'Défense +5 %' },
+    three: { stat: 'critDmgPct', value: 17, label: 'Dégâts critiques +17 %' },
   },
   dragon2: {
     name: 'Écailles de la Tanière', biome: 17,
     two: { stat: 'atkPct', value: 9, label: 'Attaque +9 %' },
-    three: { stat: 'typeDmgPct', value: 10, label: 'Dégâts de son type +10 %' },
+    three: { stat: 'typeDmgPct', value: 12, label: 'Dégâts de son type +12 %' },
   },
   ombre: {
     name: 'Voile des Ombres', biome: 18,
-    two: { stat: 'critPct', value: 7, label: 'Critique +7 %' },
-    three: { stat: 'critDmgPct', value: 12, label: 'Dégâts critiques +12 %' },
+    two: { stat: 'critPct', value: 26, label: 'Critique +26 %' },
+    three: { stat: 'critDmgPct', value: 20, label: 'Dégâts critiques +20 %' },
   },
   plateau: {
     name: 'Titre de Champion Johto', biome: 19,
     two: { stat: 'atkPct', value: 10, label: 'Attaque +10 %' },
-    three: { stat: 'typeDmgPct', value: 10, label: 'Dégâts de son type +10 %' },
+    three: { stat: 'typeDmgPct', value: 12, label: 'Dégâts de son type +12 %' },
   },
 };
 
 const SUB_BASE: Record<BonusStat, number> = {
-  atkPct: 3, defPct: 3, hpPct: 4, spePct: 3, critPct: 1.5, critDmgPct: 6, typeDmgPct: 4, cdrPct: 1.5,
+  atkPct: 3, defPct: 2.3, hpPct: 2.6, spePct: 17.1, critPct: 5.6, critDmgPct: 10, typeDmgPct: 5, cdrPct: 10,
 };
 const SUB_POOL: BonusStat[] = ['atkPct', 'defPct', 'hpPct', 'spePct', 'critPct', 'critDmgPct', 'typeDmgPct', 'cdrPct'];
 
@@ -407,20 +407,47 @@ export function addItemBonuses(b: BattleBonuses, held: Item[]) {
 }
 
 /**
- * Poids relatif de chaque stat pour comparer des bonus disparates sur une même échelle (objet contre
- * objet, mais aussi bonus de panoplie contre objets indépendants dans `autoEquipBest`). Arbitraire mais
- * cohérent : critique/recharge/esquive/vol de vie pèsent plus lourd que les stats brutes (PV/Atq/Déf/Vit).
+ * Poids relatif de chaque stat (Attaque = 1), **mesuré** en combats 3 contre 3 le 2026-09-24 (+20 points sur toute une
+ * équipe, voir `AUDIT_EQUILIBRAGE.md`). Sert à calibrer la puissance des objets (`base`, `SUB_BASE`, `biomeTier`) ;
+ * les Dégâts critiques y valent leur valeur dans un build à ~35 % de Critique. Pour comparer des équipements, préférer
+ * `combatValue` (modèle multiplicatif où Critique et Dégâts critiques se renforcent).
  */
 export const STAT_WEIGHT: Record<NumericBonusStat, number> = {
-  atkPct: 1, defPct: 0.8, hpPct: 0.7, spePct: 0.8, critPct: 2, critDmgPct: 0.5, typeDmgPct: 0.8, cdrPct: 2,
-  lifestealPct: 1.2, dodgePct: 1.5,
+  atkPct: 1, defPct: 1.05, hpPct: 1.06, spePct: 0.14, critPct: 0.54, critDmgPct: 0.3, typeDmgPct: 0.64, cdrPct: 0.3,
+  lifestealPct: 0.73, dodgePct: 1.34,
 };
 
-/** Compare un objet à celui équipé : somme pondérée simple (pour la flèche verte/rouge). */
+/**
+ * Valeur de combat d'un ensemble de bonus, en « % d'Attaque équivalent » (modèle multiplicatif calé sur les mesures
+ * 3 contre 3). Critique et Dégâts critiques y sont liés : le gain d'un critique = chance × (0,5 + dégâts critiques),
+ * donc des Dégâts critiques ne valent presque rien sans Critique, et beaucoup avec. La Recharge est plafonnée à 40 %
+ * comme en combat.
+ */
+export function combatValue(b: BattleBonuses): number {
+  const crit = Math.min(1, (6 + b.critPct) / 100);
+  const dodge = Math.min(0.6, b.dodgePct / 100);
+  const f = (1 + b.atkPct / 100) * (1 + b.hpPct / 100) * (1 + b.defPct / 100)
+    * ((1 + crit * (0.5 + b.critDmgPct / 100)) / 1.03)
+    * (1 + (0.64 * b.typeDmgPct) / 100)
+    * Math.pow(1 / (1 - dodge), 1.1)
+    * (1 + (0.73 * b.lifestealPct) / 100)
+    * (1 + (0.3 * Math.min(40, b.cdrPct)) / 100)
+    * (1 + (0.14 * b.spePct) / 100);
+  return (f - 1) * 100;
+}
+
+/** Score d'une baie (soin et rareté) : les baies se comparent entre elles, pas aux autres objets. */
+export function berryScore(item: Item): number {
+  return (berryHeal(item) || 20) + item.level + item.rarity * 10;
+}
+
+/** Valeur d'un objet seul (tri du sac, comparaison hors contexte d'un Pokémon). */
 export function itemScore(item: Item): number {
   const t = template(item.templateId);
-  if (t.berry) return (berryHeal(item) || 20) + item.level + item.rarity * 10;
-  return mainValue(item) * STAT_WEIGHT[t.main] + item.subs.reduce((a, s) => a + s.value * STAT_WEIGHT[s.stat], 0);
+  if (t.berry) return berryScore(item);
+  const b = emptyBonuses();
+  addItemBonuses(b, [item]);
+  return combatValue(b);
 }
 
 export function slotOf(item: Item): ItemSlot {
