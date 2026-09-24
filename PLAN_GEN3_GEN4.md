@@ -5,6 +5,9 @@ condition que Kanto → Johto : **Champion de la région battu + toutes les esp�
 Chaque étape s'appuie sur la précédente : ne pas les inverser.
 
 Règles de contenu reprises de Johto (validées par Arno le 2026-09-23) :
+- **chaque région est autonome** (Johto, Hoenn et Sinnoh, sans exception) : après un prestige, le joueur
+  ne revient pas sur les régions précédentes, donc il doit pouvoir compléter son Pokédex sans elles.
+  À valider à chaque nouvelle région par le test de couverture par région ;
 - les biomes d'une région précédente ne sont **jamais** retouchés (Kanto = biomes 0-9, Johto = 10-19) ;
 - la Carte masque les régions précédentes après un prestige : **tout le Pokédex cumulé** (Kanto + Johto +
   nouvelle région) doit être obtenable dans les seuls biomes de la nouvelle région ;

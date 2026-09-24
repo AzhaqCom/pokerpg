@@ -57,6 +57,8 @@ export interface Item {
   level: number;
   subs: { stat: BonusStat; value: number }[];
   locked?: boolean;
+  /** facteur de puissance de la stat principale (objet réutilisé hors de sa région, voir `biomeTier`), 1 si absent */
+  tier?: number;
 }
 
 export interface BattleBonuses {

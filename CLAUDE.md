@@ -355,3 +355,21 @@ y compris la simulation d'équilibrage bout en bout) :
   `TeamPanel`/`ExplorationPanel` pour lister les deux auras. Trouvaille en passant : un seul Pokémon du
   jeu est Vol pur dans les données (Togetic) — vraisemblablement une erreur de génération, Togepi/Togetic
   sont Normal pur dans les vrais jeux Gen 2 (le Vol n'arrive qu'en Gen 6) ; non corrigé, hors périmètre.
+
+---
+
+## Règle de contenu — régions autonomes (Arno, 2026-09-24)
+
+Chaque région (Johto, Hoenn, Sinnoh…) doit être **autonome** : après un prestige on ne revient pas sur les
+régions précédentes, donc le Pokédex complet (jusqu'à `dexMax`) doit être obtenable dans les seuls biomes
+de la région courante. Johto et Hoenn le respectent ; **Sinnoh devra le respecter aussi** (voir
+`PLAN_GEN3_GEN4.md` et `ETAT_GEN3_GEN4.md`). Le test de couverture par région (`test.each(REGIONS)`)
+est le garde-fou.
+
+## Panoplies des régions Hoenn et suivantes (2026-09-24)
+
+Pas de nouvelles panoplies : `BIOME_SET` (`items.ts`) associe chaque biome de Hoenn à la panoplie existante
+du même thème, `setOfBiome(biome)` la donne à `rollLoot` et à `starterItems`. Un objet réutilisé ne garde
+pas sa `base` d'origine : `biomeTier()` pose `Item.tier` pour que le 1er biome de la région vaille Kanto 1
+et le dernier ≈ +60 % (`mainValue` multiplie par `tier`, la fusion le conserve). Pour Sinnoh : ajouter ses
+biomes à `BIOME_SET`.

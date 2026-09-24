@@ -48,6 +48,11 @@ jouables à 100 %.
 
 ## Reste à faire
 
+### Règle à respecter : chaque région est autonome
+Hoenn l'est déjà (Pokédex 1-386 obtenable dans ses seuls biomes). **Sinnoh doit l'être aussi** : tout le
+Pokédex 1-493 obtenable dans les seuls biomes 32-46, sans repasser par Kanto, Johto ni Hoenn. Le test de
+couverture par région (`test.each(REGIONS)`) doit passer avant de considérer Sinnoh comme terminé.
+
 ### Sinnoh (Gen 4) — le gros morceau restant
 1. **Plan `tools/regions/sinnoh.json`** : 15 biomes (303 formes de base à placer), biomes 32-46.
    - Starters Tortipouss, Ouisticram, Tiplouf (387, 390, 393).
@@ -65,10 +70,10 @@ jouables à 100 %.
    couverture valide le résultat.
 
 ### Commun Hoenn + Sinnoh
-- **Panoplies** : aucune pour les biomes 20+.
-  - `rollLoot` retombe sur tout le catalogue ;
-  - le starter reçoit la panoplie Sylvestre (`starterItems`) ;
-  - il faut 12 + 15 panoplies, avec la valeur du 1er biome de chaque région calée sur le biome 1.
+- **Panoplies** : FAIT pour Hoenn, sans créer de nouvel objet. Chaque biome 20-31 réutilise la panoplie
+  du même thème (`BIOME_SET` dans `items.ts`, `setOfBiome()`), et `biomeTier()` recale la puissance sur la
+  région (1er biome = Kanto 1, dernier ≈ +60 %, champ `Item.tier`). Le starter reçoit la panoplie du
+  1er biome de sa région. Sinnoh : ajouter ses biomes dans `BIOME_SET`, rien d'autre.
 - **Équilibrage** : pas de `wildMult` sur les zones Hoenn/Sinnoh (malus standard). Le caler via
   `bot.ts`/`simulate()`, puis étendre la simulation bout en bout aux nouvelles régions.
 - **Doc** : `CLAUDE.md` (Hoenn codé, `REGIONS`, générateur), `BIOMES.md` (courbes Hoenn/Sinnoh),

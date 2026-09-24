@@ -7,7 +7,7 @@ import {
   BADGE_BONUS, BIOMES, REGIONS, REGION_START, STAGES_PER_ZONE, WAVES_PER_STAGE, ZoneDef, regionLastBiome, regionOf,
 } from './content';
 import { ALL_SPECIES, PType, learnedMoves, movesAtLevel, species } from './data';
-import { SETS, STAT_WEIGHT, TEMPLATES, berryHeal, fuse, canFuse, itemScore, makeItem, newUid, recycleValue, rerollCost, rerollSub, rollLoot, rollRarity, slotOf, template, upgrade, upgradeCost } from './items';
+import { SETS, STAT_WEIGHT, setOfBiome, TEMPLATES, berryHeal, fuse, canFuse, itemScore, makeItem, newUid, recycleValue, rerollCost, rerollSub, rollLoot, rollRarity, slotOf, template, upgrade, upgradeCost } from './items';
 import { BattleBonuses, Item, ItemSlot, MAX_RARITY, Mon, emptyBonuses } from './model';
 import { Rng } from './rng';
 import { MAX_LEVEL, auraBonuses, combatPower, finalStats, levelFromXp, monBonuses, monStars, sumBonuses, xpForLevel } from './stats';
@@ -218,7 +218,7 @@ export function makeMon(speciesId: number, level: number, rng: Rng, shiny = fals
  * d'une région précédente. */
 function starterItems(s: GameState): string[] {
   const firstBiome = REGION_START[s.prestige] ?? 0;
-  const setKey = Object.keys(SETS).find((k) => SETS[k].biome === firstBiome);
+  const setKey = setOfBiome(firstBiome);
   const templates = setKey ? TEMPLATES.filter((t) => t.set === setKey).map((t) => t.id) : [];
   return templates.length ? templates : ['griffe-sylve', 'cape-sylve', 'baie-sylve'];
 }
@@ -229,7 +229,7 @@ export function chooseStarter(s: GameState, speciesId: number, rng: Rng) {
   s.team = [mon.uid];
   s.starterChosen = true;
   for (const templateId of starterItems(s)) {
-    const item = makeItem(templateId, 0, 5, rng);
+    const item = makeItem(templateId, 0, 5, rng, REGION_START[s.prestige] ?? 0);
     s.items[item.uid] = item;
     equip(s, mon.uid, item.uid);
   }

@@ -1,6 +1,7 @@
 import {
   BattleBonuses, BonusStat, Item, ItemSlot, ItemTemplate, MAX_RARITY, NumericBonusStat, RARITY_MULT, RARITY_SUBS,
 } from './model';
+import { BIOMES, REGIONS } from './content';
 import { Rng } from './rng';
 
 /**
@@ -222,7 +223,7 @@ const round1 = (v: number) => Math.round(v * 10) / 10;
 /** Valeur de la stat principale (0 pour les baies, qui agissent en combat). */
 export function mainValue(item: Item): number {
   const t = template(item.templateId);
-  return round1(t.base * lvlMult(item.level) * RARITY_MULT[item.rarity]);
+  return round1(t.base * (item.tier ?? 1) * lvlMult(item.level) * RARITY_MULT[item.rarity]);
 }
 
 /** Soin d'une baie en % des PV (augmente avec la rareté). */
@@ -244,11 +245,14 @@ export function newUid(prefix: string) {
   return `${prefix}${Date.now().toString(36)}${seq.toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`;
 }
 
-export function makeItem(templateId: string, rarity: number, level: number, rng: Rng): Item {
+export function makeItem(templateId: string, rarity: number, level: number, rng: Rng, biome?: number): Item {
   const t = template(templateId);
   const subs: Item['subs'] = [];
   for (let i = 0; i < RARITY_SUBS[rarity]; i++) subs.push(rollSub(rng, level, [t.main, ...subs.map((s) => s.stat)]));
-  return { uid: newUid('i'), templateId, rarity, level, subs };
+  const item: Item = { uid: newUid('i'), templateId, rarity, level, subs };
+  const tier = biome === undefined ? 1 : biomeTier(biome, t);
+  if (tier !== 1) item.tier = tier;
+  return item;
 }
 
 /** Tirage de rareté d'un objet tombé en zone (60/25/10/4/1 %). */
@@ -264,10 +268,57 @@ export function rollRarity(rng: Rng, minRarity = 0): number {
  * biomes Kanto et Johto en ont une aujourd'hui).
  */
 export function rollLoot(rng: Rng, level: number, biome: number, minRarity = 0): Item {
-  const local = TEMPLATES.filter((t) => SETS[t.set!].biome === biome);
+  const key = setOfBiome(biome);
+  const local = TEMPLATES.filter((t) => t.set === key);
   const pool = local.length ? local : TEMPLATES;
   const t = pool[rng.int(pool.length)];
-  return makeItem(t.id, rollRarity(rng, minRarity), Math.max(1, level), rng);
+  return makeItem(t.id, rollRarity(rng, minRarity), Math.max(1, level), rng, biome);
+}
+
+/**
+ * Panoplies réutilisées par thème dans les régions sans panoplies propres (Hoenn, Sinnoh…) : aucun type
+ * de biome n'y manque, donc pas de nouveaux objets à créer. Kanto et Johto gardent leurs panoplies
+ * natives (`SETS[x].biome`).
+ */
+export const BIOME_SET: Record<number, string> = {
+  20: 'aride',   // Carrière de Mérouville (Roche)
+  21: 'dojo',    // Îlot de Myokara (Combat)
+  22: 'ruche',   // Bois de Clémenti (Insecte/Plante)
+  23: 'circuit', // Centrale de Lavandia (Électrik)
+  24: 'cendres', // Mont Chimnée (Feu)
+  25: 'prairie', // Plaines de Clémenti-Ville (Normal)
+  26: 'chloro',  // Route du Désert (Plante/Sol/Poison)
+  27: 'ciel',    // Cimes de Cimetronelle (Vol)
+  28: 'oeil',    // Île d'Algatia (Psy)
+  29: 'maree',   // Fonds d'Atalanopolis (Eau)
+  30: 'epreuve', // Route Victoire Hoenn
+  31: 'phare',   // Ligue d'Éternara (Acier)
+};
+
+/** Panoplie dont tombent les objets d'un biome. */
+export function setOfBiome(biome: number): string | undefined {
+  return BIOME_SET[biome] ?? Object.keys(SETS).find((k) => SETS[k].biome === biome);
+}
+
+/** Score natif (base × poids) du 1er biome de Kanto par emplacement : la référence de début de région. */
+const START_SCORE: Partial<Record<ItemSlot, number>> = { offense: 6, defense: 5.6 };
+/** Gain de puissance entre le 1er et le dernier biome d'une région (~+60 %, comme Kanto et Johto). */
+const REGION_SLOPE = 0.6;
+
+/**
+ * Facteur de puissance d'un objet réutilisé dans un biome d'une région sans panoplies propres : son
+ * `base` suit la progression de sa région d'origine, pas de celle où il tombe. Le 1er biome de la région
+ * est calé sur le 1er biome de Kanto (nouveau départ après prestige), le dernier ~+60 %. 1 pour tout
+ * biome à panoplie native ou pour une baie.
+ */
+export function biomeTier(biome: number, t: ItemTemplate): number {
+  if (!(biome in BIOME_SET) || t.base <= 0) return 1;
+  const ri = REGIONS.reduce((acc, r, i) => (r.start <= biome ? i : acc), 0);
+  const start = REGIONS[ri].start;
+  const size = (REGIONS[ri + 1]?.start ?? BIOMES.length) - start;
+  const pos = size > 1 ? (biome - start) / (size - 1) : 0;
+  const target = (START_SCORE[t.slot] ?? t.base * STAT_WEIGHT[t.main]) * (1 + REGION_SLOPE * pos);
+  return Math.round((target / (t.base * STAT_WEIGHT[t.main])) * 1000) / 1000;
 }
 
 /** Éclats obtenus en recyclant. */
@@ -316,7 +367,10 @@ export function fuse(items: Item[], rng: Rng): Item {
   const subs = [...best.entries()].sort((a, b) => b[1] - a[1]).slice(0, RARITY_SUBS[rarity])
     .map(([stat, value]) => ({ stat, value }));
   while (subs.length < RARITY_SUBS[rarity]) subs.push(rollSub(rng, level, [t.main, ...subs.map((s) => s.stat)]));
-  return { uid: newUid('i'), templateId: t.id, rarity, level, subs };
+  const tier = Math.max(...items.map((i) => i.tier ?? 1));
+  const out: Item = { uid: newUid('i'), templateId: t.id, rarity, level, subs };
+  if (tier !== 1) out.tier = tier;
+  return out;
 }
 
 /** Ajoute les bonus d'objets tenus (stat principale, secondaires, panoplie). */
