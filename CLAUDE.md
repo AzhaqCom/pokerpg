@@ -428,3 +428,11 @@ Morty, Guirande à Sinnoh ; Barbara, Giovanni à Hoenn). Le prestige Hoenn → S
 (pas la 1) et regrimpe après un K.O. (retour à l'étape 1, remontée jusqu'à l'étape débloquée), échantillon
 réel par étape. XP et butin hors ligne restent calculés sur l'étape 1 comme avant (décision d'Arno : ne
 pas les augmenter pour l'instant).
+
+## Légendaires : poids 20 partout (2026-09-24)
+
+Tous les légendaires ont un poids de 20 dans leur zone : `BOSS_POOL_WEIGHT` = 20 pour les boss `joinsPool` vaincus,
+et les anciens légendaires semés dans les régions suivantes sont à 20 aussi (plus 3). Objectif d'Arno : chasser
+tous les chromatiques en hors ligne en 5 h (Kanto), 9 h (Johto), 18 h (Hoenn), 40 h (Sinnoh) environ, calcul
+`tools/scratch` : 256 ennemis ÷ probabilité, 3 ennemis/vague. Effet de bord : plus « rares » (poids ≥ 10),
+donc capture normale à 30 % en Poké Ball.

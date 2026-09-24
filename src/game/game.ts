@@ -833,13 +833,13 @@ export function wildFighter(
 }
 
 /** Poids du boss une fois qu'il a rejoint le pool sauvage de sa zone (`joinsPool`) : aussi rare qu'une
- * espèce rare classique (poids < 10 dans `isRareInZone`). */
-const BOSS_POOL_WEIGHT = 6;
+ * espèce très fréquente (poids 20, comme une espèce normale : les légendaires se chassent en chromatique). */
+const BOSS_POOL_WEIGHT = 20;
 
 /** Pool réellement tiré au sort : le pool statique de la zone, + son boss si `joinsPool` et déjà vaincu. */
 export function effectivePool(zone: ZoneDef, bossBeaten: boolean): [number, number][] {
   if (!zone.boss.joinsPool || !bossBeaten) return zone.pool;
-  return [...zone.pool, [zone.boss.speciesId, zone.boss.poolWeight ?? BOSS_POOL_WEIGHT]];
+  return [...zone.pool, [zone.boss.speciesId, BOSS_POOL_WEIGHT]];
 }
 
 export function pickSpecies(zone: ZoneDef, rng: Rng, bossBeaten = false): number {
