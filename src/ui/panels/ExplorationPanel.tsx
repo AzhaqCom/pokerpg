@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { PENSION_CAP_MS, SHARDS_PER_MIN, assignExploration, explorationReady, explorationSlots, harvestExploration, removeExploration } from '../../game/game';
 import { monStars } from '../../game/stats';
 import { useGame } from '../../store/game';
@@ -9,6 +9,8 @@ import { MonThumb } from '../components/MonThumb';
 import { Stars } from '../components/Stars';
 import { feedback } from '../components/feedback';
 import { auraDisplay, monName } from '../helpers';
+import { species } from '../../game/data';
+import { AURA } from '../../game/talents';
 import { C } from '../theme';
 import { useFrameClock } from '../useFrameClock';
 
@@ -23,10 +25,19 @@ export function ExplorationPanel() {
   const act = useGame((g) => g.act);
   const now = useFrameClock(1);
   const [pick, setPick] = useState(false);
+  const [auraFilter, setAuraFilter] = useState<string | null>(null);
   const ready = explorationReady(s, now);
   const free = Object.values(s.mons)
     .filter((m) => !s.team.includes(m.uid) && !s.exploration.some((p) => p.uid === m.uid) && !s.pension.some((p) => p.uid === m.uid))
     .sort((a, b) => monStars(b) - monStars(a)); // les Pokémon à fort potentiel (étoiles) en avant
+  /** Auras (Vitesse, PV, Critique…) que donnent les Pokémon disponibles : sert de filtre dans le sélecteur. */
+  const auraLabels = useMemo(() => {
+    const present = new Set<string>();
+    for (const m of free) for (const t of species(m.speciesId).types) present.add(AURA[t].label);
+    return [...present].sort();
+  }, [free.length]);
+  const activeAura = auraFilter && auraLabels.includes(auraFilter) ? auraFilter : null;
+  const shown = activeAura ? free.filter((m) => species(m.speciesId).types.some((t) => AURA[t].label === activeAura)) : free;
   const starsOf = (uid: string) => (s.mons[uid] ? monStars(s.mons[uid]) : 0);
   const posted = [...s.exploration].sort((a, b) => starsOf(b.uid) - starsOf(a.uid));
 
@@ -74,8 +85,18 @@ export function ExplorationPanel() {
         <Pressable style={styles.backdrop} onPress={() => setPick(false)}>
           <Pressable style={styles.sheet} onPress={() => {}}>
             <Text style={styles.title}>Qui envoyer explorer ?</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }} style={{ flexGrow: 0 }}>
+              <Pressable onPress={() => setAuraFilter(null)} style={[styles.chip, !activeAura && styles.chipOn]}>
+                <Text style={styles.chipTxt}>Toutes les auras</Text>
+              </Pressable>
+              {auraLabels.map((l) => (
+                <Pressable key={l} onPress={() => setAuraFilter(activeAura === l ? null : l)} style={[styles.chip, activeAura === l && styles.chipOn]}>
+                  <Text style={styles.chipTxt}>{l}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
             <FlatList
-              data={free}
+              data={shown}
               keyExtractor={(m) => m.uid}
               style={{ maxHeight: 400 }}
               contentContainerStyle={{ gap: 8 }}
@@ -110,6 +131,9 @@ const styles = StyleSheet.create({
   name: { color: C.text, fontWeight: '800', fontSize: 14 },
   sub: { color: C.sub, fontSize: 11 },
   aura: { color: '#80cbc4', fontSize: 11 },
+  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: C.panel },
+  chipOn: { backgroundColor: C.accent },
+  chipTxt: { color: C.text, fontWeight: '700', fontSize: 12 },
   row: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: C.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 16, paddingBottom: 30, gap: 10 },
