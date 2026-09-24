@@ -1,7 +1,9 @@
-# PokéLoot (V1)
+# PokéLoot
 
-RPG à combats automatiques avec les Pokémon de 1re génération : ton équipe se bat seule, tu gagnes en la préparant.
-Projet personnel, non commercial.
+RPG mobile à combats automatiques : ton équipe de 3 se bat seule, tu joues la préparation (captures, objets,
+fusion, talents, ordre des capacités, pension, évolutions à choix). Quatre régions : **Kanto, Johto, Hoenn et
+Sinnoh** (493 Pokémon), avec un prestige (« nouveau départ ») d'une région à la suivante.
+Projet personnel, non commercial (sprites PMD SpriteCollab CC BY-NC).
 
 ## Lancer
 ```powershell
@@ -10,13 +12,16 @@ npx expo start -c        # puis scanner le QR avec Expo Go
 ```
 APK : `eas build -p android --profile preview`
 
-## Contenu de la V1
-- Biome Forêt de Jade : 3 zones × 5 étapes × 3 vagues, 3 boss, l'arène d'Argenta (Pierre) et son badge.
-- Combat automatique : 15 types réels (double type), capacités ordonnées, 5 statuts, animations PMD de profil.
-- Capture après les vagues (3 Balls, boutique), Pokédex vus / capturés / chromatiques, évolutions par niveau.
-- Objets tenus (3 emplacements, 7 raretés), recyclage en éclats, amélioration, fusion 3 → 1, panoplie Sylvestre.
-- Talents par type (6 talents × 5 rangs, 3 paliers), auras d'équipe, pension (verger, entraînement, fouille ; 8 h max).
-- Vitesse ×2 débloquée au badge.
-
 ## Tests
-`npm test` : moteur de combat, objets, progression, et une simulation complète de la V1 par un joueur automatique.
+```powershell
+npm run typecheck
+npx jest --testPathIgnorePatterns=balance.test.ts   # ~20 s, tests rapides
+npx jest balance.test.ts                            # simulations de bout en bout, plusieurs minutes
+```
+
+## Documentation
+- `CLAUDE.md` : contexte, architecture et règles de jeu actuelles (à lire en premier).
+- `REGIONS.md` : fonctionnement des régions et comment en ajouter une.
+- `BIOMES.md` : plan de conception des biomes de Kanto et notes par région.
+- `IDEES.md` : pistes et ce qui reste à faire.
+- `HISTORIQUE.md` : archive des sessions passées (ne reflète pas l'état courant).
