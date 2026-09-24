@@ -129,7 +129,7 @@ export const BIOMES: BiomeDef[] = [
       },
       {
         name: 'Centrale Principale', minLv: 33, maxLv: 34, biome: 'electric',
-        pool: [[81, 15], [40, 20], [99, 15], [125, 15], [83, 10], [135, 15], [133, 10]],
+        pool: [[81, 15], [40, 20], [99, 15], [125, 15], [83, 10], [135, 15], [133, 20]],
         boss: { speciesId: 101, level: 34 },
       },
     ],
@@ -390,7 +390,7 @@ export const BIOMES: BiomeDef[] = [
       },
       {
         name: 'Ferme Laitière', minLv: 31, maxLv: 33, biome: 'meadow',
-        pool: [[19, 20], [52, 20], [209, 15], [35, 15], [133, 10], [84, 5], [182, 10], [235, 5], [108, 10], [115, 5]],
+        pool: [[19, 20], [52, 20], [209, 15], [35, 15], [133, 20], [84, 5], [182, 10], [235, 5], [108, 10], [115, 5]],
         boss: { speciesId: 162, level: 33 },
       },
       {
@@ -827,7 +827,7 @@ export const BIOMES: BiomeDef[] = [
       {
         // Miaouss, Tylton, Snubbull, Mélofée, Évoli, Doduo, Capumain
         name: 'Canopée Venteuse', minLv: 57, maxLv: 60, biome: 'forest',
-        pool: [[52, 6], [53, 14], [333, 6], [334, 14], [209, 6], [210, 14], [35, 6], [36, 14], [133, 6], [134, 14], [84, 8], [190, 8]],
+        pool: [[52, 6], [53, 14], [333, 6], [334, 14], [209, 6], [210, 14], [35, 6], [36, 14], [133, 20], [134, 14], [84, 8], [190, 8]],
         boss: { speciesId: 378, level: 61, joinsPool: true },
       },
       {
