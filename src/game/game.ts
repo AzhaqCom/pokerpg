@@ -839,7 +839,7 @@ const BOSS_POOL_WEIGHT = 6;
 /** Pool réellement tiré au sort : le pool statique de la zone, + son boss si `joinsPool` et déjà vaincu. */
 export function effectivePool(zone: ZoneDef, bossBeaten: boolean): [number, number][] {
   if (!zone.boss.joinsPool || !bossBeaten) return zone.pool;
-  return [...zone.pool, [zone.boss.speciesId, BOSS_POOL_WEIGHT]];
+  return [...zone.pool, [zone.boss.speciesId, zone.boss.poolWeight ?? BOSS_POOL_WEIGHT]];
 }
 
 export function pickSpecies(zone: ZoneDef, rng: Rng, bossBeaten = false): number {

@@ -332,8 +332,8 @@ test.each(REGIONS.map((r, i) => [r.name, i] as const))(
 test('effectivePool : le boss rejoint le pool sauvage une fois vaincu, pas avant', () => {
   const zone = BIOMES[8].zones[1]; // Artikodin (joinsPool)
   expect(effectivePool(zone, false)).toEqual(zone.pool);
-  expect(effectivePool(zone, true)).toEqual([...zone.pool, [144, 6]]);
-  expect(isRareInZone(zone, 144, true)).toBe(true); // rejoint le pool avec un poids < 10 → rare
+  expect(effectivePool(zone, true)).toEqual([...zone.pool, [144, 20]]); // légendaires de Kanto : poids 20 (chasse aux chromatiques)
+  expect(isRareInZone(zone, 144, true)).toBe(false); // poids 20 : plus « rare » (capture normale)
 });
 
 test('pickSpecies peut tirer le boss vaincu comme un sauvage ordinaire de sa zone, pas avant', () => {

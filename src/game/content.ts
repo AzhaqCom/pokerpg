@@ -9,7 +9,7 @@ export interface ZoneDef {
   /** `joinsPool` : une fois vaincu, le boss rejoint le pool de sauvages de la zone (légendaires en fin de
    * jeu, seule façon de les farmer/chromatiser) ; jamais le cas pour un boss de zone classique, qui ne se
    * bat qu'une fois. */
-  boss: { speciesId: number; level: number; joinsPool?: boolean };
+  boss: { speciesId: number; level: number; joinsPool?: boolean; /** poids dans le pool une fois vaincu (défaut `BOSS_POOL_WEIGHT`) */ poolWeight?: number };
   /** fond de combat */
   biome: 'forest' | 'meadow' | 'cave' | 'water' | 'electric' | 'swamp' | 'temple' | 'volcano' | 'desert';
 }
@@ -281,12 +281,12 @@ export const BIOMES: BiomeDef[] = [
       {
         name: 'Passage Rocheux', minLv: 82, maxLv: 86, biome: 'cave',
         pool: [[140, 40], [143, 30], [147, 30], [112, 10], [130, 10], [121, 10]],
-        boss: { speciesId: 144, level: 87, joinsPool: true },
+        boss: { speciesId: 144, level: 87, joinsPool: true, poolWeight: 20 },
       },
       {
         name: 'Sommet Balayé par les Vents', minLv: 86, maxLv: 89, biome: 'cave',
         pool: [[138, 40], [122, 30], [143, 30], [130, 10], [112, 10], [121, 10]],
-        boss: { speciesId: 145, level: 90, joinsPool: true },
+        boss: { speciesId: 145, level: 90, joinsPool: true, poolWeight: 20 },
       },
     ],
     arena: {
@@ -303,17 +303,17 @@ export const BIOMES: BiomeDef[] = [
       {
         name: 'Antichambre du Plateau', minLv: 90, maxLv: 93, biome: 'temple',
         pool: [[132, 40], [137, 30], [149, 30], [85, 10], [36, 10], [18, 10]],
-        boss: { speciesId: 146, level: 94, joinsPool: true },
+        boss: { speciesId: 146, level: 94, joinsPool: true, poolWeight: 20 },
       },
       {
         name: 'Grotte Bleue', minLv: 93, maxLv: 96, biome: 'cave',
         pool: [[131, 40], [143, 30], [138, 30], [130, 10], [121, 10], [99, 10]],
-        boss: { speciesId: 150, level: 97, joinsPool: true },
+        boss: { speciesId: 150, level: 97, joinsPool: true, poolWeight: 20 },
       },
       {
         name: 'Antre de Mew', minLv: 96, maxLv: 99, biome: 'meadow',
         pool: [[122, 40], [140, 30], [142, 30], [65, 10], [112, 10], [103, 10]],
-        boss: { speciesId: 151, level: 99, joinsPool: true },
+        boss: { speciesId: 151, level: 99, joinsPool: true, poolWeight: 20 },
       },
     ],
     arena: {
