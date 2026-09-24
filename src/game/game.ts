@@ -784,7 +784,7 @@ export const WILD_MALUS = { hp: 0.85, atk: 0.85 };
  * par zone). mult = from + (end[région] − from) × p^exp, où p = avancement dans la région (0 à 1, par
  * étape). Le départ (Nv.5 après un prestige) est très doux, la fin de région est la plus serrée.
  */
-export const DIFFICULTY = { from: 0.6, end: [1.6, 1.9, 2.2], exp: 1.2 };
+export const DIFFICULTY = { from: 0.6, end: [1.6, 1.9, 2.2, 2.5], exp: 1.2 };
 
 /** Avancement (0 à 1) dans la région d'un biome/zone/étape : base de toutes les courbes de difficulté. */
 export function regionProgress(biomeIndex: number, zoneIndex: number, stage: number): { region: number; p: number } {

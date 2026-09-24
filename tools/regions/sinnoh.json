@@ -1,0 +1,537 @@
+{
+  "dexMax": 493,
+  "prevDexMax": 386,
+  "starters": [
+    387,
+    390,
+    393
+  ],
+  "legendaries": [
+    480,
+    481,
+    482,
+    483,
+    484,
+    485,
+    486,
+    487,
+    488,
+    489,
+    490,
+    491,
+    492,
+    493
+  ],
+  "oldLegendaryWeight": 3,
+  "oldLegendaryZones": [
+    [
+      12,
+      0
+    ],
+    [
+      12,
+      1
+    ],
+    [
+      13,
+      2
+    ],
+    [
+      14,
+      0
+    ],
+    [
+      14,
+      1
+    ]
+  ],
+  "biomes": [
+    {
+      "comment": "Nv.5→13 — biome Roche (badge Charbon). Starters des 4 régions en rencontre très rare.",
+      "name": "Mine de Charbourg",
+      "from": 5,
+      "to": 13,
+      "types": [
+        "rock",
+        "ground"
+      ],
+      "zones": [
+        {
+          "name": "Entrée de la Mine",
+          "biome": "cave"
+        },
+        {
+          "name": "Galerie de Charbon",
+          "biome": "cave"
+        },
+        {
+          "name": "Fosse aux Fossiles",
+          "biome": "cave"
+        }
+      ],
+      "arena": {
+        "name": "Arène de Charbourg",
+        "leader": "Pierrick",
+        "type": "Roche",
+        "badge": "Badge Charbon"
+      }
+    },
+    {
+      "comment": "Nv.13→19 — biome Plante/Insecte (badge Forêt).",
+      "name": "Forêt de Bonville",
+      "from": 13,
+      "to": 19,
+      "types": [
+        "grass",
+        "bug"
+      ],
+      "zones": [
+        {
+          "name": "Sentier Moussu",
+          "biome": "forest"
+        },
+        {
+          "name": "Bois Ancien",
+          "biome": "forest"
+        },
+        {
+          "name": "Clairière de Bonville",
+          "biome": "forest"
+        }
+      ],
+      "arena": {
+        "name": "Arène de Bonville",
+        "leader": "Flo",
+        "type": "Plante",
+        "badge": "Badge Forêt"
+      }
+    },
+    {
+      "comment": "Nv.19→24 — route sans badge (Normal/Vol).",
+      "name": "Route Bosselée",
+      "from": 19,
+      "to": 24,
+      "types": [
+        "normal",
+        "flying"
+      ],
+      "zones": [
+        {
+          "name": "Pré du Lac",
+          "biome": "meadow"
+        },
+        {
+          "name": "Route des Cyclistes",
+          "biome": "meadow"
+        },
+        {
+          "name": "Falaise Venteuse",
+          "biome": "meadow"
+        }
+      ],
+      "arena": {
+        "name": "Camp des Cyclistes",
+        "leader": "Cycliste",
+        "type": "Normal",
+        "badge": "Titre de Cycliste",
+        "grantsBadge": false
+      }
+    },
+    {
+      "comment": "Nv.24→30 — biome Combat (badge Cascade).",
+      "name": "Dojo de Voilaroc",
+      "from": 24,
+      "to": 30,
+      "types": [
+        "fighting",
+        "psychic"
+      ],
+      "zones": [
+        {
+          "name": "Rue des Boxeurs",
+          "biome": "temple"
+        },
+        {
+          "name": "Salle d’Entraînement",
+          "biome": "temple"
+        },
+        {
+          "name": "Sommet du Dojo",
+          "biome": "temple"
+        }
+      ],
+      "arena": {
+        "name": "Arène de Voilaroc",
+        "leader": "Mélina",
+        "type": "Combat",
+        "badge": "Badge Cascade"
+      }
+    },
+    {
+      "comment": "Nv.30→36 — biome Eau (badge Marais).",
+      "name": "Marais de Verchamps",
+      "from": 30,
+      "to": 36,
+      "types": [
+        "water"
+      ],
+      "zones": [
+        {
+          "name": "Rives de Verchamps",
+          "biome": "water"
+        },
+        {
+          "name": "Lac Boueux",
+          "biome": "water"
+        },
+        {
+          "name": "Arène Aquatique",
+          "biome": "water"
+        }
+      ],
+      "arena": {
+        "name": "Arène de Verchamps",
+        "leader": "Lovis",
+        "type": "Eau",
+        "badge": "Badge Marais"
+      }
+    },
+    {
+      "comment": "Nv.36→41 — route sans badge (Poison/Sol).",
+      "name": "Route des Marais",
+      "from": 36,
+      "to": 41,
+      "types": [
+        "poison",
+        "ground",
+        "bug"
+      ],
+      "zones": [
+        {
+          "name": "Tourbière",
+          "biome": "swamp"
+        },
+        {
+          "name": "Chemin de Sable",
+          "biome": "desert"
+        },
+        {
+          "name": "Grotte Toxique",
+          "biome": "swamp"
+        }
+      ],
+      "arena": {
+        "name": "Poste des Randonneurs",
+        "leader": "Randonneur",
+        "type": "Poison",
+        "badge": "Titre de Randonneur",
+        "grantsBadge": false
+      }
+    },
+    {
+      "comment": "Nv.41→47 — biome Spectre/Psy (badge Relique).",
+      "name": "Manoir d’Unionpolis",
+      "from": 41,
+      "to": 47,
+      "types": [
+        "ghost",
+        "psychic"
+      ],
+      "zones": [
+        {
+          "name": "Jardin Brumeux",
+          "biome": "temple"
+        },
+        {
+          "name": "Salons Abandonnés",
+          "biome": "temple"
+        },
+        {
+          "name": "Cave du Manoir",
+          "biome": "temple"
+        }
+      ],
+      "arena": {
+        "name": "Arène d’Unionpolis",
+        "leader": "Kiméra",
+        "type": "Spectre",
+        "badge": "Badge Relique"
+      }
+    },
+    {
+      "comment": "Nv.47→52 — route sans badge (Feu).",
+      "name": "Mont Foyer",
+      "from": 47,
+      "to": 52,
+      "types": [
+        "fire",
+        "ground"
+      ],
+      "zones": [
+        {
+          "name": "Pente Brûlante",
+          "biome": "volcano"
+        },
+        {
+          "name": "Cratère du Mont Foyer",
+          "biome": "volcano"
+        },
+        {
+          "name": "Sources de Lave",
+          "biome": "volcano"
+        }
+      ],
+      "arena": {
+        "name": "Poste des Volcanologues",
+        "leader": "Volcanologue",
+        "type": "Feu",
+        "badge": "Titre de Volcanologue",
+        "grantsBadge": false
+      }
+    },
+    {
+      "comment": "Nv.52→58 — biome Acier (badge Mine).",
+      "name": "Port Canalave",
+      "from": 52,
+      "to": 58,
+      "types": [
+        "steel",
+        "rock"
+      ],
+      "zones": [
+        {
+          "name": "Quai d’Acier",
+          "biome": "cave"
+        },
+        {
+          "name": "Chantier Naval",
+          "biome": "cave"
+        },
+        {
+          "name": "Forge du Port",
+          "biome": "cave"
+        }
+      ],
+      "arena": {
+        "name": "Arène de Canalave",
+        "leader": "Charles",
+        "type": "Acier",
+        "badge": "Badge Mine"
+      }
+    },
+    {
+      "comment": "Nv.58→63 — route sans badge (Ténèbres/Normal).",
+      "name": "Passe des Ombres",
+      "from": 58,
+      "to": 63,
+      "types": [
+        "dark",
+        "normal"
+      ],
+      "zones": [
+        {
+          "name": "Sentier Sombre",
+          "biome": "cave"
+        },
+        {
+          "name": "Tunnel Obscur",
+          "biome": "cave"
+        },
+        {
+          "name": "Repaire des Ombres",
+          "biome": "cave"
+        }
+      ],
+      "arena": {
+        "name": "Poste des Alpinistes",
+        "leader": "Alpiniste",
+        "type": "Ténèbres",
+        "badge": "Titre d’Alpiniste",
+        "grantsBadge": false
+      }
+    },
+    {
+      "comment": "Nv.63→69 — biome Glace (badge Glacier). Manaphy, Phione et Cresselia en boss légendaires (`joinsPool`).",
+      "name": "Glaciers de Frimapic",
+      "from": 63,
+      "to": 69,
+      "types": [
+        "ice",
+        "water"
+      ],
+      "zones": [
+        {
+          "name": "Rivage Glacé",
+          "biome": "cave",
+          "boss": 490
+        },
+        {
+          "name": "Champ de Neige",
+          "biome": "cave",
+          "boss": 489
+        },
+        {
+          "name": "Île Lunaire",
+          "biome": "cave",
+          "boss": 488
+        }
+      ],
+      "arena": {
+        "name": "Arène de Frimapic",
+        "leader": "Gladys",
+        "type": "Glace",
+        "badge": "Badge Glacier"
+      }
+    },
+    {
+      "comment": "Nv.69→75 — biome Électrik (badge Phare). Créhelm, Créfollet et Créfadet en boss légendaires.",
+      "name": "Centrale de Rivamar",
+      "from": 69,
+      "to": 75,
+      "types": [
+        "electric"
+      ],
+      "zones": [
+        {
+          "name": "Plage de Rivamar",
+          "biome": "electric",
+          "boss": 480
+        },
+        {
+          "name": "Lac Savoir",
+          "biome": "electric",
+          "boss": 481
+        },
+        {
+          "name": "Lac Courage",
+          "biome": "electric",
+          "boss": 482
+        }
+      ],
+      "arena": {
+        "name": "Arène de Rivamar",
+        "leader": "Tanguy",
+        "type": "Électrik",
+        "badge": "Badge Phare"
+      }
+    },
+    {
+      "comment": "Nv.75→82 — route sans badge (Dragon/Ténèbres/Roche). Heatran, Regigigas et Darkrai en boss légendaires.",
+      "name": "Mont Couronné",
+      "from": 75,
+      "to": 82,
+      "types": [
+        "dragon",
+        "dark",
+        "rock",
+        "flying"
+      ],
+      "zones": [
+        {
+          "name": "Flanc Rocailleux",
+          "biome": "cave",
+          "boss": 485
+        },
+        {
+          "name": "Temple Perdu",
+          "biome": "temple",
+          "boss": 486
+        },
+        {
+          "name": "Vallée Sombre",
+          "biome": "cave",
+          "boss": 491
+        }
+      ],
+      "arena": {
+        "name": "Poste du Mont",
+        "leader": "Gardien du Mont",
+        "type": "Dragon",
+        "badge": "Titre de Gardien",
+        "grantsBadge": false
+      }
+    },
+    {
+      "comment": "Nv.82→91 — Route Victoire / Conseil des 4 Sinnoh. Shaymin et Giratina en boss légendaires.",
+      "name": "Route Victoire Sinnoh",
+      "from": 82,
+      "to": 91,
+      "types": [
+        "bug",
+        "ground",
+        "fire",
+        "psychic"
+      ],
+      "zones": [
+        {
+          "name": "Jardin Fleuri",
+          "biome": "meadow",
+          "boss": 492
+        },
+        {
+          "name": "Chemin du Temps",
+          "biome": "temple",
+          "boss": 487
+        },
+        {
+          "name": "Galerie Finale",
+          "biome": "cave"
+        }
+      ],
+      "arena": {
+        "name": "Conseil des 4 (Sinnoh)",
+        "leader": "Conseil des 4",
+        "type": "mixte",
+        "badge": "Titre de Maître Sinnoh",
+        "grantsBadge": false,
+        "teamTypes": [
+          "bug",
+          "ground",
+          "fire",
+          "psychic"
+        ]
+      }
+    },
+    {
+      "comment": "Nv.91→100 — Champion Sinnoh (Cynthia). Dialga, Palkia et Arceus en boss légendaires.",
+      "name": "Ligue de Sinnoh",
+      "from": 91,
+      "to": 100,
+      "types": [
+        "dragon",
+        "ground",
+        "steel"
+      ],
+      "zones": [
+        {
+          "name": "Pilier Lance",
+          "biome": "temple",
+          "boss": 483
+        },
+        {
+          "name": "Faille Spatiale",
+          "biome": "temple",
+          "boss": 484
+        },
+        {
+          "name": "Salle du Champion",
+          "biome": "temple",
+          "boss": 493
+        }
+      ],
+      "arena": {
+        "name": "Ligue de Sinnoh",
+        "leader": "Cynthia",
+        "type": "Dragon",
+        "badge": "Titre de Champion Sinnoh",
+        "grantsBadge": false,
+        "team": [
+          442,
+          407,
+          448,
+          445
+        ]
+      }
+    }
+  ]
+}

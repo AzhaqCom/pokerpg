@@ -51,6 +51,7 @@ export const REGIONS: readonly RegionDef[] = [
   { name: 'Kanto', start: 0, starters: [1, 4, 7], dexMax: 151 },
   { name: 'Johto', start: 10, starters: [152, 155, 158], dexMax: 251 },
   { name: 'Hoenn', start: 20, starters: [252, 255, 258], dexMax: 386 },
+  { name: 'Sinnoh', start: 32, starters: [387, 390, 393], dexMax: 493 },
 ];
 export const STARTERS = REGIONS[0].starters;
 /** Index du 1er biome de chaque région (`REGION_START[s.prestige]`). */
@@ -957,6 +958,448 @@ export const BIOMES: BiomeDef[] = [
       name: 'Ligue d’Éternara', leader: 'Pierre Rochard', type: 'Acier',
       team: [[303, 98], [306, 99], [376, 100]], // Mysdibule, Galeking, Métalosse
       badge: 'Titre de Champion Hoenn',
+      grantsBadge: false,
+    },
+  },
+  {
+    // Nv.5→13 — biome Roche (badge Charbon). Starters des 4 régions en rencontre très rare.
+    name: 'Mine de Charbourg',
+    zones: [
+      {
+        // Manzaï, Tarinor, Hippopotas, Lilia, Bulbizarre, Salamèche, Carapuce, Germignon, Héricendre, Kaiminus, Arcko, Poussifeu, Gobou, Tortipouss, Ouisticram, Tiplouf, Coconfort, Chrysacier
+        name: 'Entrée de la Mine', minLv: 5, maxLv: 8, biome: 'cave',
+        pool: [[438, 20], [299, 20], [449, 8], [345, 8], [1, 4], [4, 4], [7, 4], [152, 4], [155, 4], [158, 4], [252, 4], [255, 4], [258, 4], [387, 4], [390, 4], [393, 4], [14, 8], [11, 8]],
+        boss: { speciesId: 346, level: 9 },
+      },
+      {
+        // Kabuto, Onix, Anorith, Simularbre, Coconfort, Chrysacier
+        name: 'Galerie de Charbon', minLv: 8, maxLv: 10, biome: 'cave',
+        pool: [[140, 20], [95, 20], [347, 8], [185, 8], [14, 8], [11, 8]],
+        boss: { speciesId: 185, level: 11 },
+      },
+      {
+        // Séléroc, Tarinorme, Scorvol, Coconfort, Chrysacier, Armulys
+        name: 'Fosse aux Fossiles', minLv: 10, maxLv: 12, biome: 'cave',
+        pool: [[337, 20], [476, 20], [472, 20], [14, 8], [11, 8], [266, 8]],
+        boss: { speciesId: 472, level: 13 },
+      },
+    ],
+    arena: {
+      name: 'Arène de Charbourg', leader: 'Pierrick', type: 'Roche',
+      team: [[476, 11], [409, 12], [464, 13]], // Tarinorme, Charkos, Rhinastoc
+      badge: 'Badge Charbon',
+    },
+  },
+  {
+    // Nv.13→19 — biome Plante/Insecte (badge Forêt).
+    name: 'Forêt de Bonville',
+    zones: [
+      {
+        // Tournegrin, Grainipiot, Apitrini, Granivol, Ningale, Balignon, Ceribou
+        name: 'Sentier Moussu', minLv: 13, maxLv: 15, biome: 'forest',
+        pool: [[191, 20], [273, 20], [415, 20], [187, 20], [290, 20], [285, 8], [420, 8]],
+        boss: { speciesId: 421, level: 16 },
+      },
+      {
+        // Rozbouton, Chétiflor, Cacnea, Blizzi, Mystherbe, Noeunoeuf, Rosélia
+        name: 'Bois Ancien', minLv: 15, maxLv: 17, biome: 'forest',
+        pool: [[406, 20], [69, 20], [331, 20], [459, 20], [43, 20], [102, 8], [315, 8]],
+        boss: { speciesId: 315, level: 18 },
+      },
+      {
+        // Vortente, Tropius, Saquedeneu, Bouldeneu, Roserade, Coconfort
+        name: 'Clairière de Bonville', minLv: 17, maxLv: 18, biome: 'forest',
+        pool: [[455, 20], [357, 20], [114, 20], [465, 8], [407, 8], [14, 8]],
+        boss: { speciesId: 407, level: 19 },
+      },
+    ],
+    arena: {
+      name: 'Arène de Bonville', leader: 'Flo', type: 'Plante',
+      team: [[465, 17], [407, 18], [470, 19]], // Bouldeneu, Roserade, Phyllali
+      badge: 'Badge Forêt',
+    },
+  },
+  {
+    // Nv.19→24 — route sans badge (Normal/Vol).
+    name: 'Route Bosselée',
+    zones: [
+      {
+        // Azurill, Fouinette, Toudoudou, Ptiravi, Keunotor, Queulorior, Rondoudou
+        name: 'Pré du Lac', minLv: 19, maxLv: 21, biome: 'meadow',
+        pool: [[298, 20], [161, 20], [174, 20], [440, 20], [399, 20], [235, 8], [39, 8]],
+        boss: { speciesId: 40, level: 22 },
+      },
+      {
+        // Rattata, Métamorph, Parecool, Snubbull, Spinda, Laporeille, Excelangue
+        name: 'Route des Cyclistes', minLv: 21, maxLv: 22, biome: 'meadow',
+        pool: [[19, 20], [132, 20], [287, 20], [209, 20], [327, 20], [427, 8], [108, 8]],
+        boss: { speciesId: 108, level: 23 },
+      },
+      {
+        // Capumain, Porygon, Morphéo, Coudlangue, Porygon2, Kangourex, Leuphorie
+        name: 'Falaise Venteuse', minLv: 22, maxLv: 23, biome: 'meadow',
+        pool: [[190, 20], [137, 20], [351, 20], [463, 20], [233, 20], [115, 8], [242, 8]],
+        boss: { speciesId: 242, level: 24 },
+      },
+    ],
+    arena: {
+      name: 'Camp des Cyclistes', leader: 'Cycliste', type: 'Normal',
+      team: [[398, 22], [474, 23], [468, 24]], // Étouraptor, Porygon-Z, Togekiss
+      badge: 'Titre de Cycliste',
+      grantsBadge: false,
+    },
+  },
+  {
+    // Nv.24→30 — biome Combat (badge Cascade).
+    name: 'Dojo de Voilaroc',
+    zones: [
+      {
+        // Debugant, Tarsal, Okéoké, Makuhita, Méditikka, Kirlia
+        name: 'Rue des Boxeurs', minLv: 24, maxLv: 26, biome: 'temple',
+        pool: [[236, 20], [280, 20], [360, 20], [296, 8], [307, 8], [281, 8]],
+        boss: { speciesId: 308, level: 27 },
+      },
+      {
+        // Korillon, Riolu, Soporifik, Zarbi, Natu, Kirlia
+        name: 'Salle d’Entraînement', minLv: 26, maxLv: 28, biome: 'temple',
+        pool: [[433, 20], [447, 20], [96, 20], [201, 8], [177, 8], [281, 8]],
+        boss: { speciesId: 178, level: 29 },
+      },
+      {
+        // Machoc, Férosinge, Abra, Girafarig, Kirlia, Galifeu
+        name: 'Sommet du Dojo', minLv: 28, maxLv: 29, biome: 'temple',
+        pool: [[66, 20], [56, 20], [63, 8], [203, 8], [281, 8], [256, 8]],
+        boss: { speciesId: 203, level: 30 },
+      },
+    ],
+    arena: {
+      name: 'Arène de Voilaroc', leader: 'Mélina', type: 'Combat',
+      team: [[454, 28], [448, 29], [475, 30]], // Coatox, Lucario, Gallame
+      badge: 'Badge Cascade',
+    },
+  },
+  {
+    // Nv.30→36 — biome Eau (badge Marais).
+    name: 'Marais de Verchamps',
+    zones: [
+      {
+        // Nénupiot, Axoloto, Rémoraid, Goélise, Kokiyas, Ptitard, Hypotrempe
+        name: 'Rives de Verchamps', minLv: 30, maxLv: 32, biome: 'water',
+        pool: [[270, 20], [194, 20], [223, 20], [278, 20], [90, 20], [60, 8], [116, 8]],
+        boss: { speciesId: 117, level: 33 },
+      },
+      {
+        // Écrapince, Carvanha, Psykokwak, Sancoki, Ramoloss, Coquiperl, Tentacool
+        name: 'Lac Boueux', minLv: 32, maxLv: 34, biome: 'water',
+        pool: [[341, 20], [318, 20], [54, 20], [422, 20], [79, 20], [366, 8], [72, 8]],
+        boss: { speciesId: 73, level: 35 },
+      },
+      {
+        // Lovdisc, Stari, Qwilfish, Démanta, Relicanth, Lokhlass
+        name: 'Arène Aquatique', minLv: 34, maxLv: 35, biome: 'water',
+        pool: [[370, 20], [120, 20], [211, 20], [226, 20], [369, 8], [131, 8]],
+        boss: { speciesId: 131, level: 36 },
+      },
+    ],
+    arena: {
+      name: 'Arène de Verchamps', leader: 'Lovis', type: 'Eau',
+      team: [[457, 34], [423, 35], [419, 36]], // Luminéon, Tritosor, Mustéflott
+      badge: 'Badge Marais',
+    },
+  },
+  {
+    // Nv.36→41 — route sans badge (Poison/Sol).
+    name: 'Route des Marais',
+    zones: [
+      {
+        // Crikzik, Nosferapti, Mimigal, Nidoran♀, Coxy, Nidoran♂
+        name: 'Tourbière', minLv: 36, maxLv: 38, biome: 'swamp',
+        pool: [[401, 20], [41, 20], [167, 20], [29, 20], [165, 8], [32, 8]],
+        boss: { speciesId: 34, level: 39 },
+      },
+      {
+        // Cradopaud, Abo, Gloupti, Smogo, Rapion, Moufouette
+        name: 'Chemin de Sable', minLv: 38, maxLv: 39, biome: 'desert',
+        pool: [[453, 20], [23, 20], [316, 20], [109, 20], [451, 8], [434, 8]],
+        boss: { speciesId: 435, level: 40 },
+      },
+      {
+        // Tadmorv, Séviper, Muciole, Yanmega, Cizayox, Nostenfer
+        name: 'Grotte Toxique', minLv: 39, maxLv: 40, biome: 'swamp',
+        pool: [[88, 20], [336, 20], [313, 20], [469, 20], [212, 8], [169, 8]],
+        boss: { speciesId: 169, level: 41 },
+      },
+    ],
+    arena: {
+      name: 'Poste des Randonneurs', leader: 'Randonneur', type: 'Poison',
+      team: [[454, 39], [452, 40], [407, 41]], // Coatox, Drascore, Roserade
+      badge: 'Titre de Randonneur',
+      grantsBadge: false,
+    },
+  },
+  {
+    // Nv.41→47 — biome Spectre/Psy (badge Relique).
+    name: 'Manoir d’Unionpolis',
+    zones: [
+      {
+        // Skelénox, Polichombr, Mime Jr., Fantominus, Baudrive, Kirlia
+        name: 'Jardin Brumeux', minLv: 41, maxLv: 43, biome: 'temple',
+        pool: [[355, 20], [353, 20], [439, 20], [92, 8], [425, 8], [281, 8]],
+        boss: { speciesId: 426, level: 44 },
+      },
+      {
+        // Spoink, Qulbutoké, Feuforêve, Spiritomb, Éoko, Kirlia
+        name: 'Salons Abandonnés', minLv: 43, maxLv: 45, biome: 'temple',
+        pool: [[325, 20], [202, 20], [200, 20], [442, 8], [358, 8], [281, 8]],
+        boss: { speciesId: 358, level: 46 },
+      },
+      {
+        // M. Mime, Noctunoir, Magirêve, Kirlia, Charmina, Métang
+        name: 'Cave du Manoir', minLv: 45, maxLv: 46, biome: 'temple',
+        pool: [[122, 20], [477, 20], [429, 20], [281, 8], [308, 8], [375, 8]],
+        boss: { speciesId: 429, level: 47 },
+      },
+    ],
+    arena: {
+      name: 'Arène d’Unionpolis', leader: 'Kiméra', type: 'Spectre',
+      team: [[426, 45], [477, 46], [429, 47]], // Grodrive, Noctunoir, Magirêve
+      badge: 'Badge Relique',
+    },
+  },
+  {
+    // Nv.47→52 — route sans badge (Feu).
+    name: 'Mont Foyer',
+    zones: [
+      {
+        // Limagma, Taupiqueur, Balbuto, Chamallot, Vibraninf, Galifeu
+        name: 'Pente Brûlante', minLv: 47, maxLv: 49, biome: 'volcano',
+        pool: [[218, 20], [50, 20], [343, 8], [322, 8], [329, 8], [256, 8]],
+        boss: { speciesId: 323, level: 50 },
+      },
+      {
+        // Goupix, Phanpy, Rhinocorne, Ponyta, Vibraninf, Galifeu
+        name: 'Cratère du Mont Foyer', minLv: 49, maxLv: 50, biome: 'volcano',
+        pool: [[37, 20], [231, 20], [111, 8], [77, 8], [329, 8], [256, 8]],
+        boss: { speciesId: 78, level: 51 },
+      },
+      {
+        // Chartor, Scorplane, Vibraninf, Galifeu, Chimpenfeu, Reptincel
+        name: 'Sources de Lave', minLv: 50, maxLv: 51, biome: 'volcano',
+        pool: [[324, 20], [207, 20], [329, 8], [256, 8], [391, 8], [5, 8]],
+        boss: { speciesId: 207, level: 52 },
+      },
+    ],
+    arena: {
+      name: 'Poste des Volcanologues', leader: 'Volcanologue', type: 'Feu',
+      team: [[136, 50], [59, 51], [467, 52]], // Pyroli, Arcanin, Maganon
+      badge: 'Titre de Volcanologue',
+      grantsBadge: false,
+    },
+  },
+  {
+    // Nv.52→58 — biome Acier (badge Mine).
+    name: 'Port Canalave',
+    zones: [
+      {
+        // Archéomire, Terhal, Embrylex, Dinoclier, Ymphect, Gravalanch
+        name: 'Quai d’Acier', minLv: 52, maxLv: 54, biome: 'cave',
+        pool: [[436, 20], [374, 20], [246, 8], [410, 8], [247, 8], [75, 8]],
+        boss: { speciesId: 411, level: 55 },
+      },
+      {
+        // Racaillou, Amonita, Mysdibule, Kranidos, Ymphect, Gravalanch
+        name: 'Chantier Naval', minLv: 54, maxLv: 56, biome: 'cave',
+        pool: [[74, 20], [138, 20], [303, 8], [408, 8], [247, 8], [75, 8]],
+        boss: { speciesId: 409, level: 57 },
+      },
+      {
+        // Solaroc, Ptéra, Ymphect, Gravalanch, Métang, Volcaropod
+        name: 'Forge du Port', minLv: 56, maxLv: 57, biome: 'cave',
+        pool: [[338, 20], [142, 20], [247, 8], [75, 8], [375, 8], [219, 8]],
+        boss: { speciesId: 142, level: 58 },
+      },
+    ],
+    arena: {
+      name: 'Arène de Canalave', leader: 'Charles', type: 'Acier',
+      team: [[476, 56], [448, 57], [462, 58]], // Tarinorme, Lucario, Magnézone
+      badge: 'Badge Mine',
+    },
+  },
+  {
+    // Nv.58→63 — route sans badge (Ténèbres/Normal).
+    name: 'Passe des Ombres',
+    zones: [
+      {
+        // Mélo, Chuchmur, Zigzaton, Togepi, Skitty, Miaouss, Chaglam
+        name: 'Sentier Sombre', minLv: 58, maxLv: 60, biome: 'cave',
+        pool: [[173, 20], [293, 20], [263, 20], [175, 20], [300, 20], [52, 8], [431, 8]],
+        boss: { speciesId: 432, level: 61 },
+      },
+      {
+        // Mélofée, Évoli, Teddiursa, Insolourdo, Goinfrex, Kecleon, Cerfrousse
+        name: 'Tunnel Obscur', minLv: 60, maxLv: 61, biome: 'cave',
+        pool: [[35, 20], [133, 20], [216, 20], [206, 20], [446, 20], [352, 8], [234, 8]],
+        boss: { speciesId: 234, level: 62 },
+      },
+      {
+        // Mangriff, Leveinard, Capidextre, Écrémeuh, Tauros, Porygon-Z, Ronflex
+        name: 'Repaire des Ombres', minLv: 61, maxLv: 62, biome: 'cave',
+        pool: [[335, 20], [113, 20], [424, 20], [241, 20], [128, 20], [474, 8], [143, 8]],
+        boss: { speciesId: 143, level: 63 },
+      },
+    ],
+    arena: {
+      name: 'Poste des Alpinistes', leader: 'Alpiniste', type: 'Ténèbres',
+      team: [[430, 61], [452, 62], [461, 63]], // Corboss, Drascore, Dimoret
+      badge: 'Titre d’Alpiniste',
+      grantsBadge: false,
+    },
+  },
+  {
+    // Nv.63→69 — biome Glace (badge Glacier). Manaphy, Phione et Cresselia en boss légendaires (`joinsPool`).
+    name: 'Glaciers de Frimapic',
+    zones: [
+      {
+        // Magicarpe, Barpau, Marill, Marcacrin, Stalgamin, Obalie, Otaria
+        name: 'Rivage Glacé', minLv: 63, maxLv: 65, biome: 'cave',
+        pool: [[129, 20], [349, 20], [183, 20], [220, 20], [361, 20], [363, 8], [86, 8]],
+        boss: { speciesId: 490, level: 66, joinsPool: true },
+      },
+      {
+        // Écayon, Cadoizo, Mustébouée, Poissirène, Loupio, Lippouti, Babimanta
+        name: 'Champ de Neige', minLv: 65, maxLv: 67, biome: 'cave',
+        pool: [[456, 20], [225, 20], [418, 20], [118, 20], [170, 20], [238, 8], [458, 8]],
+        boss: { speciesId: 489, level: 68, joinsPool: true },
+      },
+      {
+        // Krabby, Corayon, Wailmer, Lippoutou, Hyporoi, Mammochon
+        name: 'Île Lunaire', minLv: 67, maxLv: 68, biome: 'cave',
+        pool: [[98, 20], [222, 20], [320, 20], [124, 20], [230, 8], [473, 8]],
+        boss: { speciesId: 488, level: 69, joinsPool: true },
+      },
+    ],
+    arena: {
+      name: 'Arène de Frimapic', leader: 'Gladys', type: 'Glace',
+      team: [[471, 67], [461, 68], [473, 69]], // Givrali, Dimoret, Mammochon
+      badge: 'Badge Glacier',
+    },
+  },
+  {
+    // Nv.69→75 — biome Électrik (badge Phare). Créhelm, Créfollet et Créfadet en boss légendaires.
+    name: 'Centrale de Rivamar',
+    zones: [
+      {
+        // Pichu, Lixy, Wattouat, Dynavolt, Pikachu, Raichu
+        name: 'Plage de Rivamar', minLv: 69, maxLv: 71, biome: 'electric',
+        pool: [[172, 20], [403, 20], [179, 20], [309, 8], [25, 8], [26, 8]],
+        boss: { speciesId: 480, level: 72, joinsPool: true },
+      },
+      {
+        // Voltorbe, Magnéti, Élekid, Pachirisu, Posipi, Élecsprint
+        name: 'Lac Savoir', minLv: 71, maxLv: 73, biome: 'electric',
+        pool: [[100, 20], [81, 20], [239, 20], [417, 8], [311, 8], [310, 8]],
+        boss: { speciesId: 481, level: 74, joinsPool: true },
+      },
+      {
+        // Négapi, Motisma, Élektek, Élekable, Magnézone, Magnéton
+        name: 'Lac Courage', minLv: 73, maxLv: 74, biome: 'electric',
+        pool: [[312, 20], [479, 20], [125, 20], [466, 8], [462, 8], [82, 8]],
+        boss: { speciesId: 482, level: 75, joinsPool: true },
+      },
+    ],
+    arena: {
+      name: 'Arène de Rivamar', leader: 'Tanguy', type: 'Électrik',
+      team: [[405, 73], [466, 74], [462, 75]], // Luxray, Élekable, Magnézone
+      badge: 'Badge Phare',
+    },
+  },
+  {
+    // Nv.75→82 — route sans badge (Dragon/Ténèbres/Roche). Heatran, Regigigas et Darkrai en boss légendaires.
+    name: 'Mont Couronné',
+    zones: [
+      {
+        // Medhyèna, Roucool, Étourmi, Hoothoot, Piafabec, Nirondelle, Tylton, Artikodin, Raikou, Celebi, Latios, Deoxys
+        name: 'Flanc Rocailleux', minLv: 75, maxLv: 77, biome: 'cave',
+        pool: [[261, 20], [16, 20], [396, 20], [163, 20], [21, 20], [276, 8], [333, 8], [144, 3], [243, 3], [251, 3], [381, 3], [386, 3]],
+        boss: { speciesId: 485, level: 78, joinsPool: true },
+      },
+      {
+        // Minidraco, Malosse, Doduo, Ténéfix, Canarticho, Cornèbre, Pijako, Électhor, Entei, Regirock, Kyogre
+        name: 'Temple Perdu', minLv: 77, maxLv: 80, biome: 'temple',
+        pool: [[147, 20], [228, 20], [84, 20], [302, 20], [83, 20], [198, 8], [441, 8], [145, 3], [244, 3], [377, 3], [382, 3]],
+        boss: { speciesId: 486, level: 81, joinsPool: true },
+      },
+      {
+        // Farfuret, Absol, Corboss, Dimoret, Togekiss, Étouraptor
+        name: 'Vallée Sombre', minLv: 80, maxLv: 81, biome: 'cave',
+        pool: [[215, 20], [359, 20], [430, 20], [461, 8], [468, 8], [398, 8]],
+        boss: { speciesId: 491, level: 82, joinsPool: true },
+      },
+    ],
+    arena: {
+      name: 'Poste du Mont', leader: 'Gardien du Mont', type: 'Dragon',
+      team: [[373, 80], [149, 81], [445, 82]], // Drattak, Dracolosse, Carchacrok
+      badge: 'Titre de Gardien',
+      grantsBadge: false,
+    },
+  },
+  {
+    // Nv.82→91 — Route Victoire / Conseil des 4 Sinnoh. Shaymin et Giratina en boss légendaires.
+    name: 'Route Victoire Sinnoh',
+    zones: [
+      {
+        // Chenipan, Aspicot, Chenipotte, Cheniti, Arakdo, Paras
+        name: 'Jardin Fleuri', minLv: 82, maxLv: 85, biome: 'meadow',
+        pool: [[10, 20], [13, 20], [265, 20], [412, 20], [283, 8], [46, 8]],
+        boss: { speciesId: 492, level: 86, joinsPool: true },
+      },
+      {
+        // Pomdepik, Mimitoss, Caninos, Magby, Yanma, Lumivole
+        name: 'Chemin du Temps', minLv: 85, maxLv: 88, biome: 'temple',
+        pool: [[204, 20], [48, 20], [58, 20], [240, 20], [193, 8], [314, 8]],
+        boss: { speciesId: 487, level: 89, joinsPool: true },
+      },
+      {
+        // Caratroc, Magmar, Insécateur, Scarabrute, Maganon, Scarhino, Sulfura, Suicune, Regice, Groudon
+        name: 'Galerie Finale', minLv: 88, maxLv: 90, biome: 'cave',
+        pool: [[213, 20], [126, 20], [123, 20], [127, 20], [467, 8], [214, 8], [146, 3], [245, 3], [378, 3], [383, 3]],
+        boss: { speciesId: 214, level: 91 },
+      },
+    ],
+    arena: {
+      name: 'Conseil des 4 (Sinnoh)', leader: 'Conseil des 4', type: 'mixte',
+      team: [[473, 89], [464, 90], [445, 91]], // Mammochon, Rhinastoc, Carchacrok
+      badge: 'Titre de Maître Sinnoh',
+      grantsBadge: false,
+    },
+  },
+  {
+    // Nv.91→100 — Champion Sinnoh (Cynthia). Dialga, Palkia et Arceus en boss légendaires.
+    name: 'Ligue de Sinnoh',
+    zones: [
+      {
+        // Barloche, Osselait, Kraknoix, Griknot, Mewtwo, Lugia, Registeel, Rayquaza, Dracolosse, Drattak
+        name: 'Pilier Lance', minLv: 91, maxLv: 94, biome: 'temple',
+        pool: [[339, 20], [104, 20], [328, 8], [443, 8], [150, 3], [249, 3], [379, 3], [384, 3], [149, 8], [373, 8]],
+        boss: { speciesId: 483, level: 95, joinsPool: true },
+      },
+      {
+        // Draby, Sabelette, Galekid, Airmure, Mew, Ho-Oh, Latias, Jirachi, Carchacrok, Dracolosse
+        name: 'Faille Spatiale', minLv: 94, maxLv: 97, biome: 'temple',
+        pool: [[371, 20], [27, 20], [304, 8], [227, 8], [151, 3], [250, 3], [380, 3], [385, 3], [445, 8], [149, 8]],
+        boss: { speciesId: 484, level: 98, joinsPool: true },
+      },
+      {
+        // Steelix, Rhinastoc, Carchacrok, Dracolosse, Drattak, Métalosse
+        name: 'Salle du Champion', minLv: 97, maxLv: 99, biome: 'temple',
+        pool: [[208, 20], [464, 20], [445, 8], [149, 8], [373, 8], [376, 8]],
+        boss: { speciesId: 493, level: 100, joinsPool: true },
+      },
+    ],
+    arena: {
+      name: 'Ligue de Sinnoh', leader: 'Cynthia', type: 'Dragon',
+      team: [[442, 97], [407, 98], [448, 99], [445, 100]], // Spiritomb, Roserade, Lucario, Carchacrok
+      badge: 'Titre de Champion Sinnoh',
       grantsBadge: false,
     },
   },

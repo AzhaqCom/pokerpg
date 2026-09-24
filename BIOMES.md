@@ -312,3 +312,12 @@ des pools vient du générateur (`tools/gen_region.ts`, `tools/regions/hoenn.jso
 sauvages suit une seule courbe par région (`DIFFICULTY` dans `game.ts`) : ×0,60 au départ → ×1,6 Kanto /
 ×1,9 Johto / ×2,2 Hoenn ; boss et arènes via `bossRamp`. Durée de simulation d'un joueur « humain » :
 ~3 h à 3 h 30 par région.
+
+---
+
+## Sinnoh (biomes 32-46, 2026-09-24)
+
+Roche (Charbourg) → Plante/Insecte (Bonville) → route Normal/Vol → Combat (Voilaroc) → Eau (Verchamps) → route
+Poison/Sol → Spectre/Psy (Unionpolis) → route Feu → Acier (Canalave) → route Ténèbres → Glace (Frimapic) →
+Électrik (Rivamar) → Mont Couronné (Dragon) → Route Victoire → Ligue (Cynthia). Nv.5 → 100, courbe de
+difficulté ×0,6 → ×2,5. 3 h 30 - 4 h en simulation.

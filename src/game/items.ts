@@ -293,6 +293,22 @@ export const BIOME_SET: Record<number, string> = {
   29: 'maree',   // Fonds d'Atalanopolis (Eau)
   30: 'epreuve', // Route Victoire Hoenn
   31: 'phare',   // Ligue d'Éternara (Acier)
+  // Sinnoh (32-46)
+  32: 'aride',   // Mine de Charbourg (Roche)
+  33: 'sylve',   // Forêt de Bonville (Plante/Insecte)
+  34: 'ciel',    // Route Bosselée (Normal/Vol)
+  35: 'dojo',    // Dojo de Voilaroc (Combat)
+  36: 'maree',   // Marais de Verchamps (Eau)
+  37: 'brume',   // Route des Marais (Poison/Sol)
+  38: 'oeil',    // Manoir d'Unionpolis (Spectre/Psy)
+  39: 'cendres', // Mont Foyer (Feu)
+  40: 'phare',   // Port Canalave (Acier)
+  41: 'ombre',   // Passe des Ombres (Ténèbres)
+  42: 'givre',   // Glaciers de Frimapic (Glace)
+  43: 'circuit', // Centrale de Rivamar (Électrik)
+  44: 'plateau', // Mont Couronné (Dragon)
+  45: 'epreuve', // Route Victoire Sinnoh
+  46: 'champion', // Ligue de Sinnoh
 };
 
 /** Panoplie dont tombent les objets d'un biome. */

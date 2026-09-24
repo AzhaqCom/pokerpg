@@ -8,9 +8,10 @@
  */
 import * as fs from 'fs';
 import * as path from 'path';
+import { EVOLUTION_CHOICES } from '../src/game/data';
 
 const ROOT = process.cwd(); // lancer depuis la racine du dépôt
-type Sp = { id: number; name: string; types: string[]; base: Record<string, number>; evolvesTo: number };
+type Sp = { id: number; name: string; types: string[]; base: Record<string, number>; evolvesTo: number; evolveLevel: number };
 const SPECIES: Sp[] = JSON.parse(fs.readFileSync(path.join(ROOT, 'src/data/species.json'), 'utf8'));
 const byId = new Map(SPECIES.map((s) => [s.id, s]));
 const bst = (s: Sp) => s.base.hp + s.base.atk * 1.5 + s.base.def * 1.5 + s.base.spe;
@@ -29,8 +30,16 @@ const plan: RegionPlan = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
 
 const LEG = new Set([144, 145, 146, 150, 151, 243, 244, 245, 249, 250, 251, 377, 378, 379, 380, 381, 382, 383, 384, 385, 386,
   480, 481, 482, 483, 484, 485, 486, 487, 488, 489, 490, 491, 492, 493]);
+// niveau auquel chaque espèce évoluée apparaît (niveau d'évolution de sa pré-évolution) : sert à compléter les zones minces
+const preLevel = new Map<number, number>();
+for (const sp of SPECIES) if (sp.evolvesTo) preLevel.set(sp.evolvesTo, Math.min(preLevel.get(sp.evolvesTo) ?? 999, sp.evolveLevel));
+const MIN_ZONE = 6;
 const dex = SPECIES.filter((s) => s.id <= plan.dexMax);
-const targets = new Set(dex.filter((s) => s.evolvesTo).map((s) => s.evolvesTo));
+// les formes alternatives d'une évolution à choix (Voltali…) s'obtiennent par évolution : rien à placer
+const targets = new Set([
+  ...dex.filter((s) => s.evolvesTo).map((s) => s.evolvesTo),
+  ...Object.values(EVOLUTION_CHOICES).flat().filter((id) => id <= plan.dexMax),
+]);
 const must = dex.filter((s) => !targets.has(s.id));
 const allStarters = [1, 4, 7, 152, 155, 158, 252, 255, 258, 387, 390, 393].filter((id) => id <= plan.dexMax);
 const regular = must.filter((s) => !LEG.has(s.id) && !allStarters.includes(s.id));
@@ -68,6 +77,22 @@ plan.biomes.forEach((b, bi) => {
       const k = plan.oldLegendaryZones.findIndex(([x, y]) => x === bi && y === zi);
       const share = oldLegends.filter((_, i) => i % plan.oldLegendaryZones.length === k);
       for (const id of share) entries.push([id, plan.oldLegendaryWeight]);
+    }
+    // zone trop mince (moins de MIN_ZONE espèces) : complétée par des formes évoluées du type du biome, déjà
+    // assez évoluées au niveau de la zone (jamais un légendaire ni un starter)
+    const core = () => entries.filter(([id, w]) => !allStarters.includes(id) && w > plan.oldLegendaryWeight).length;
+    if (core() < MIN_ZONE) {
+      const have = new Set(entries.map(([id]) => id));
+      const zoneLv = (minLv + maxLv) / 2;
+      const target = 60 + zoneLv * 5;
+      const ok = (x: Sp) => !have.has(x.id) && !LEG.has(x.id) && !allStarters.includes(x.id)
+        && (preLevel.get(x.id) ?? 999) <= maxLv;
+      const byFit = (p1: Sp, p2: Sp) => Math.abs(bst(p1) - target) - Math.abs(bst(p2) - target);
+      // d'abord les formes évoluées du type du biome, puis, si la zone reste mince, de n'importe quel type
+      for (const typed of [true, false]) {
+        const extra = dex.filter((x) => ok(x) && (!typed || x.types.some((t) => b.types.includes(t)))).sort(byFit);
+        for (const x of extra) { if (core() >= MIN_ZONE) break; entries.push([x.id, 8]); have.add(x.id); }
+      }
     }
     const strongest = zones[zi][zones[zi].length - 1];
     const bossId = z.boss ?? finalOf(strongest);

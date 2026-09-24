@@ -46,7 +46,15 @@ jouables à 100 %.
 
 ---
 
-## Reste à faire
+## Sinnoh : FAIT le 2026-09-24
+
+Région complète (biomes 32-46, Pokédex 1-493 autonome), générée par `tools/regions/sinnoh.json`, courbe de
+difficulté, `BIOME_SET`, test de couverture et simulation bout en bout (~3 h 30). Reste : test manuel par Arno
+du prestige Hoenn → Sinnoh, relecture des équipes d'arène et des noms provisoires.
+
+---
+
+## Reste à faire (historique, avant Sinnoh)
 
 ### Règle à respecter : chaque région est autonome
 Hoenn l'est déjà (Pokédex 1-386 obtenable dans ses seuls biomes). **Sinnoh doit l'être aussi** : tout le

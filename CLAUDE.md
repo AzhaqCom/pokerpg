@@ -410,3 +410,14 @@ région en cours ; `evolve(s, uid, target?)` ; la fiche Pokémon affiche un bout
 alternatives ont été retirées de certaines zones sauvages seulement quand la zone garde ≥ 6 espèces et que
 la forme de base existe dans la région (biomes 13, 14, 15, 18, 22, 29) ; les espèces « signature » d'un
 biome (Voltali biome 2, Pyroli biome 6) restent sauvages. Le test de couverture tient compte des choix.
+
+## Sinnoh jouable (2026-09-24)
+
+4e région (`REGIONS[3]`, biomes 32-46, dexMax 493, starters 387/390/393) : 15 biomes, 8 champions (Pierrick,
+Flo, Mélina, Lovis, Kiméra, Charles, Gladys, Tanguy), Conseil des 4 et Cynthia (équipe imposée). Généré par
+`npx tsx tools/gen_region.ts tools/regions/sinnoh.json` (le générateur complète désormais les zones de moins
+de 6 espèces par des formes évoluées, et tient compte de `EVOLUTION_CHOICES`). Les 14 légendaires de Sinnoh
+sont des boss `joinsPool` sur les 5 derniers biomes, les 21 anciens sont semés très rares. Panoplies : mapping
+`BIOME_SET` 32-46. Difficulté : `DIFFICULTY.end[3]` = 2,5. Simulation (3 graines) : 3 h 27 - 4 h, défaites
+seulement dans le 1er biome. Noms provisoires à revoir : Cycliste, Randonneur, Volcanologue, Alpiniste,
+Gardien du Mont. Le prestige Hoenn → Sinnoh est débloqué par le Champion Hoenn + Pokédex complet /386.

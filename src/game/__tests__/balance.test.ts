@@ -37,9 +37,7 @@ test('équilibrage bout en bout (Kanto) : un joueur efficace termine les 10 biom
 /**
  * Bout en bout Hoenn (région n° 2) : la simulation démarre directement au 1er biome de Hoenn, ce qui
  * est exactement l'état d'un nouveau départ après prestige (tout à zéro), plutôt que de rejouer Kanto puis
- * Johto avant. Calé le 2026-09-24 sur 3 graines : 3h40-5h10 de combat pur, jamais de blocage, `wildMult`
- * posés sur les zones qui se traversaient sans aucune défaite. Les 3 derniers biomes restent rapides
- * (~3-5 min), comme les biomes 6-8 de Kanto : monter plus haut le `wildMult` provoque des blocages.
+ * Johto avant. Difficulté = courbe unique par région (`DIFFICULTY`, plus de `wildMult` par zone).
  */
 test('équilibrage bout en bout (Hoenn) : un joueur efficace bat le Champion en 1h30 à 12h de combat pur', () => {
   const reports = [1, 2].map((seed) => simulate(seededRng(seed), 14 * 3600, undefined, 2));
@@ -49,4 +47,13 @@ test('équilibrage bout en bout (Hoenn) : un joueur efficace bat le Champion en 
     expect(minutes!).toBeGreaterThan(90);
     expect(minutes!).toBeLessThan(720);
   }
+});
+
+/** Sinnoh (région n° 3, biomes 32-46) : même principe que Hoenn. Mesuré le 2026-09-24 : 3h30-4h de combat pur. */
+test('équilibrage bout en bout (Sinnoh) : un joueur efficace bat la Championne en 1h30 à 12h de combat pur', () => {
+  const r = simulate(seededRng(1), 14 * 3600, undefined, 3);
+  const minutes = r.milestones['biome47-badge']; // biome 46 (0-indexé) = Ligue de Sinnoh
+  expect(minutes).toBeDefined();
+  expect(minutes!).toBeGreaterThan(90);
+  expect(minutes!).toBeLessThan(720);
 });
