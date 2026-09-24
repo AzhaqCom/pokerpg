@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { cdFactor } from '../game/battle';
-import { Move, learnedMoves, move, species } from '../game/data';
+import { Move, learnedMoves, move, evolutionTargets, species } from '../game/data';
+import { regionOf } from '../game/content';
 import {
   CANDY_XP, GENE_MAX, GeneKey, MEGA_CANDY_COST, TEAM_SIZE, applyMegaCandy, autoEquipBest, canEvolve, craftMegaCandy, equip,
   evolve, feedCandy, heldItems, holder, lineBase, rankUpTalent, release, resetTalents, setMoves, setTeam, unequip,
@@ -122,14 +123,18 @@ export function MonSheet() {
             </View>
           </View>
 
-          {canEvolve(mon) && (
-            <Button label={`Faire évoluer en ${species(sp.evolvesTo).name}`} color="#c0392b" onPress={() => {
-              feedback('evolve', true);
-              act((g) => evolve(g, mon.uid));
-              toast(`${sp.name} évolue en ${species(sp.evolvesTo).name} !`, '#ffb300');
-              changed();
-            }} />
-          )}
+          {canEvolve(mon) && evolutionTargets(mon.speciesId, regionOf(s.prestige).dexMax).map((target, _i, all) => {
+            const t = species(target);
+            const many = all.length > 1;
+            return (
+              <Button key={target} label={`Faire évoluer en ${t.name}${many ? ` (${t.types.map(typeLabel).join('/')})` : ''}`} color="#c0392b" onPress={() => {
+                feedback('evolve', true);
+                act((g) => evolve(g, mon.uid, target));
+                toast(`${sp.name} évolue en ${t.name} !`, '#ffb300');
+                changed();
+              }} />
+            );
+          })}
 
           <View style={styles.panel}>
             <Bar label="PV" value={st.hp} max={Math.max(120, st.hp)} color="#4caf50" />

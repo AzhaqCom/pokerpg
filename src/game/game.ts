@@ -6,7 +6,7 @@ import { Battle, FighterInit } from './battle';
 import {
   BADGE_BONUS, BIOMES, REGIONS, REGION_START, STAGES_PER_ZONE, WAVES_PER_STAGE, ZoneDef, regionLastBiome, regionOf,
 } from './content';
-import { ALL_SPECIES, PType, learnedMoves, movesAtLevel, species } from './data';
+import { ALL_SPECIES, PType, learnedMoves, evolutionTargets, movesAtLevel, species } from './data';
 import { SETS, STAT_WEIGHT, setOfBiome, TEMPLATES, berryHeal, fuse, canFuse, itemScore, makeItem, newUid, recycleValue, rerollCost, rerollSub, rollLoot, rollRarity, slotOf, template, upgrade, upgradeCost } from './items';
 import { BattleBonuses, Item, ItemSlot, MAX_RARITY, Mon, emptyBonuses } from './model';
 import { Rng } from './rng';
@@ -279,11 +279,13 @@ export function canEvolve(mon: Mon): boolean {
   return !!sp.evolvesTo && mon.level >= sp.evolveLevel;
 }
 
-export function evolve(s: GameState, uid: string) {
+/** `target` : forme choisie parmi `evolutionTargets` (défaut = `evolvesTo`, l'évolution classique). */
+export function evolve(s: GameState, uid: string, target?: number) {
   const mon = s.mons[uid];
   if (!mon || !canEvolve(mon)) return;
   const typeBefore = primaryType(mon.speciesId);
-  mon.speciesId = species(mon.speciesId).evolvesTo;
+  const targets = evolutionTargets(mon.speciesId, regionOf(s.prestige).dexMax);
+  mon.speciesId = target !== undefined && targets.includes(target) ? target : species(mon.speciesId).evolvesTo;
   addUnique(s.dex.seen, mon.speciesId);
   addUnique(s.dex.caught, mon.speciesId);
   if (mon.shiny) addUnique(s.dex.shiny, mon.speciesId);

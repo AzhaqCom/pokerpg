@@ -1,5 +1,5 @@
 import { BIOMES, REGION_START, REGIONS, STAGES_PER_ZONE, regionLastBiome } from '../content';
-import { ALL_SPECIES } from '../data';
+import { ALL_SPECIES, EVOLUTION_CHOICES, evolutionTargets, species } from '../data';
 import {
   GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, applyMegaCandy, craftMegaCandy, lineBase, arenaAvailable, assignExploration, assignPension, autoCaptureBall, autoEquipBest, bestStarsOf, biomeAvailable, bossAvailable,
   canCompleteDex, canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
@@ -318,7 +318,7 @@ test.each(REGIONS.map((r, i) => [r.name, i] as const))(
     const region = REGIONS[p];
     const biomes = BIOMES.slice(region.start, REGIONS[p + 1]?.start ?? BIOMES.length);
     const dex = ALL_SPECIES.filter((s) => s.id <= region.dexMax);
-    const targets = new Set(dex.filter((s) => s.evolvesTo).map((s) => s.evolvesTo));
+    const targets = new Set(dex.flatMap((s) => evolutionTargets(s.id, region.dexMax).filter((t) => t !== s.id && (s.evolvesTo || EVOLUTION_CHOICES[s.id]))));
     const mustPlace = dex.filter((s) => !targets.has(s.id)).map((s) => s.id);
     const wildPool = new Set(biomes.flatMap((b) => b.zones.flatMap((z) => z.pool.map(([id]) => id))));
     const poolBosses = new Set(biomes.flatMap((b) => b.zones.filter((z) => z.boss.joinsPool).map((z) => z.boss.speciesId)));
@@ -933,4 +933,30 @@ test('completeDex : un chromatique en un seul exemplaire n\'évolue qu\'en mode 
   expect(canCompleteDex(s, { keepEvolutionMaterial: false })).toBe(true);
   expect(completeDex(s, false, { keepEvolutionMaterial: false })).toBeGreaterThan(0);
   expect(s.dex.shiny).toContain(24); // Arbok chromatique au Pokédex
+});
+
+test('évolution à choix : Évoli évolue dans la forme choisie, la forme par défaut sans choix', () => {
+  const s = newGame();
+  chooseStarter(s, 4, seededRng(1));
+  addMon(s, makeMon(133, 30, seededRng(3)));
+  addMon(s, makeMon(133, 30, seededRng(4)));
+  const [a, b] = Object.values(s.mons).filter((m) => m.speciesId === 133);
+  expect(evolutionTargets(133)).toHaveLength(7);
+  expect(evolutionTargets(133, 151)).toEqual([134, 135, 136]); // Kanto : pas de forme Johto/Sinnoh
+  expect(evolutionTargets(133, 251)).toEqual([134, 135, 136, 196, 197]);
+  evolve(s, a.uid, 135); // Voltali
+  evolve(s, b.uid); // sans choix : Aquali
+  expect(a.speciesId).toBe(135);
+  expect(b.speciesId).toBe(134);
+  expect(s.dex.caught).toContain(135);
+  const c = makeMon(133, 30, seededRng(5)); addMon(s, c);
+  evolve(s, c.uid, 25); // cible invalide : repli sur la forme par défaut
+  expect(c.speciesId).toBe(134);
+});
+
+test('évolutions à choix : la 1re cible est toujours evolvesTo, toutes existent et le niveau est atteignable', () => {
+  for (const [from, targets] of Object.entries(EVOLUTION_CHOICES)) {
+    expect(targets[0]).toBe(species(Number(from)).evolvesTo);
+    for (const t of targets) expect(species(t).id).toBe(t);
+  }
 });

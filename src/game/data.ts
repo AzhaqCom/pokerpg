@@ -28,6 +28,36 @@ export type Move =
   | (MoveBase & { kind: 'buff' | 'debuff'; stat: 'atk' | 'def' | 'spe'; stages: number });
 
 const SPECIES = speciesRaw as Species[];
+
+/**
+ * Évolutions à choix (pas de pierres d'évolution dans le jeu : c'est le joueur qui choisit). Clé = espèce
+ * qui évolue, valeur = toutes les formes possibles, la 1re étant `evolvesTo` (évolution par défaut, utilisée
+ * par les automatismes : bot, « Compléter le Pokédex »). Les formes alternatives restent des espèces à part
+ * entière (sauvages ou non selon les biomes) — voir `evolve(s, uid, target)` dans `game.ts`.
+ */
+export const EVOLUTION_CHOICES: Record<number, number[]> = {
+  44: [45, 182], // Ortide → Rafflesia / Joliflor
+  61: [62, 186], // Têtarte → Tartard / Tarpaud
+  79: [80, 199], // Ramoloss → Flagadoss / Roigada
+  133: [134, 135, 136, 196, 197, 470, 471], // Évoli → Aquali, Voltali, Pyroli, Mentali, Noctali, Phyllali, Givrali
+  236: [237, 106, 107], // Debugant → Kapoera / Kicklee / Tygnon
+  265: [266, 268], // Chenipotte → Armulys / Blindalys
+  281: [282, 475], // Kirlia → Gardevoir / Gallame
+  290: [291, 292], // Ningale → Ninjask / Munja
+  361: [362, 478], // Stalgamin → Oniglali / Momartik
+  366: [367, 368], // Coquiperl → Serpang / Rosabyss
+  412: [413, 414], // Cheniti → Cheniselle / Papilord
+};
+
+/**
+ * Formes vers lesquelles l'espèce peut évoluer (vide si elle n'évolue pas). `dexMax` = dernière espèce de la
+ * région en cours : une forme d'une région future n'est jamais proposée (Évoli ne donne pas Phyllali à Kanto).
+ */
+export function evolutionTargets(id: number, dexMax = Infinity): number[] {
+  const all = EVOLUTION_CHOICES[id] ?? (species(id).evolvesTo ? [species(id).evolvesTo] : []);
+  const ok = all.filter((t) => t <= dexMax);
+  return ok.length ? ok : all.slice(0, 1);
+}
 const MOVES = movesRaw as unknown as Record<string, Move>;
 const CHART = typesRaw.chart as Record<string, Record<string, number>>;
 export const TYPE_NAME = typesRaw.names as Record<PType, string>;

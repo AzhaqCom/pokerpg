@@ -413,17 +413,17 @@ export const BIOMES: BiomeDef[] = [
     zones: [
       {
         name: 'Rez-de-Tour', minLv: 35, maxLv: 37, biome: 'temple',
-        pool: [[92, 25], [200, 20], [185, 20], [201, 15], [93, 10], [199, 5], [196, 5], [63, 10]],
+        pool: [[92, 25], [200, 20], [185, 20], [201, 15], [93, 10], [63, 10]],
         boss: { speciesId: 93, level: 38 },
       },
       {
         name: 'Étages Hantés', minLv: 37, maxLv: 39, biome: 'temple',
-        pool: [[93, 25], [200, 15], [201, 20], [185, 15], [199, 10], [94, 10], [202, 5], [96, 10]],
+        pool: [[93, 25], [200, 15], [201, 20], [185, 15], [94, 10], [202, 5], [96, 10]],
         boss: { speciesId: 93, level: 40 },
       },
       {
         name: 'Sommet de la Tour', minLv: 39, maxLv: 42, biome: 'temple',
-        pool: [[93, 15], [94, 30], [200, 10], [199, 20], [201, 15], [185, 10], [122, 5]],
+        pool: [[93, 15], [94, 30], [200, 10], [201, 15], [185, 10], [122, 5]],
         boss: { speciesId: 94, level: 42 },
       },
     ],
@@ -444,12 +444,12 @@ export const BIOMES: BiomeDef[] = [
       },
       {
         name: 'Salle des Katas', minLv: 47, maxLv: 52, biome: 'temple',
-        pool: [[237, 25], [107, 25], [106, 20], [62, 15], [68, 15], [74, 10], [95, 5]],
+        pool: [[237, 25], [106, 20], [62, 15], [68, 15], [74, 10], [95, 5]],
         boss: { speciesId: 68, level: 52 },
       },
       {
         name: 'Antichambre du Maître', minLv: 52, maxLv: 58, biome: 'temple',
-        pool: [[214, 25], [57, 20], [68, 20], [107, 15], [62, 10], [237, 10], [104, 10], [111, 10]],
+        pool: [[214, 25], [57, 20], [68, 20], [62, 10], [237, 10], [104, 10], [111, 10]],
         boss: { speciesId: 62, level: 58 },
       },
     ],
@@ -479,7 +479,7 @@ export const BIOMES: BiomeDef[] = [
       },
       {
         name: 'Sommet du Phare', minLv: 61, maxLv: 63, biome: 'cave',
-        pool: [[208, 25], [212, 20], [227, 15], [180, 20], [75, 10], [179, 10], [135, 5], [137, 5], [142, 5]],
+        pool: [[208, 25], [212, 20], [227, 15], [180, 20], [75, 10], [179, 10], [137, 5], [142, 5]],
         boss: { speciesId: 208, level: 63 },
       },
     ],
@@ -554,17 +554,17 @@ export const BIOMES: BiomeDef[] = [
     zones: [
       {
         name: 'Antichambre Obscure', minLv: 75, maxLv: 79, biome: 'cave',
-        pool: [[228, 20], [198, 20], [246, 20], [215, 15], [197, 15], [229, 10], [23, 10]],
+        pool: [[228, 20], [198, 20], [246, 20], [215, 15], [229, 10], [23, 10]],
         boss: { speciesId: 243, level: 80, joinsPool: true },
       },
       {
         name: 'Couloir des Ombres', minLv: 79, maxLv: 83, biome: 'cave',
-        pool: [[229, 20], [197, 20], [247, 20], [215, 15], [198, 15], [228, 10], [88, 10]],
+        pool: [[229, 20], [247, 20], [215, 15], [198, 15], [228, 10], [88, 10]],
         boss: { speciesId: 244, level: 84, joinsPool: true },
       },
       {
         name: 'Trône de Carla', minLv: 83, maxLv: 87, biome: 'cave',
-        pool: [[248, 20], [229, 20], [197, 15], [247, 15], [246, 15], [215, 15], [109, 10]],
+        pool: [[248, 20], [229, 20], [247, 15], [246, 15], [215, 15], [109, 10]],
         boss: { speciesId: 150, level: 87, joinsPool: true },
       },
     ],
@@ -673,7 +673,7 @@ export const BIOMES: BiomeDef[] = [
       {
         // Chenipan, Blindalys, Aspicot, Chenipotte, Mimigal, Ningale, Munja
         name: 'Orée des Bois', minLv: 22, maxLv: 24, biome: 'forest',
-        pool: [[10, 6], [12, 14], [268, 6], [269, 14], [13, 6], [15, 14], [265, 6], [267, 14], [167, 6], [168, 14], [290, 8], [292, 8]],
+        pool: [[10, 6], [12, 14], [269, 14], [13, 6], [15, 14], [265, 6], [267, 14], [167, 6], [168, 14], [290, 8], ],
         boss: { speciesId: 292, level: 25 },
       },
       {
@@ -890,7 +890,7 @@ export const BIOMES: BiomeDef[] = [
       {
         // Wailmer, Rosabyss, Roigada, Tarpaud, Hyporoi, Lokhlass
         name: 'Abysses Anciens', minLv: 75, maxLv: 77, biome: 'water',
-        pool: [[320, 6], [321, 14], [368, 20], [199, 20], [186, 20], [230, 8], [131, 8]],
+        pool: [[320, 6], [321, 14], [199, 20], [186, 20], [230, 8], [131, 8]],
         boss: { speciesId: 382, level: 78, joinsPool: true },
       },
     ],

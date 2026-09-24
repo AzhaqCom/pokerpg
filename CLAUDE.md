@@ -400,3 +400,13 @@ biomes à `BIOME_SET`.
   (non versionnés).
 - **UI** : modale d'absence groupée (×N), talents et Balls en appui long, filtre par type dans la boîte
   (remplace le tri par type), bouton « Poster » en haut de Pension/Exploration.
+
+## Évolutions à choix (2026-09-24)
+
+`EVOLUTION_CHOICES` (`data.ts`) : 11 espèces peuvent évoluer en plusieurs formes (Évoli en 7, Ortide, Têtarte,
+Ramoloss, Debugant, Chenipotte, Kirlia, Ningale, Stalgamin, Coquiperl, Cheniti), la 1re cible étant toujours
+`evolvesTo` (utilisée par le bot, `completeDex`, `excessMons`). `evolutionTargets(id, dexMax)` filtre par
+région en cours ; `evolve(s, uid, target?)` ; la fiche Pokémon affiche un bouton par forme. Les formes
+alternatives ont été retirées de certaines zones sauvages seulement quand la zone garde ≥ 6 espèces et que
+la forme de base existe dans la région (biomes 13, 14, 15, 18, 22, 29) ; les espèces « signature » d'un
+biome (Voltali biome 2, Pyroli biome 6) restent sauvages. Le test de couverture tient compte des choix.

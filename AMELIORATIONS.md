@@ -132,3 +132,13 @@ d'équilibrage toujours dans la fourchette 30 min – 3 h.
 
 **Reste à faire par Arno** : test manuel dans Expo Go, en particulier vérifier que la nouvelle pension
 (ex-Verger/Entraînement/Fouille) apparaît bien sous l'onglet Exploration avec les postes déjà en cours.
+
+---
+
+## Idées à faire (notées le 2026-09-24)
+
+- **Pokédex : où trouver ce Pokémon ?** Toucher un Pokémon dans le Pokédex ouvre une petite fenêtre
+  indiquant le(s) biome(s) où on le rencontre en sauvage. S'il n'existe pas en sauvage (évolution
+  uniquement), la fenêtre indique où trouver sa forme de base (ou intermédiaire). Il suffit de
+  parcourir `pool` des zones de `BIOMES` (et `boss` pour les légendaires) et de remonter la lignée via
+  `evolvesTo`/`EVOLUTION_CHOICES`.
