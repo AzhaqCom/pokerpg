@@ -43,6 +43,11 @@ Modules natifs : toujours `npx expo install <pkg>`. Skia 2.6.2 (épinglé) **exi
 - `src/data/` : `species.json` (493), `moves.json`, `types.json` **générés** par `tools/gen_data*.py` depuis les CSV PokéAPI
   (Atq = max(Atq, Atq Spé), Déf = moyenne, recharge = `clamp(2,12,(puissance−20)/10)` +3 s si zone). Retoucher un JSON
   à la main est écrasé si on relance le script ; les espèces déjà figées ne sont jamais réécrites.
+  **Capacités par niveau : celles de Platine pour les 493** (`tools/gen_learnsets_pt.py`, ne touche que `learnset` et
+  garde toutes les anciennes capacités dans `moves.json`). Corrections appliquées au chargement dans `data.ts` (jamais dans
+  les JSON) : `MOVE_FIXES` (Baston, Explosion, Destruction), `BABY_EVOLUTIONS`, `CROSS_GEN_EVOLUTIONS`. `learnedMoves`
+  inclut les capacités des pré-évolutions (`lineLearnset`) ; `movesAtLevel` (kit d'une capture) = 4 dernières du propre
+  learnset.
 - Sprites : atlas PMD par espèce (`assets/sprites/p025.png`, `ps025.png` chromatique), manifeste `src/data/sprites.json`,
   `spriteAssets.ts`, miniatures `assets/thumbs` (`tools/make_thumbs.py`, 240 px).
 - UI : `App.tsx` ; `src/ui/battle/runner.ts` (singleton hors React qui pilote le combat affiché, offres de capture,

@@ -119,6 +119,21 @@ export function evolutionTargets(id: number, dexMax = Infinity): number[] {
   return all.filter((t) => t <= dexMax);
 }
 const MOVES = movesRaw as unknown as Record<string, Move>;
+
+/**
+ * Corrections de capacités mal converties depuis PokéAPI (appliquées au chargement : `moves.json` est généré).
+ * Baston : puissance variable dans les jeux (convertie à 300). Explosion/Destruction : le lanceur n'est pas mis K.O.
+ * dans ce moteur, donc sans contrepartie → ramenées au niveau d'une grosse attaque ordinaire.
+ */
+const MOVE_FIXES: Record<string, { power: number; cd: number }> = {
+  'beat-up': { power: 60, cd: 4 },
+  explosion: { power: 130, cd: 12 },
+  'self-destruct': { power: 110, cd: 11 },
+};
+for (const m of Object.values(MOVES)) {
+  const fix = MOVE_FIXES[m.slug];
+  if (fix && m.kind === 'damage') { m.power = fix.power; m.cd = fix.cd; }
+}
 const CHART = typesRaw.chart as Record<string, Record<string, number>>;
 export const TYPE_NAME = typesRaw.names as Record<PType, string>;
 
@@ -150,6 +165,27 @@ export function typeMultiplier(atk: PType, def: PType[]): number {
 }
 
 /** Capacités connues à un niveau (les 4 dernières apprises, comme les jeux). */
+/** Pré-évolution directe (évolution classique, à choix, bébé ou inter-générations). */
+const PREV = new Map<number, number>();
+for (const sp of SPECIES) if (sp.evolvesTo) PREV.set(sp.evolvesTo, sp.id);
+for (const [from, targets] of Object.entries(EVOLUTION_CHOICES)) for (const t of targets) PREV.set(t, Number(from));
+
+/**
+ * Capacités apprises par niveau, pré-évolutions comprises (une forme évoluée peut réapprendre ce que savait sa
+ * pré-évolution : Raichu garde l'accès aux attaques de Pikachu), triées par niveau, sans doublon.
+ */
+const LINE_LEARNSET = new Map<number, [number, number][]>();
+export function lineLearnset(sp: Species): [number, number][] {
+  const cached = LINE_LEARNSET.get(sp.id);
+  if (cached) return cached;
+  const all = [...sp.learnset];
+  for (let p = PREV.get(sp.id), g = 0; p && g < 4; p = PREV.get(p), g++) all.push(...species(p).learnset);
+  const seen = new Set<number>();
+  const out = all.sort((a, b) => a[0] - b[0]).filter(([, m]) => (seen.has(m) ? false : (seen.add(m), true)));
+  LINE_LEARNSET.set(sp.id, out);
+  return out;
+}
+
 export function movesAtLevel(sp: Species, level: number): number[] {
   const known = sp.learnset.filter(([lv]) => lv <= level).map(([, id]) => id);
   return known.slice(-4);
@@ -157,5 +193,5 @@ export function movesAtLevel(sp: Species, level: number): number[] {
 
 /** Toutes les capacités apprises jusqu'à ce niveau (choix du joueur). */
 export function learnedMoves(sp: Species, level: number): number[] {
-  return sp.learnset.filter(([lv]) => lv <= level).map(([, id]) => id);
+  return lineLearnset(sp).filter(([lv]) => lv <= level).map(([, id]) => id);
 }

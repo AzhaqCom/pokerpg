@@ -11,7 +11,15 @@ Limite : le 1 contre 1 surestime sommeil/soin et ignore les capacités de zone ;
 - 24 évolutions inter-générations reliées (`CROSS_GEN_EVOLUTIONS`), bloquées tant que la cible n'est pas dans le
   Pokédex de la région (`evolutionTargets(id, dexMax)`, `canEvolve(mon, dexMax)`, `lineChain`).
 
-## Constats
+- Les deux Affinités peuvent viser le même type.
+- **Capacités de Platine pour les 493** (`tools/gen_learnsets_pt.py`) + héritage des pré-évolutions + Baston/Explosion/
+  Destruction corrigées (propositions 1, 2 et 4 appliquées). Effet (kit par défaut) : formes finales sous 15 % de
+  victoires 24 → 19, sous 25 % 51 → 43 ; Dracaufeu 8 → 51 %, Dracolosse 66 → 83 %, Tortank 51 → 67 %. Kit joueur :
+  Nidoking 17 → 47 %, Florizarre 73 → 96 %, Raichu 20 → 38 %, Alakazam 46 → 63 %. Simulations des 4 régions (2 graines) :
+  aucun blocage, défaites seulement dans le 1er biome de chaque région (et un peu à Sinnoh b34). Restent faibles surtout
+  des Pokémon aux stats basses (Rattatac, Persian, Linéon, Fouinar, Hélédelle…) et les cas spéciaux.
+
+## Constats (avant corrections)
 ### Données
 - Types peu fournis en formes finales : Dragon 6, Spectre 12, Acier 13 (Normal 45, Eau 45).
 - Sans aucune capacité : Métamorph, Queulorior (Morphing, Gribouille non codés). Zarbi : 1 capacité. Qulbutoké : Riposte

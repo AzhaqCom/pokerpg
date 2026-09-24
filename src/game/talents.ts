@@ -1,4 +1,4 @@
-import { PType, TYPE_NAME, move, species } from './data';
+import { learnedMoves, PType, TYPE_NAME, move, species } from './data';
 import { BattleBonuses, NumericBonusStat } from './model';
 
 /**
@@ -122,7 +122,7 @@ export function eligibleAffinityTypes(speciesId: number): PType[] {
   const sp = species(speciesId);
   const own = new Set(sp.types);
   const types = new Set<PType>();
-  for (const [, moveId] of sp.learnset) {
+  for (const moveId of learnedMoves(sp, 100)) {
     const m = move(moveId);
     if (m.kind === 'damage' && !own.has(m.type)) types.add(m.type);
   }

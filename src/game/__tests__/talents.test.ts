@@ -27,14 +27,13 @@ test('talentTree : paliers 4/5 (Affinité), rang max 15, débloqués à 20/40 po
 });
 
 test('eligibleAffinityTypes : types du movepool complet, hors des types propres du Pokémon', () => {
-  expect(eligibleAffinityTypes(6)).toEqual(['normal']); // Dracaufeu (Feu/Vol) : que du Normal en dehors des siens
+  // Dracaufeu (Feu/Vol), capacités de Platine : Normal, Dragon (Draco-Griffe) et Spectre (Griffe Ombre)
+  expect(eligibleAffinityTypes(6)).toEqual(expect.arrayContaining(['normal', 'dragon', 'ghost']));
+  expect(eligibleAffinityTypes(6)).not.toContain('fire');
 });
 
-test('eligibleAffinityTypes : exclut un type déjà pris ailleurs, sauf si ça ne laisserait plus rien', () => {
-  expect(eligibleAffinityTypes(27)).toEqual(['normal', 'poison']); // Sabelette : 2 options
-  expect(eligibleAffinityTypes(27)).toContain('normal'); // la 2e Affinité peut reprendre le même type
-  // Dracaufeu n'a qu'une seule option : l'exclure ne bloque pas l'emplacement, elle reste proposée
-  expect(eligibleAffinityTypes(6)).toEqual(['normal']);
+test('eligibleAffinityTypes : plusieurs options, les deux Affinités peuvent reprendre le même type', () => {
+  expect(eligibleAffinityTypes(27)).toEqual(expect.arrayContaining(['normal', 'poison'])); // Sabelette
 });
 
 test('eligibleAffinityTypes : ignore les types qui ne viennent que d’une capacité de statut/buff/soin (aucun dégât à booster)', () => {
@@ -44,14 +43,14 @@ test('eligibleAffinityTypes : ignore les types qui ne viennent que d’une capac
 });
 
 test('eligibleAffinityTypes : se replie sur son/ses propre(s) type(s) si aucune attaque offensive hors-type', () => {
-  // Rondoudou (Normal pur) n'a aucune capacité offensive hors Normal dans son movepool : mieux vaut
-  // booster son vrai type que de bloquer l'emplacement (`AMÉLIORATIONS` du 2026-09-22).
-  expect(eligibleAffinityTypes(39)).toEqual(['normal']);
-  // Roucarnage (Normal/Vol), même cas mais bi-type : les deux types propres sont proposés.
-  expect(eligibleAffinityTypes(18)).toEqual(['normal', 'flying']);
+  // Alakazam (Psy pur) n'a aucune capacité offensive hors Psy : mieux vaut booster son vrai type que de
+  // bloquer l'emplacement.
+  expect(eligibleAffinityTypes(65)).toEqual(['psychic']);
+  // Aspicot (Insecte/Poison), même cas mais bi-type : les deux types propres sont proposés.
+  expect(eligibleAffinityTypes(13)).toEqual(['bug', 'poison']);
 });
 
-test('eligibleAffinityTypes : jamais aucune option, pour aucune des 151 espèces', () => {
+test('eligibleAffinityTypes : jamais aucune option, pour aucune des 493 espèces', () => {
   for (const sp of ALL_SPECIES) expect(eligibleAffinityTypes(sp.id).length).toBeGreaterThan(0);
 });
 
