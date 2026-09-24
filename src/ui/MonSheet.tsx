@@ -260,8 +260,7 @@ export function MonSheet() {
                           onRepeat={() => !needsChoice && act((g) => rankUpTalent(g, mon.uid, t.id))} />
                       </View>
                       {affinityPick === t.id && (() => {
-                        const otherChoices = Object.entries(mon.talentTypeChoices).filter(([k]) => k !== t.id).map(([, v]) => v);
-                        const options = eligibleAffinityTypes(mon.speciesId, otherChoices);
+                        const options = eligibleAffinityTypes(mon.speciesId);
                         return (
                           <View style={[styles.row, { flexWrap: 'wrap', marginTop: 4 }]}>
                             {options.map((ty) => (

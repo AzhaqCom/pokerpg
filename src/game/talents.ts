@@ -117,7 +117,8 @@ export function talentTree(types: PType[]): TalentDef[] {
  * Rattata, Abra…), l'emplacement se rabat sur ses propres types : mieux vaut booster encore ses dégâts
  * réels que de laisser le talent inutilisable.
  */
-export function eligibleAffinityTypes(speciesId: number, exclude: PType[] = []): PType[] {
+/** Types proposés pour une Affinité. Les deux Affinités peuvent viser le même type (cumul voulu par Arno). */
+export function eligibleAffinityTypes(speciesId: number): PType[] {
   const sp = species(speciesId);
   const own = new Set(sp.types);
   const types = new Set<PType>();
@@ -125,9 +126,7 @@ export function eligibleAffinityTypes(speciesId: number, exclude: PType[] = []):
     const m = move(moveId);
     if (m.kind === 'damage' && !own.has(m.type)) types.add(m.type);
   }
-  const all = types.size ? [...types] : [...own];
-  const filtered = all.filter((t) => !exclude.includes(t));
-  return filtered.length ? filtered : all;
+  return types.size ? [...types] : [...own];
 }
 
 export function talentPoints(level: number): number {

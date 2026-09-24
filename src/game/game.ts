@@ -313,8 +313,7 @@ export function rankUpTalent(s: GameState, uid: string, id: string, type?: PType
   const def = talentTree(types).find((t) => t.id === id);
   if (!def) return false;
   if (def.chooseType && !mon.talentTypeChoices[id]) {
-    const otherChoices = Object.entries(mon.talentTypeChoices).filter(([k]) => k !== id).map(([, v]) => v);
-    if (!type || !eligibleAffinityTypes(mon.speciesId, otherChoices).includes(type)) return false;
+    if (!type || !eligibleAffinityTypes(mon.speciesId).includes(type)) return false;
     if (!canRankUp(types, mon.talents, mon.level, id)) return false;
     mon.talentTypeChoices[id] = type;
     mon.talents[id] = 1;
@@ -341,8 +340,7 @@ export function autoTalents(s: GameState, uid: string): number {
   for (const id of AUTO_TALENT_ORDER) up(id);
   for (const id of ['power', 'vigor', 'guard', 'reflex', 'spec', 'mastery']) while (up(id));
   for (const id of ['affinity1', 'affinity2']) {
-    const exclude = Object.entries(mon.talentTypeChoices).filter(([k]) => k !== id).map(([, v]) => v);
-    const options = eligibleAffinityTypes(mon.speciesId, exclude);
+    const options = eligibleAffinityTypes(mon.speciesId);
     const moveTypes = mon.moves.map((m) => move(m).type);
     const type = [...options].sort((a, b) => moveTypes.filter((t) => t === b).length - moveTypes.filter((t) => t === a).length)[0];
     while (up(id, type));

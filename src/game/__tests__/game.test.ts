@@ -742,7 +742,7 @@ test('rankUpTalent : palier 4 (talent « au choix ») exige un type éligible au
   expect(rankUpTalent(s, uid, 'affinity1', 'normal')).toBe(false);
 });
 
-test('rankUpTalent : le palier 5 ne propose pas un type déjà pris au palier 4 s’il en reste un autre', () => {
+test('rankUpTalent : le palier 5 peut reprendre le type déjà choisi au palier 4 (cumul)', () => {
   const s = newGame();
   const sabelette = makeMon(27, 60, seededRng(9)); // Nv.60, 2 types éligibles (normal, poison)
   addMon(s, sabelette);
@@ -757,9 +757,8 @@ test('rankUpTalent : le palier 5 ne propose pas un type déjà pris au palier 4 
   expect(spentPoints(m.talents)).toBe(40);
   expect(m.talentTypeChoices.affinity1).toBe('normal');
 
-  expect(rankUpTalent(s, uid, 'affinity2', 'normal')).toBe(false); // déjà pris au palier 4, poison dispo
-  expect(rankUpTalent(s, uid, 'affinity2', 'poison')).toBe(true);
-  expect(m.talentTypeChoices.affinity2).toBe('poison');
+  expect(rankUpTalent(s, uid, 'affinity2', 'normal')).toBe(true); // même type que le palier 4 : autorisé
+  expect(m.talentTypeChoices.affinity2).toBe('normal');
 });
 
 test('rankUpTalent : un Pokémon Nv.100 peut maxer les 12 talents (paliers 1 à 9), pile 100 points dépensés', () => {

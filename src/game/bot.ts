@@ -60,8 +60,7 @@ function manage(s: GameState, rng: Rng, threat: PType[] = []) {
     for (const id of ['power', 'vigor', 'guard', 'reflex', 'spec', 'mastery']) while (rankUpTalent(s, m.uid, id));
     // affinités (paliers 4-5) : type choisi au 1er rang, ignoré ensuite ; on prend le 1er type éligible
     for (const id of ['affinity1', 'affinity2']) {
-      const exclude = Object.entries(m.talentTypeChoices).filter(([k]) => k !== id).map(([, v]) => v);
-      const type = eligibleAffinityTypes(m.speciesId, exclude)[0];
+      const type = eligibleAffinityTypes(m.speciesId)[0];
       while (rankUpTalent(s, m.uid, id, type));
     }
     // paliers 6-9 : rang fixe, pas de choix

@@ -32,9 +32,9 @@ test('eligibleAffinityTypes : types du movepool complet, hors des types propres 
 
 test('eligibleAffinityTypes : exclut un type déjà pris ailleurs, sauf si ça ne laisserait plus rien', () => {
   expect(eligibleAffinityTypes(27)).toEqual(['normal', 'poison']); // Sabelette : 2 options
-  expect(eligibleAffinityTypes(27, ['normal'])).toEqual(['poison']); // la 2e case ne propose plus Normal
+  expect(eligibleAffinityTypes(27)).toContain('normal'); // la 2e Affinité peut reprendre le même type
   // Dracaufeu n'a qu'une seule option : l'exclure ne bloque pas l'emplacement, elle reste proposée
-  expect(eligibleAffinityTypes(6, ['normal'])).toEqual(['normal']);
+  expect(eligibleAffinityTypes(6)).toEqual(['normal']);
 });
 
 test('eligibleAffinityTypes : ignore les types qui ne viennent que d’une capacité de statut/buff/soin (aucun dégât à booster)', () => {
