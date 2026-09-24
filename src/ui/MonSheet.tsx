@@ -4,7 +4,7 @@ import { cdFactor } from '../game/battle';
 import { Move, learnedMoves, move, evolutionTargets, species } from '../game/data';
 import { regionOf } from '../game/content';
 import {
-  CANDY_XP, GENE_MAX, GeneKey, MEGA_CANDY_COST, TEAM_SIZE, applyMegaCandy, autoEquipBest, canEvolve, craftMegaCandy, equip,
+  CANDY_XP, GENE_MAX, GeneKey, MEGA_CANDY_COST, TEAM_SIZE, applyMegaCandy, autoEquipBest, canEvolve, craftMegaCandy, equip, isTargeted, toggleTarget,
   evolve, feedCandy, heldItems, holder, lineBase, rankUpTalent, autoTalents, equipGain, release, resetTalents, setMoves, setTeam, unequip,
 } from '../game/game';
 import { itemScore, slotOf, template } from '../game/items';
@@ -281,6 +281,10 @@ export function MonSheet() {
           <Text style={styles.section}>Bonbons {sp.name} · {candies}</Text>
           <Button small label={`Donner un bonbon (+${CANDY_XP} XP)`} disabled={!candies}
             onPress={() => { const r = act((g) => feedCandy(g, mon.uid)); if (r?.levels) toast(`${sp.name} passe au niveau ${mon.level} !`); }} />
+
+          <Button small color={isTargeted(s, mon.speciesId) ? '#2e7d32' : undefined}
+            label={isTargeted(s, mon.speciesId) ? '🎯 Lignée ciblée : capture auto (toucher pour arrêter)' : '🎯 Cibler la lignée (capture auto, farm de bonbons)'}
+            onPress={() => { feedback(); act((g) => toggleTarget(g, mon.speciesId)); }} />
 
           <Text style={styles.section}>Méga bonbons · {megaCandies}</Text>
           <Button small label={`Fabriquer 1 méga bonbon (${MEGA_CANDY_COST} bonbons)`} disabled={candies < MEGA_CANDY_COST}

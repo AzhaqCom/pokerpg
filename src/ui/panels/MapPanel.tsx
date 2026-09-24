@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BIOMES, BiomeDef, REGION_START, STAGES_PER_ZONE, ZoneDef } from '../../game/content';
 import { species } from '../../game/data';
-import { GameState, arenaAvailable, biomeAvailable, bossAvailable, selectStage } from '../../game/game';
+import { GameState, arenaAvailable, biomeAvailable, bossAvailable, selectStage, zoneHasTarget } from '../../game/game';
 import { useGame } from '../../store/game';
 import { Button } from '../components/Button';
 import { MonThumb } from '../components/MonThumb';
@@ -61,7 +61,7 @@ function BiomeSection({ biome, bi, s, act, onOpenZone }: {
           <View key={z.name} style={[styles.zone, locked && { opacity: 0.45 }]}>
             <Pressable disabled={locked} onPress={() => onOpenZone(z)}>
               <View style={styles.row}>
-                <Text style={styles.zoneName}>{z.name}</Text>
+                <Text style={styles.zoneName}>{zoneHasTarget(s, bi, zi) ? '🎯 ' : ''}{z.name}</Text>
                 <Text style={styles.sub}>Niv. {z.minLv}–{z.maxLv}</Text>
                 {s.bossesBeaten[bi][zi] && <Text style={styles.done}>✔ boss</Text>}
               </View>
@@ -99,9 +99,12 @@ function BiomeSection({ biome, bi, s, act, onOpenZone }: {
               })}
               {!s.bossesBeaten[bi][zi] && (
                 <Button small label={`Boss : ${species(z.boss.speciesId).name} Nv.${z.boss.level}`} color={bossAvailable(s, bi, zi) ? '#c62828' : C.panel2}
-                  disabled={!bossAvailable(s, bi, zi)} onPress={() => { feedback('tap', true); act((g) => selectStage(g, bi, zi, STAGES_PER_ZONE)); runner.request('boss'); }} />
+                  disabled={!bossAvailable(s, bi, zi)} onPress={() => { feedback('tap', true); act((g) => selectStage(g, bi, zi, STAGES_PER_ZONE, false)); runner.request('boss'); }} />
               )}
             </View>
+            {s.fixedStage !== null && s.biome === bi && s.zone === zi && (
+              <Text style={styles.sub}>📌 Étape fixée : {Math.min(s.fixedStage, zoneUnlocked)} (réglage « Avancer dans les étapes » désactivé)</Text>
+            )}
             {!locked && !bossAvailable(s, bi, zi) && !s.bossesBeaten[bi][zi] && <Text style={styles.sub}>Termine l'étape 5 pour affronter le boss.</Text>}
           </View>
         );

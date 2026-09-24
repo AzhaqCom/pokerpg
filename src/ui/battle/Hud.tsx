@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { BIOMES, STAGES_PER_ZONE, regionLastBiome, regionOf } from '../../game/content';
 import { species } from '../../game/data';
-import { addMon, arenaAvailable, bossAvailable, equip, makeMon, setTeam } from '../../game/game';
+import { addMon, arenaAvailable, bossAvailable, equip, makeMon, setAutoAdvance, setTeam, toggleTarget } from '../../game/game';
 import { makeItem } from '../../game/items';
 import { RARITIES, RARITY_COLOR } from '../../game/model';
 import { rng, useGame } from '../../store/game';
@@ -66,6 +66,8 @@ export function HudBottom() {
 
 function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const st = useSettings();
+  const s = useGame((g) => g.s)!;
+  useGame((g) => g.rev);
   const reset = useGame((g) => g.reset);
   const act = useGame((g) => g.act);
   const [dialog, setDialog] = useState<DialogSpec | null>(null);
@@ -83,18 +85,41 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
           <Button small label="❔ Aide : auras & talents par type" onPress={() => setHelp(true)} />
           <HelpScreen open={help} onClose={() => setHelp(false)} />
           <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ gap: 12 }}>
+            <Section title="🔊 Son et écran" />
             <Row label="Sons" value={st.sound} onChange={(v) => st.set({ sound: v })} />
             <Row label="Musique" value={st.music} onChange={(v) => st.set({ music: v })} />
             <Row label="Vibrations" value={st.haptics} onChange={(v) => st.set({ haptics: v })} />
+            <Row label="Garder l'écran allumé" value={st.keepAwake} onChange={(v) => st.set({ keepAwake: v })} />
+
+            <Section title="⚔️ Combat" />
+            <Row label="Avancer dans les étapes" value={s.fixedStage === null} onChange={(v) => act((g) => setAutoAdvance(g, v))} />
+
+            <Section title="⚪ Capture" />
             <Row label="Capturer automatiquement les Pokémon manquants" value={st.autoCapture} onChange={(v) => st.set({ autoCapture: v })} />
             {st.autoCapture && (
-              <>
-                <Row label="Toujours utiliser la meilleure Ball" value={st.autoCaptureBestBall} onChange={(v) => st.set({ autoCaptureBestBall: v })} />
-                <Row label="Essayer d'améliorer les Pokémon sous 3★" value={st.autoCaptureUpgrade} onChange={(v) => st.set({ autoCaptureUpgrade: v })} />
-              </>
+              <Row sub label="Essayer d'améliorer les Pokémon sous 3★" value={st.autoCaptureUpgrade} onChange={(v) => st.set({ autoCaptureUpgrade: v })} />
+            )}
+            {(st.autoCapture || s.targets.length > 0) && (
+              <Row label="Toujours utiliser la meilleure Ball" value={st.autoCaptureBestBall} onChange={(v) => st.set({ autoCaptureBestBall: v })} />
             )}
             <Row label="Ne pas proposer un Pokémon déjà possédé (3★+)" value={st.hideOwnedOffers} onChange={(v) => st.set({ hideOwnedOffers: v })} />
             <Row label="Ne pas capturer un chromatique déjà obtenu" value={st.skipOwnedShiny} onChange={(v) => st.set({ skipOwnedShiny: v })} />
+
+            <Section title="🎯 Cibles" />
+            <Row label="Convertir les cibles en bonbons" value={st.convertTargets} onChange={(v) => st.set({ convertTargets: v })} />
+            {s.targets.length ? (
+              <View style={styles.chipsRow}>
+                {s.targets.map((base) => (
+                  <Pressable key={base} onPress={() => { feedback(); act((g) => toggleTarget(g, base)); }} style={styles.chip}>
+                    <Text style={styles.chipTxt}>{species(base).name} ✕</Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.hint}>Aucune cible : utilise 🎯 dans la fiche d'un Pokémon.</Text>
+            )}
+
+            <Section title="📦 Boîte et objets" />
             <Row label="Collectionneur hardcore" value={st.keepEvolutionMaterial} onChange={(v) => st.set({ keepEvolutionMaterial: v })} />
             <View style={{ gap: 6 }}>
               <Text style={styles.setLabel}>Recycler : jusqu'à</Text>
@@ -109,8 +134,8 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
             </View>
             <Row label="Recycler auto hors ligne" value={st.idleAutoRecycle} onChange={(v) => st.set({ idleAutoRecycle: v })} />
             {st.idleAutoRecycle && (
-              <View style={{ gap: 6 }}>
-                <Text style={styles.setLabel}>Recyclage hors ligne : jusqu'à</Text>
+              <View style={{ gap: 6, paddingLeft: 14 }}>
+                <Text style={styles.setLabel}>↳ Recyclage hors ligne : jusqu'à</Text>
                 <View style={styles.chipsRow}>
                   {RARITIES.map((name, i) => (
                     <Pressable key={name} onPress={() => st.set({ idleRecycleMaxRarity: i })}
@@ -120,56 +145,6 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
                   ))}
                 </View>
               </View>
-            )}
-            {__DEV__ && (
-              <Button label="🐛 Debug : +10 Pokémon dans la boîte" color="#37474f" onPress={() => {
-                act((g) => { const max = regionOf(g.prestige).dexMax; for (let i = 0; i < 10; i++) addMon(g, makeMon(1 + rng.int(max), 5 + rng.int(20), rng, rng.int(20) === 0, 8)); });
-                feedback();
-              }} />
-            )}
-            {__DEV__ && (
-              <Button label="🐛 Debug : tout le Pokédex de la région Nv.100 dans la boîte" color="#37474f" onPress={() => {
-                act((g) => { const max = regionOf(g.prestige).dexMax; for (let id = 1; id <= max; id++) addMon(g, makeMon(id, 100, rng, false, 15)); });
-                feedback();
-              }} />
-            )}
-            {__DEV__ && (
-              <Button label="🐛 Debug : équipe Nv.100 full stuff, 8 badges (test prestige)" color="#37474f" onPress={() => {
-                act((g) => {
-                  const team = [6, 9, 65].map((id) => makeMon(id, 100, rng, false, 15));
-                  for (const m of team) {
-                    addMon(g, m);
-                    for (const templateId of ['gantelet-champion', 'cape-champion', 'baie-champion']) {
-                      const item = makeItem(templateId, 6, 100, rng);
-                      g.items[item.uid] = item;
-                      equip(g, m.uid, item.uid);
-                    }
-                  }
-                  setTeam(g, team.map((m) => m.uid));
-                  g.badges = 8;
-                  const base = regionOf(g.prestige).start;
-                  for (let i = base; i < base + 8; i++) {
-                    g.arenaBeaten[i] = true;
-                    g.bossesBeaten[i] = g.bossesBeaten[i].map(() => true);
-                    g.unlocked[i] = g.unlocked[i].map(() => 5);
-                  }
-                  g.unlocked[base + 8][0] = Math.max(1, g.unlocked[base + 8][0]);
-                  g.biome = base + 8; g.zone = 0; g.stage = 1;
-                });
-                runner.restart();
-                feedback();
-              }} />
-            )}
-            {__DEV__ && (
-              <Button label="🐛 Debug : Onix/Steelix/Lugia en équipe (test sprites géants)" color="#37474f" onPress={() => {
-                act((g) => {
-                  const team = [95, 208, 249].map((id) => makeMon(id, 50, rng, false, 15));
-                  for (const m of team) addMon(g, m);
-                  setTeam(g, team.map((m) => m.uid));
-                });
-                runner.restart();
-                feedback();
-              }} />
             )}
             {__DEV__ && (
               <Button label="🐛 Debug : Pokédex complet, plus que le Champion à battre (test écran de fin)" color="#37474f" onPress={() => {
@@ -223,10 +198,15 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
   );
 }
 
-function Row({ label, value, onChange }: { label: string; value: boolean; onChange: (v: boolean) => void }) {
+function Section({ title }: { title: string }) {
+  return <Text style={styles.section}>{title}</Text>;
+}
+
+/** `sub` : option qui dépend de celle du dessus (décalée, préfixée par ↳). */
+function Row({ label, value, onChange, sub }: { label: string; value: boolean; onChange: (v: boolean) => void; sub?: boolean }) {
   return (
-    <View style={styles.setRow}>
-      <Text style={styles.setLabel}>{label}</Text>
+    <View style={[styles.setRow, sub && { paddingLeft: 14 }]}>
+      <Text style={styles.setLabel}>{sub ? `↳ ${label}` : label}</Text>
       <Switch value={value} onValueChange={onChange} trackColor={{ true: C.accent, false: C.line }} thumbColor="#fff" />
     </View>
   );
@@ -247,6 +227,9 @@ const styles = StyleSheet.create({
   title: { color: C.text, fontSize: 20, fontWeight: '900' },
   setRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
   setLabel: { color: C.text, fontSize: 15, flex: 1 },
+  section: { color: C.sub, fontSize: 12, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 6,
+    borderBottomWidth: 1, borderBottomColor: C.line, paddingBottom: 4 },
+  hint: { color: C.dim, fontSize: 12 },
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: { backgroundColor: C.panel2, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
   chipTxt: { color: C.text, fontSize: 12, fontWeight: '700' },

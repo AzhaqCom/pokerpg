@@ -9,7 +9,7 @@ import { BIOMES, REGION_START } from '../../game/content';
 import { species } from '../../game/data';
 import {
   BETWEEN_WAVES_MS, CaptureOffer, StageKind, StageRun, WaveRewards, arenaAvailable, autoCaptureBall, bestStarsOf, bossAvailable,
-  touchLastActive, tryCapture,
+  captureTarget, isTargeted, touchLastActive, tryCapture,
 } from '../../game/game';
 import { RARITIES, RARITY_COLOR } from '../../game/model';
 import { template } from '../../game/items';
@@ -173,7 +173,15 @@ class Runner {
         const known = s.dex.caught.includes(capture.speciesId);
         const settings = useSettings.getState();
         const belowThreeStars = bestStarsOf(s, capture.speciesId) < 3;
-        if (settings.hideOwnedOffers && known && !belowThreeStars) {
+        const targetBall = isTargeted(s, capture.speciesId) ? autoCaptureBall(s, settings.autoCaptureBestBall) : null;
+        if (targetBall) {
+          // lignée ciblée (🎯) : capture auto même déjà possédée, conversion en bonbons selon le réglage
+          const name = species(capture.speciesId).name;
+          const r = useGame.getState().act((st) => captureTarget(st, capture, targetBall, rng, settings.convertTargets));
+          if (!r?.mon) toast(`🎯 ${name} s'est échappé…`, '#ff8a80');
+          else if (r.kept) { sfx('hatch'); toast(`🎯 ${name} rejoint ta boîte !`, '#7CFC00'); }
+          else toast(`🎯 ${name} capturé → +${r.candies} bonbons`, '#7CFC00');
+        } else if (settings.hideOwnedOffers && known && !belowThreeStars) {
           // espèce déjà possédée en bonne qualité : offre ignorée, pas d'affichage
         } else if (settings.autoCapture && (!known || (settings.autoCaptureUpgrade && belowThreeStars))) {
           const ball = autoCaptureBall(s, settings.autoCaptureBestBall);

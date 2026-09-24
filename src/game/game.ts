@@ -60,6 +60,17 @@ export interface GameState {
   biome: number;
   zone: number;
   stage: number;
+  /**
+   * Réglage « Avancer dans les étapes » désactivé : étape plafond où l'équipe reste farmer (au premier plan
+   * comme hors ligne). Après un K.O. elle recule d'une étape puis regrimpe jusqu'à elle, jamais au-delà ;
+   * suit la zone en cours (plafonnée à ses étapes débloquées). `null` = avance automatique (défaut).
+   */
+  fixedStage: number | null;
+  /**
+   * Lignées ciblées (base de lignée, voir `lineBase`) : toute offre de capture d'un membre de la lignée est
+   * capturée automatiquement, même déjà possédé, en combat comme hors ligne (farm de bonbons).
+   */
+  targets: number[];
   /** plus haute étape débloquée, par biome puis par zone : unlocked[biome][zone] */
   unlocked: number[][];
   bossesBeaten: boolean[][];
@@ -85,7 +96,7 @@ export function newGame(): GameState {
   return {
     version: 1, starterChosen: false, mons: {}, team: [], pension: [], exploration: [], items: {},
     shards: 0, balls: { poke: START_BALLS, super: 0, hyper: 0 }, lastFreeBallsDay: 0, missStreak: 0,
-    biome: 0, zone: 0, stage: 1,
+    biome: 0, zone: 0, stage: 1, fixedStage: null, targets: [],
     unlocked: BIOMES.map((b, i) => b.zones.map((_, j) => (i === 0 && j === 0 ? 1 : 0))),
     bossesBeaten: BIOMES.map((b) => b.zones.map(() => false)),
     arenaBeaten: BIOMES.map(() => false),
@@ -372,6 +383,9 @@ export function resetTalents(s: GameState, uid: string): boolean {
   return true;
 }
 
+/** Bonbons de la lignée obtenus en relâchant un Pokémon. */
+export const RELEASE_CANDIES = 3;
+
 /** Relâcher : 3 bonbons de la lignée. Impossible pour le dernier Pokémon de l'équipe. */
 export function release(s: GameState, uid: string): boolean {
   if (s.team.length === 1 && s.team[0] === uid) return false;
@@ -379,7 +393,7 @@ export function release(s: GameState, uid: string): boolean {
   if (!mon) return false;
   for (const slot of Object.keys(mon.items) as ItemSlot[]) delete mon.items[slot];
   const base = lineBase(mon.speciesId);
-  s.candies[base] = (s.candies[base] ?? 0) + 3;
+  s.candies[base] = (s.candies[base] ?? 0) + RELEASE_CANDIES;
   s.team = s.team.filter((u) => u !== uid);
   s.pension = s.pension.filter((p) => p.uid !== uid);
   s.exploration = s.exploration.filter((p) => p.uid !== uid);
@@ -1081,8 +1095,8 @@ function onStageWon(s: GameState, kind: StageKind, biome: number, zone: number, 
   s.totals.stagesCleared++;
   if (kind === 'stage') {
     if (stage >= s.unlocked[biome][zone] && stage < STAGES_PER_ZONE) s.unlocked[biome][zone] = stage + 1;
-    // avance automatiquement jusqu'à la dernière étape débloquée, puis y reste (farm)
-    s.stage = Math.min(s.unlocked[biome][zone], stage + 1);
+    // avance automatiquement jusqu'à la dernière étape débloquée (ou l'étape fixée), puis y reste (farm)
+    s.stage = Math.min(s.unlocked[biome][zone], stage + 1, s.fixedStage ?? STAGES_PER_ZONE);
   } else if (kind === 'boss') {
     s.bossesBeaten[biome][zone] = true;
     if (zone + 1 < BIOMES[biome].zones.length) {
@@ -1112,7 +1126,7 @@ function onStageWon(s: GameState, kind: StageKind, biome: number, zone: number, 
 function onStageLost(s: GameState, kind: StageKind) {
   if (kind !== 'stage') return;
   if (s.stage > 1) s.stage--;
-  else if (s.zone > 0) { s.zone--; s.stage = s.unlocked[s.biome][s.zone]; }
+  else if (s.zone > 0 && s.fixedStage === null) { s.zone--; s.stage = s.unlocked[s.biome][s.zone]; }
 }
 
 export function bossAvailable(s: GameState, biome = s.biome, zone = s.zone) {
@@ -1135,6 +1149,8 @@ function zoneFullyFarmed(s: GameState, biome: number, zone: number): boolean {
 export function idleFarmTarget(s: GameState): { biome: number; zone: number } {
   let biome = s.biome;
   let zone = s.zone;
+  if (s.fixedStage !== null) return { biome, zone }; // étape fixée : la position choisie est respectée
+  if (zoneHasTarget(s, biome, zone)) return { biome, zone }; // on ne quitte jamais la zone d'une cible
   for (let i = 0; i < BIOMES.length * STAGES_PER_ZONE; i++) {
     if (!zoneFullyFarmed(s, biome, zone)) break;
     let nb = biome;
@@ -1155,12 +1171,19 @@ export function biomeAvailable(s: GameState, biome: number) {
   return biome === 0 || s.arenaBeaten[biome - 1];
 }
 
-export function selectStage(s: GameState, biome: number, zone: number, stage: number) {
+/** `pin` : avec une étape fixée, l'étape choisie devient la nouvelle étape fixée (pas pour le raccourci boss). */
+export function selectStage(s: GameState, biome: number, zone: number, stage: number, pin = true) {
   if (biome < 0 || biome >= BIOMES.length || !biomeAvailable(s, biome)) return;
   if (zone < 0 || zone >= BIOMES[biome].zones.length || s.unlocked[biome][zone] < 1) return;
   s.biome = biome;
   s.zone = zone;
   s.stage = Math.max(1, Math.min(stage, s.unlocked[biome][zone]));
+  if (pin && s.fixedStage !== null) s.fixedStage = s.stage;
+}
+
+/** Réglage « Avancer dans les étapes » : désactivé, l'étape en cours devient l'étape fixée (voir `fixedStage`). */
+export function setAutoAdvance(s: GameState, on: boolean) {
+  s.fixedStage = on ? null : s.stage;
 }
 
 // ---------------------------------------------------------------- où trouver une espèce (Pokédex)
@@ -1270,6 +1293,45 @@ export function tryCapture(s: GameState, offer: CaptureOffer, ball: BallKind | n
   addMon(s, mon);
   s.totals.captures++;
   return mon;
+}
+
+// ---------------------------------------------------------------- cibles (farm de bonbons)
+/** Cibler/ne plus cibler la lignée d'une espèce (cibler Florizarre cible aussi Bulbizarre et Herbizarre). */
+export function toggleTarget(s: GameState, speciesId: number) {
+  const base = lineBase(speciesId);
+  s.targets = s.targets.includes(base) ? s.targets.filter((b) => b !== base) : [...s.targets, base];
+}
+
+export function isTargeted(s: GameState, speciesId: number): boolean {
+  return s.targets.length > 0 && s.targets.includes(lineBase(speciesId));
+}
+
+/** La zone contient-elle une espèce ciblée (légendaire vaincu `joinsPool` compris) ? */
+export function zoneHasTarget(s: GameState, biome: number, zone: number): boolean {
+  if (!s.targets.length) return false;
+  return effectivePool(BIOMES[biome].zones[zone], s.bossesBeaten[biome][zone]).some(([id]) => isTargeted(s, id));
+}
+
+/**
+ * Une capture ciblée va-t-elle en boîte (plutôt qu'en bonbons) ? Oui si elle est chromatique ou meilleure
+ * en étoiles que le meilleur exemplaire déjà possédé de l'espèce (`bestBefore`, 0 = jamais possédée).
+ */
+export function keepTargetCapture(mon: Mon, bestBefore: number): boolean {
+  return mon.shiny || monStars(mon) > bestBefore;
+}
+
+export interface TargetCaptureResult { mon: Mon | null; kept: boolean; candies: number }
+
+/**
+ * Capture automatique d'une offre ciblée (même règles que `tryCapture`). Avec `convert`, un exemplaire
+ * qui n'améliore rien (voir `keepTargetCapture`) est relâché aussitôt en bonbons.
+ */
+export function captureTarget(s: GameState, offer: CaptureOffer, ball: BallKind, rng: Rng, convert: boolean): TargetCaptureResult {
+  const bestBefore = bestStarsOf(s, offer.speciesId);
+  const mon = tryCapture(s, offer, ball, rng);
+  if (!mon) return { mon: null, kept: false, candies: 0 };
+  if (!convert || keepTargetCapture(mon, bestBefore) || !release(s, mon.uid)) return { mon, kept: true, candies: 0 };
+  return { mon, kept: false, candies: RELEASE_CANDIES };
 }
 
 export function buyBall(s: GameState, kind: BallKind): boolean {

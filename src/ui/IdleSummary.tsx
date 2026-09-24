@@ -40,6 +40,11 @@ function groupShinies(mons: IdleGains['shinies']) {
   return [...map.values()].map((g) => ({ ...g, levels: g.min === g.max ? `Nv.${g.min}` : `Nv.${g.min}-${g.max}` }));
 }
 
+function ballsLine(used: IdleGains['ballsUsed']): string {
+  const names = { poke: 'Poké', super: 'Super', hyper: 'Hyper' } as const;
+  return (['poke', 'super', 'hyper'] as const).filter((b) => used[b] > 0).map((b) => `${used[b]} ${names[b]}`).join(', ');
+}
+
 /** Résumé purement informatif : les gains sont déjà encaissés au calcul (voir `checkIdle` dans App.tsx). */
 export function IdleSummary({ gains, onClose }: { gains: IdleGains | null; onClose: () => void }) {
   const s = useGame((g) => g.s) as GameState | null;
@@ -76,6 +81,18 @@ export function IdleSummary({ gains, onClose }: { gains: IdleGains | null; onClo
                   </Text>
                 ))}
                 {gains.shardsFromRecycle > 0 && <Text style={styles.line}>💎 +{gains.shardsFromRecycle} éclats (recyclage auto)</Text>}
+                {Object.entries(gains.targetCaught).map(([id, n]) => (
+                  <Text key={`t${id}`} style={[styles.line, { color: '#7CFC00' }]}>
+                    🎯 {species(Number(id)).name} ×{n} capturé{n > 1 ? 's' : ''}
+                  </Text>
+                ))}
+                {Object.entries(gains.targetCandies).map(([base, n]) => (
+                  <Text key={`c${base}`} style={styles.line}>🍬 +{n} bonbons {species(Number(base)).name}</Text>
+                ))}
+                {gains.targetMons.length > 0 && (
+                  <Text style={styles.line}>📦 {gains.targetMons.length} gardé{gains.targetMons.length > 1 ? 's' : ''} en boîte (meilleur que ton meilleur exemplaire)</Text>
+                )}
+                {ballsLine(gains.ballsUsed) && <Text style={styles.line}>⚪ Balls utilisées : {ballsLine(gains.ballsUsed)}</Text>}
                 {groupShinies(gains.shinies).map((g) => (
                   <Text key={g.speciesId} style={[styles.line, { color: '#ff5ec4' }]}>
                     ✨ {species(g.speciesId).name} chromatique {g.levels}{g.count > 1 ? ` ×${g.count}` : ''} capturé{g.count > 1 ? 's' : ''} !

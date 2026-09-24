@@ -4,7 +4,8 @@ import {
   GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, applyMegaCandy, craftMegaCandy, lineBase, arenaAvailable, assignExploration, assignPension, autoCaptureBall, autoEquipBest, bestStarsOf, biomeAvailable, bossAvailable,
   lineChain, autoTalents, canCompleteDex, whereToFind, canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
   harvestExploration, harvestPension, holder, isRareInZone, makeMon, addMon, makeWaves, migrateSave, monsBelowStars, monsNotShiny, newGame, pickSpecies, rankUpTalent, recycle, release, releaseBelowStars, SHARDS_PER_MIN,
-  releaseExcess, releaseNotShiny, remainingEvolutions, removePension, selectStage, START_BALLS, startPrestige, teamMaxLevel, tryCapture, unequipBox, xpGapMult,
+  releaseExcess, releaseNotShiny, remainingEvolutions, removePension, selectStage, setAutoAdvance, START_BALLS, startPrestige,
+  CAPTURE_PITY, RELEASE_CANDIES, captureTarget, idleFarmTarget, isTargeted, toggleTarget, zoneHasTarget, teamMaxLevel, tryCapture, unequipBox, xpGapMult,
 } from '../game';
 import { SETS, TEMPLATES, makeItem } from '../items';
 import { emptyBonuses } from '../model';
@@ -63,6 +64,124 @@ test('étapes : victoire débloque la suivante, 5 étapes → boss, boss → zon
   expect(s.bossesBeaten[0][0]).toBe(true);
   expect(s.zone).toBe(1);
   expect(Object.keys(s.items).length).toBeGreaterThanOrEqual(3); // butin garanti du boss
+});
+
+describe('réglage « Avancer dans les étapes » (étape fixée)', () => {
+  test('activé par défaut : une étape gagnée fait passer à la suivante', () => {
+    const s = strongGame();
+    expect(s.fixedStage).toBeNull();
+    s.unlocked[0][0] = 5;
+    s.stage = 2;
+    expect(play(new StageRun(s, 'stage', seededRng(1)))).toBe('win');
+    expect(s.stage).toBe(3);
+  });
+
+  test('désactivé : l’étape en cours devient l’étape fixée, une étape gagnée est rejouée, la suivante reste débloquée', () => {
+    const s = strongGame();
+    s.stage = 1;
+    setAutoAdvance(s, false);
+    expect(s.fixedStage).toBe(1);
+    expect(play(new StageRun(s, 'stage', seededRng(2)))).toBe('win');
+    expect(s.stage).toBe(1);
+    expect(s.unlocked[0][0]).toBe(2); // la progression n'est pas bloquée, seule l'avance automatique l'est
+    setAutoAdvance(s, true);
+    expect(s.fixedStage).toBeNull();
+  });
+
+  test('désactivé : choisir une étape sur la Carte déplace l’étape fixée, pas le raccourci boss', () => {
+    const s = strongGame();
+    s.unlocked[0][0] = 5;
+    s.stage = 2;
+    setAutoAdvance(s, false);
+    selectStage(s, 0, 0, 4);
+    expect(s.fixedStage).toBe(4);
+    selectStage(s, 0, 0, 5, false);
+    expect(s.fixedStage).toBe(4);
+  });
+
+  test('désactivé : après un K.O. on recule d’une étape puis on regrimpe jusqu’à l’étape fixée, jamais au-delà', () => {
+    const s = strongGame();
+    s.unlocked[0][0] = 5;
+    s.stage = 3;
+    setAutoAdvance(s, false);
+    // K.O. simulé : même règle qu'une défaite réelle (onStageLost)
+    const weak = newGame();
+    const lose = makeMon(1, 2, seededRng(1));
+    addMon(weak, lose);
+    weak.unlocked[0][2] = 5; weak.zone = 2; weak.stage = 1; weak.fixedStage = 3;
+    expect(play(new StageRun(weak, 'stage', seededRng(3)))).toBe('lose');
+    expect(weak.zone).toBe(2); // étape fixée : jamais de recul de zone
+    expect(weak.stage).toBe(1);
+    // l'équipe forte, elle, regrimpe de 2 à 3 et y reste
+    s.stage = 2;
+    expect(play(new StageRun(s, 'stage', seededRng(4)))).toBe('win');
+    expect(s.stage).toBe(3);
+    expect(play(new StageRun(s, 'stage', seededRng(5)))).toBe('win');
+    expect(s.stage).toBe(3);
+  });
+
+  test('activé : un K.O. à l’étape 1 fait reculer d’une zone (comportement inchangé)', () => {
+    const weak = newGame();
+    addMon(weak, makeMon(1, 2, seededRng(1)));
+    weak.unlocked[0][1] = 5; weak.unlocked[0][2] = 5; weak.zone = 2; weak.stage = 1;
+    expect(play(new StageRun(weak, 'stage', seededRng(3)))).toBe('lose');
+    expect(weak.zone).toBe(1);
+  });
+});
+
+describe('cibles (🎯 farm de bonbons)', () => {
+  test('cibler une espèce cible toute sa lignée ; un second appui retire la cible', () => {
+    const s = newGame();
+    toggleTarget(s, 12); // Papilusion
+    expect(s.targets).toEqual([10]); // base de lignée : Chenipan
+    expect(isTargeted(s, 10)).toBe(true);
+    expect(isTargeted(s, 11)).toBe(true);
+    expect(isTargeted(s, 13)).toBe(false);
+    toggleTarget(s, 10);
+    expect(s.targets).toEqual([]);
+  });
+
+  test('une zone qui contient une cible est signalée, et le hors ligne ne la quitte pas même entièrement farmée', () => {
+    const s = strongGame();
+    s.bossesBeaten[0][0] = true;
+    for (const [id] of BIOMES[0].zones[0].pool) { s.dex.caught.push(id); s.dex.shiny.push(id); }
+    s.unlocked[0][1] = 1;
+    expect(idleFarmTarget(s).zone).toBe(1);
+    toggleTarget(s, 10);
+    expect(zoneHasTarget(s, 0, 0)).toBe(true);
+    expect(zoneHasTarget(s, 0, 1)).toBe(BIOMES[0].zones[1].pool.some(([id]) => isTargeted(s, id)));
+    expect(idleFarmTarget(s).zone).toBe(0);
+  });
+
+  test('capture ciblée : le 1er exemplaire va en boîte, un doublon qui n’améliore rien part en bonbons', () => {
+    const s = strongGame();
+    toggleTarget(s, 10);
+    const offer = { speciesId: 10, level: 5, shiny: false, rare: false };
+    s.missStreak = CAPTURE_PITY; // capture garantie par la pitié : test déterministe
+    const first = captureTarget(s, offer, 'poke', seededRng(1), true);
+    expect(first.kept).toBe(true);
+    first.mon!.genes = { hp: 15, atk: 15, def: 15, spe: 15 }; // 4★ : aucun doublon ne peut faire mieux
+    s.missStreak = CAPTURE_PITY;
+    const ballsBefore = s.balls.poke;
+    const second = captureTarget(s, offer, 'poke', seededRng(2), true);
+    expect(second.kept).toBe(false);
+    expect(second.candies).toBe(RELEASE_CANDIES);
+    expect(s.candies[10]).toBe(RELEASE_CANDIES);
+    expect(s.mons[second.mon!.uid]).toBeUndefined();
+    expect(s.balls.poke).toBe(ballsBefore - 1);
+    // sans conversion : tout va en boîte
+    s.missStreak = CAPTURE_PITY;
+    const third = captureTarget(s, offer, 'poke', seededRng(3), false);
+    expect(third.kept).toBe(true);
+    expect(s.mons[third.mon!.uid]).toBeDefined();
+  });
+
+  test('capture ciblée : un chromatique est toujours gardé', () => {
+    const s = strongGame();
+    const r = captureTarget(s, { speciesId: 10, level: 5, shiny: true, rare: false, guaranteed: true }, 'poke', seededRng(4), true);
+    expect(r.kept).toBe(true);
+    expect(s.mons[r.mon!.uid].shiny).toBe(true);
+  });
 });
 
 test('arène battue : biome suivant débloqué, badges +1', () => {

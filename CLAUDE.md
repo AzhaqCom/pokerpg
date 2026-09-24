@@ -18,7 +18,7 @@ par un prestige. 47 biomes. Fonctionnement des régions et recette d'ajout : `RE
 npm install
 npx expo start -c       # Expo Go / dev client
 npm run typecheck       # tsc --noEmit
-npx jest --testPathIgnorePatterns=balance.test.ts   # tests rapides (~130, ~20 s)
+npx jest --testPathIgnorePatterns=balance.test.ts   # tests rapides (~140, ~20 s)
 npx jest balance.test.ts                            # simulations de bout en bout (plusieurs minutes)
 eas build -p android --profile preview              # APK
 ```
@@ -102,8 +102,25 @@ Modules natifs : toujours `npx expo install <pkg>`. Skia 2.6.2 (épinglé) **exi
 - **Pension** (XP passive, 40 % de l'XP/h de l'équipe, taux rafraîchi à chaque récolte) et **Exploration**
   (`SHARDS_PER_MIN` = 3 éclats/min par Pokémon) : plafond 8 h, un Pokémon ne peut être que dans l'une des deux.
 - **Hors ligne** (`idle.ts`) : plafond 8 h (`IDLE_CAP_MS`), calcul par échantillon réel de combats, gains encaissés tout de
-  suite avec un résumé (`IdleSummary`). XP et butin sur l'étape 1 ; la **chasse aux chromatiques** farme l'étape en cours et
-  regrimpe après un K.O. (`idleShinyKills`). `idleFarmTarget` passe à la zone suivante quand la zone est entièrement farmée.
+  suite avec un résumé (`IdleSummary`). **XP, butin et chromatiques suivent tous l'étape en cours** (`idleRun`, 2026-09-24) :
+  +1 étape après 3 vagues gagnées (jamais au-delà de la plus haute débloquée), −1 étape après un K.O. (comme au premier plan,
+  sans changer de zone) ; au retour, la position affichée reprend l'étape atteinte (`endStage`). `IDLE_REWARD_MULT` = 1
+  (XP et butin, pas de réduction : la vitesse ×2 avantage déjà le jeu actif ; 0,8 = −20 %). `idleFarmTarget` passe à la
+  zone suivante (déjà débloquée) quand la zone est entièrement farmée. La pension (`teamXpPerHour`) mesure toujours l'étape 1.
+- **Réglage « Avancer dans les étapes »** (⚙, activé par défaut) : `GameState.fixedStage` (dans la sauvegarde, `null` =
+  avance auto). Désactivé (`setAutoAdvance`), l'étape en cours devient un plafond, au premier plan comme hors ligne : une
+  étape gagnée est rejouée (la suivante se débloque quand même), un K.O. recule d'une étape sans jamais changer de zone,
+  puis on regrimpe jusqu'au plafond ; choisir une étape sur la Carte déplace le plafond (`selectStage`, sauf raccourci
+  boss) ; le hors ligne ne passe plus à la zone suivante. La Carte affiche « 📌 Étape fixée » sous les étapes de la zone.
+- **Cibles 🎯 (farm de bonbons)** : `GameState.targets` = bases de lignée (`toggleTarget`, bouton dans la fiche Pokémon et
+  la fenêtre « où le trouver » du Pokédex ; 🎯 devant les zones concernées sur la Carte). Une offre de capture d'un membre
+  d'une lignée ciblée est capturée automatiquement, même déjà possédée (`captureTarget`, Ball selon « Toujours utiliser
+  la meilleure Ball »), en combat comme **hors ligne** (`idleTargetCaptures` : mêmes règles, stock de Balls seulement,
+  jamais d'achat, arrêt quand il est vide ; résumé au retour). Réglage `convertTargets` (défaut activé) : un exemplaire
+  qui n'est ni chromatique ni meilleur en étoiles que le meilleur possédé est relâché aussitôt (`RELEASE_CANDIES` = 3).
+  Le hors ligne ne quitte jamais une zone qui contient une cible (`zoneHasTarget` dans `idleFarmTarget`).
+- **Garder l'écran allumé** (réglage `keepAwake`, `expo-keep-awake`, module natif : nouvel APK nécessaire) : composant
+  `KeepAwake` monté dans `App.tsx` tant que le réglage est actif.
 - **Prestige** : voir `REGIONS.md`. Le `runner` ne consulte jamais `unlocked` : toute téléportation directe de
   `s.biome/zone/stage` (hors `selectStage`) doit débloquer la zone visée.
 - **Pokédex** : n'affiche que les espèces ≤ `dexMax` de la région ; toucher une espèce vue ouvre « où la trouver »

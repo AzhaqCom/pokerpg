@@ -4,7 +4,7 @@ import { regionOf } from '../../game/content';
 import { PType, species } from '../../game/data';
 import {
   GameState, canCompleteDex, canEvolve, completeDex, excessMons, monsBelowStars, monsNotShiny, releaseBelowStars,
-  releaseExcess, releaseNotShiny, setTeam, unequipBox,
+  isTargeted, releaseExcess, releaseNotShiny, setTeam, unequipBox,
 } from '../../game/game';
 import { Mon } from '../../game/model';
 import { monStars } from '../../game/stats';
@@ -90,7 +90,11 @@ export function TeamPanel() {
         removeClippedSubviews
         renderItem={({ item: m }: { item: Mon }) => (
           <Pressable onPress={() => openMon(m.uid)} style={[styles.boxCell, { width: cellWidth }]}>
-            <MonThumb speciesId={m.speciesId} shiny={m.shiny} size={48} />
+            <View>
+              <MonThumb speciesId={m.speciesId} shiny={m.shiny} size={48} />
+              {/* lignée ciblée (🎯) : en haut à gauche, à l'opposé du ✨ des chromatiques */}
+              {isTargeted(s, m.speciesId) && <Text style={styles.targetMark}>🎯</Text>}
+            </View>
             <Text style={styles.boxName} numberOfLines={1}>{monName(m)}</Text>
             <Text style={styles.boxLv}>Nv.{m.level}{pensionUids.has(m.uid) ? ' · 🏡' : explorationUids.has(m.uid) ? ' · 🧭' : ''}</Text>
             <Stars mon={m} size={9} />
@@ -279,6 +283,7 @@ const styles = StyleSheet.create({
   aura: { color: '#80cbc4', fontSize: 11 },
   flag: { color: '#fff', fontSize: 10, fontWeight: '800', backgroundColor: '#c0392b', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6, overflow: 'hidden' },
   boxCell: { alignItems: 'center', backgroundColor: C.panel, borderRadius: 12, paddingVertical: 6 },
+  targetMark: { position: 'absolute', top: -2, left: -4, fontSize: 11, opacity: 0.85 },
   boxName: { color: C.text, fontSize: 10, fontWeight: '700', maxWidth: 70 },
   boxLv: { color: C.sub, fontSize: 10 },
   chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: C.panel },

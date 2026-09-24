@@ -2,8 +2,9 @@ import { memo, useCallback, useState } from 'react';
 import { FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { regionOf } from '../../game/content';
 import { ALL_SPECIES, species as speciesOf } from '../../game/data';
-import { Habitat, whereToFind } from '../../game/game';
+import { Habitat, isTargeted, toggleTarget, whereToFind } from '../../game/game';
 import { useGame } from '../../store/game';
+import { Button } from '../components/Button';
 import { MonThumb } from '../components/MonThumb';
 import { TypeBadge } from '../components/TypeBadge';
 import { C } from '../theme';
@@ -94,6 +95,10 @@ function WhereModal({ id, prestige, onClose }: { id: number; prestige: number; o
   const sp = speciesOf(id);
   const w = whereToFind(id, prestige);
   const evolved = w.path.length > 1;
+  const s = useGame((g) => g.s)!;
+  useGame((g) => g.rev);
+  const act = useGame((g) => g.act);
+  const targeted = isTargeted(s, id);
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
@@ -131,6 +136,11 @@ function WhereModal({ id, prestige, onClose }: { id: number; prestige: number; o
               </>
             )}
           </ScrollView>
+          {w.source !== null && (
+            <Button small color={targeted ? '#2e7d32' : undefined}
+              label={targeted ? '🎯 Lignée ciblée : capture auto (toucher pour arrêter)' : '🎯 Cibler la lignée (capture auto, farm de bonbons)'}
+              onPress={() => act((g) => toggleTarget(g, id))} />
+          )}
         </Pressable>
       </Pressable>
     </Modal>

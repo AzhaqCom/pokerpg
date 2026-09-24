@@ -31,13 +31,18 @@ export interface Settings {
   /** « Nettoyer les doublons » garde en plus 1 exemplaire de réserve par étage d'évolution pas encore
    *  possédé (mode collectionneur complet) ; désactivé = mode léger, ne garde que ce qui est déjà possédé */
   keepEvolutionMaterial: boolean;
+  /** lignées ciblées (🎯) : une capture qui n'améliore rien (ni chromatique, ni plus d'étoiles que le meilleur
+   *  exemplaire) est relâchée aussitôt en bonbons, en combat comme hors ligne */
+  convertTargets: boolean;
+  /** empêche l'écran de se mettre en veille tant que le jeu est affiché (expo-keep-awake) */
+  keepAwake: boolean;
 }
 
 const DEFAULTS: Settings = {
   sound: true, music: true, haptics: true, fast: false,
   autoCapture: false, autoCaptureBestBall: false, autoCaptureUpgrade: false, hideOwnedOffers: false,
   recycleMaxRarity: 1, idleAutoRecycle: true, idleRecycleMaxRarity: 1, skipOwnedShiny: false,
-  keepEvolutionMaterial: true,
+  keepEvolutionMaterial: true, convertTargets: true, keepAwake: false,
 };
 
 interface Store extends Settings {
@@ -57,11 +62,11 @@ export const useSettings = create<Store>((set, get) => ({
     set(patch);
     const {
       sound, music, haptics, fast, autoCapture, autoCaptureBestBall, autoCaptureUpgrade, hideOwnedOffers,
-      recycleMaxRarity, idleAutoRecycle, idleRecycleMaxRarity, skipOwnedShiny, keepEvolutionMaterial,
+      recycleMaxRarity, idleAutoRecycle, idleRecycleMaxRarity, skipOwnedShiny, keepEvolutionMaterial, convertTargets, keepAwake,
     } = { ...get(), ...patch };
     AsyncStorage.setItem(KEY, JSON.stringify({
       sound, music, haptics, fast, autoCapture, autoCaptureBestBall, autoCaptureUpgrade, hideOwnedOffers,
-      recycleMaxRarity, idleAutoRecycle, idleRecycleMaxRarity, skipOwnedShiny, keepEvolutionMaterial,
+      recycleMaxRarity, idleAutoRecycle, idleRecycleMaxRarity, skipOwnedShiny, keepEvolutionMaterial, convertTargets, keepAwake,
     })).catch(() => {});
   },
 }));

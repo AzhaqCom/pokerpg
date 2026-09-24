@@ -1,3 +1,4 @@
+import { useKeepAwake } from 'expo-keep-awake';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
 import { AppState, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
@@ -45,8 +46,10 @@ function checkIdle(onGains: (g: IdleGains) => void) {
   const s = useGame.getState().s;
   if (!s || !s.starterChosen) return;
   const now = Date.now();
-  const { idleAutoRecycle, idleRecycleMaxRarity, skipOwnedShiny } = useSettings.getState();
-  const gains = computeIdleGains(s, now - s.lastActive, rng, { autoRecycle: idleAutoRecycle, recycleMaxRarity: idleRecycleMaxRarity, skipOwnedShiny });
+  const { idleAutoRecycle, idleRecycleMaxRarity, skipOwnedShiny, autoCaptureBestBall, convertTargets } = useSettings.getState();
+  const gains = computeIdleGains(s, now - s.lastActive, rng, {
+    autoRecycle: idleAutoRecycle, recycleMaxRarity: idleRecycleMaxRarity, skipOwnedShiny, bestBall: autoCaptureBestBall, convertTargets,
+  });
   useGame.getState().act((g) => {
     if (gains) applyIdleGains(g, gains);
     touchLastActive(g, now);
@@ -83,8 +86,15 @@ function useBoot(onIdleGains: (g: IdleGains) => void) {
   }, []);
 }
 
+/** Réglage « Garder l'écran allumé » : monté seulement quand il est activé (le hook libère la veille au démontage). */
+function KeepAwake() {
+  useKeepAwake();
+  return null;
+}
+
 function Main() {
   const { width } = useWindowDimensions();
+  const keepAwake = useSettings((st) => st.keepAwake);
   const tab = useUi((u) => u.tab);
   const setTab = useUi((u) => u.setTab);
   const s = useGame((g) => g.s)!;
@@ -97,6 +107,7 @@ function Main() {
   };
   return (
     <View style={{ flex: 1 }}>
+      {keepAwake && <KeepAwake />}
       <HudTop />
       <BattleView width={width} />
       <View style={{ height: 6 }} />
