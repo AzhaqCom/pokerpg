@@ -101,15 +101,14 @@ function Main() {
       <BattleView width={width} />
       <View style={{ height: 6 }} />
       <HudBottom />
-      {tab === 'bag' || tab === 'team' ? (
+      {tab === 'bag' || tab === 'team' || tab === 'dex' ? (
         // listes virtualisées (FlatList) : ne doivent jamais être imbriquées dans le ScrollView ci-dessous
-        <View style={{ flex: 1 }}>{tab === 'bag' ? <BagPanel /> : <TeamPanel />}</View>
+        <View style={{ flex: 1 }}>{tab === 'bag' ? <BagPanel /> : tab === 'dex' ? <DexPanel /> : <TeamPanel />}</View>
       ) : (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.panel}>
           {tab === 'map' && <MapPanel />}
           {tab === 'pension' && <PensionPanel />}
           {tab === 'exploration' && <ExplorationPanel />}
-          {tab === 'dex' && <DexPanel />}
         </ScrollView>
       )}
       <View style={styles.tabs}>

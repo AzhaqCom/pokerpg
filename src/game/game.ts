@@ -117,8 +117,9 @@ export function startPrestige(s: GameState): boolean {
   if (!canPrestige(s)) return false;
   const start = REGIONS[s.prestige + 1].start;
   s.mons = {}; s.team = []; s.pension = []; s.exploration = [];
-  s.items = {}; s.shards = 0; s.balls = { poke: 10, super: 0, hyper: 0 };
+  s.items = {}; s.shards = 0; s.balls = { poke: START_BALLS, super: 0, hyper: 0 };
   s.badges = 0;
+  s.startedAt = Date.now(); // le récap de prestige compte le temps passé dans la région qui vient de finir
   s.dex = { seen: [], caught: [], shiny: [] };
   s.biome = start; s.zone = 0; s.stage = 1;
   s.unlocked[start][0] = Math.max(1, s.unlocked[start][0]); // sinon la 1re zone de la région reste verrouillée

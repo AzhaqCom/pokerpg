@@ -358,7 +358,7 @@ export const BIOMES: BiomeDef[] = [
     zones: [
       {
         name: 'Lisière Grouillante', minLv: 19, maxLv: 22, biome: 'forest',
-        pool: [[14, 25], [11, 25], [10, 20], [13, 20], [190, 10], [46, 15], [43, 10], [1, 10]],
+        pool: [[14, 25], [11, 25], [10, 20], [13, 20], [190, 10], [46, 15], [43, 10], [1, 10], [4, 10]],
         boss: { speciesId: 46, level: 22 },
       },
       {
@@ -385,7 +385,7 @@ export const BIOMES: BiomeDef[] = [
       {
         // Route 34 (Day Care) canon, juste à côté de Doré/Goldenrod : Pichu y trouve sa place.
         name: 'Champs de Doré', minLv: 30, maxLv: 31, biome: 'meadow',
-        pool: [[161, 20], [173, 20], [175, 20], [174, 15], [16, 15], [172, 5], [191, 5], [39, 15], [25, 5], [152, 10]],
+        pool: [[161, 20], [173, 20], [175, 20], [174, 15], [16, 15], [172, 5], [191, 5], [39, 15], [25, 5], [152, 10], [155, 10]],
         boss: { speciesId: 39, level: 31 },
       },
       {
@@ -414,7 +414,7 @@ export const BIOMES: BiomeDef[] = [
     zones: [
       {
         name: 'Rez-de-Tour', minLv: 35, maxLv: 37, biome: 'temple',
-        pool: [[92, 25], [200, 20], [185, 20], [201, 15], [93, 10], [63, 10], [4, 10]],
+        pool: [[92, 25], [200, 20], [185, 20], [201, 15], [93, 10], [63, 10]],
         boss: { speciesId: 93, level: 38 },
       },
       {
@@ -440,7 +440,7 @@ export const BIOMES: BiomeDef[] = [
     zones: [
       {
         name: 'Cour d’Entraînement', minLv: 42, maxLv: 47, biome: 'temple',
-        pool: [[236, 30], [66, 30], [56, 25], [67, 15], [27, 10], [50, 10], [155, 10]],
+        pool: [[236, 30], [66, 30], [56, 25], [67, 15], [27, 10], [50, 10]],
         boss: { speciesId: 57, level: 47 },
       },
       {

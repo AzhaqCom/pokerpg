@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { regionOf } from '../../game/content';
 import { ALL_SPECIES, species as speciesOf } from '../../game/data';
 import { Habitat, whereToFind } from '../../game/game';
@@ -26,8 +26,8 @@ export function DexPanel() {
   // doit pas trahir la génération suivante avant que le joueur l'ait débloquée.
   const maxId = regionOf(s.prestige).dexMax;
   const species = ALL_SPECIES.filter((sp) => sp.id <= maxId);
-  return (
-    <View style={{ gap: 10 }}>
+  const header = (
+    <View style={{ gap: 10, marginBottom: 10 }}>
       <View style={styles.row}>
         <Text style={styles.count}>{s.dex.caught.length}<Text style={styles.dim}>/{maxId} capturés</Text></Text>
         <Text style={styles.dim}>{s.dex.seen.length} vus · ✨ {s.dex.shiny.length}</Text>
@@ -36,21 +36,37 @@ export function DexPanel() {
         <Pressable onPress={() => setShiny(false)} style={[styles.chip, !shiny && styles.chipOn]}><Text style={styles.chipTxt}>Normaux</Text></Pressable>
         <Pressable onPress={() => setShiny(true)} style={[styles.chip, shiny && styles.chipGold]}><Text style={styles.chipTxt}>Chromatiques</Text></Pressable>
       </View>
-      <View style={styles.grid}>
-        {species.map((sp) => {
+    </View>
+  );
+  return (
+    <>
+      {/* liste virtualisée : jusqu'à 493 cases, seules celles à l'écran sont montées (rendue hors du ScrollView, voir App.tsx) */}
+      <FlatList
+        data={species}
+        keyExtractor={(sp) => String(sp.id)}
+        numColumns={GRID_COLS}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: SCREEN_PADDING / 2, paddingBottom: 40 }}
+        columnWrapperStyle={{ gap: GRID_GAP }}
+        ListHeaderComponent={header}
+        initialNumToRender={28}
+        windowSize={5}
+        removeClippedSubviews
+        extraData={[shiny, s.dex.caught.length, s.dex.seen.length, s.dex.shiny.length]}
+        renderItem={({ item: sp }) => {
           const got = caught.has(sp.id);
           const saw = seen.has(sp.id);
           return (
-            <Pressable key={sp.id} style={[styles.cell, { width: cellWidth }]} onPress={() => { if (saw || got) setOpen(sp.id); }}>
+            <Pressable style={[styles.cell, { width: cellWidth }]} onPress={() => { if (saw || got) setOpen(sp.id); }}>
               <MonThumb speciesId={sp.id} shiny={shiny} size={46} silhouette={!got} style={!got && !saw ? { opacity: 0.25 } : undefined} />
               <Text style={styles.num}>#{String(sp.id).padStart(3, '0')}</Text>
               <Text style={[styles.name, !got && { color: C.dim }]} numberOfLines={1}>{saw || got ? sp.name : '???'}</Text>
             </Pressable>
           );
-        })}
-      </View>
+        }}
+      />
       {open !== null && <WhereModal id={open} prestige={s.prestige} onClose={() => setOpen(null)} />}
-    </View>
+    </>
   );
 }
 

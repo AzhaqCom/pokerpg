@@ -38,7 +38,7 @@ export function PrestigeOffer({ onClose }: { onClose: () => void }) {
           <View style={styles.stats}>
             <Text style={styles.stat}>Pokédex : {dex}/{region.dexMax} {shiny ? `(dont ${shiny} chromatiques)` : ''}</Text>
             <Text style={styles.stat}>Badges : {s.badges}/8</Text>
-            <Text style={styles.stat}>Temps de jeu : {elapsed}</Text>
+            <Text style={styles.stat}>Temps à {region.name} : {elapsed}</Text>
             <Text style={styles.stat}>Combats gagnés : {s.totals.stagesCleared}</Text>
           </View>
           <Text style={styles.sub}>

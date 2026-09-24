@@ -4,7 +4,7 @@ import {
   GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, applyMegaCandy, craftMegaCandy, lineBase, arenaAvailable, assignExploration, assignPension, autoCaptureBall, autoEquipBest, bestStarsOf, biomeAvailable, bossAvailable,
   canCompleteDex, whereToFind, canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
   harvestExploration, harvestPension, holder, isRareInZone, makeMon, addMon, makeWaves, migrateSave, monsBelowStars, monsNotShiny, newGame, pickSpecies, rankUpTalent, recycle, release, releaseBelowStars, SHARDS_PER_MIN,
-  releaseExcess, releaseNotShiny, remainingEvolutions, removePension, selectStage, startPrestige, teamMaxLevel, tryCapture, unequipBox, xpGapMult,
+  releaseExcess, releaseNotShiny, remainingEvolutions, removePension, selectStage, START_BALLS, startPrestige, teamMaxLevel, tryCapture, unequipBox, xpGapMult,
 } from '../game';
 import { SETS, TEMPLATES, makeItem } from '../items';
 import { emptyBonuses } from '../model';
@@ -159,6 +159,7 @@ test('prestige : indisponible tant que le Champion Kanto n’est pas battu, puis
   expect(startPrestige(s)).toBe(false);
   expect(s.team.length).toBe(2); // rien n'a bougé
 
+  s.startedAt = 1; // très ancien : doit repartir de maintenant au prestige (temps passé dans la région)
   s.arenaBeaten[9] = true; // Champion Kanto battu, mais Pokédex pas complet
   expect(canPrestige(s)).toBe(false);
   for (let id = 1; id <= 151; id++) s.dex.seen.push(id);
@@ -168,6 +169,8 @@ test('prestige : indisponible tant que le Champion Kanto n’est pas battu, puis
   expect(s.team).toEqual([]);
   expect(s.items).toEqual({});
   expect(s.shards).toBe(0);
+  expect(s.balls.poke).toBe(START_BALLS);
+  expect(s.startedAt).toBeGreaterThan(1_000_000_000_000);
   expect(s.badges).toBe(0);
   expect(s.biome).toBe(10); // 1er biome Johto
   expect(s.unlocked[10][0]).toBeGreaterThanOrEqual(1); // sa 1re zone doit être jouable, pas verrouillée
