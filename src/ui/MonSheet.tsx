@@ -21,7 +21,7 @@ import { MonThumb } from './components/MonThumb';
 import { Stars } from './components/Stars';
 import { feedback } from './components/feedback';
 import { TypeBadge } from './components/TypeBadge';
-import { monName, monStats, typeLabel, xpProgress } from './helpers';
+import { TYPE_COLOR, monName, monStats, textOn, typeLabel, xpProgress } from './helpers';
 import { runner } from './battle/runner';
 import { C } from './theme';
 
@@ -68,6 +68,7 @@ export function MonSheet() {
   const act = useGame((g) => g.act);
   const [picker, setPicker] = useState<ItemSlot | null>(null);
   const [swapPicker, setSwapPicker] = useState(false);
+  const [evolvePick, setEvolvePick] = useState(false);
   const [affinityPick, setAffinityPick] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogSpec | null>(null);
   const [showSubs, setShowSubs] = useState(false);
@@ -123,18 +124,30 @@ export function MonSheet() {
             </View>
           </View>
 
-          {canEvolve(mon) && evolutionTargets(mon.speciesId, regionOf(s.prestige).dexMax).map((target, _i, all) => {
-            const t = species(target);
-            const many = all.length > 1;
+          {canEvolve(mon) && (() => {
+            const targets = evolutionTargets(mon.speciesId, regionOf(s.prestige).dexMax);
+            const doEvolve = (target: number) => {
+              feedback('evolve', true);
+              act((g) => evolve(g, mon.uid, target));
+              toast(`${sp.name} évolue en ${species(target).name} !`, '#ffb300');
+              setEvolvePick(false);
+              changed();
+            };
             return (
-              <Button key={target} label={`Faire évoluer en ${t.name}${many ? ` (${t.types.map(typeLabel).join('/')})` : ''}`} color="#c0392b" onPress={() => {
+              <Button label="Faire évoluer" color="#c0392b"
+                onPress={() => (targets.length > 1 ? setEvolvePick(true) : doEvolve(targets[0]))} />
+            );
+          })()}
+          {evolvePick && (
+            <EvolvePicker speciesId={mon.speciesId} dexMax={regionOf(s.prestige).dexMax} onClose={() => setEvolvePick(false)}
+              onPick={(target) => {
                 feedback('evolve', true);
                 act((g) => evolve(g, mon.uid, target));
-                toast(`${sp.name} évolue en ${t.name} !`, '#ffb300');
+                toast(`${sp.name} évolue en ${species(target).name} !`, '#ffb300');
+                setEvolvePick(false);
                 changed();
               }} />
-            );
-          })}
+          )}
 
           <View style={styles.panel}>
             <Bar label="PV" value={st.hp} max={Math.max(120, st.hp)} color="#4caf50" />
@@ -358,6 +371,37 @@ function ItemPicker({ slot, monUid, onClose, onChanged }: { slot: ItemSlot; monU
   );
 }
 
+/** Choix de la forme d'évolution : un bouton par forme, à la couleur de son type principal. */
+function EvolvePicker({ speciesId, dexMax, onClose, onPick }: { speciesId: number; dexMax: number; onClose: () => void; onPick: (target: number) => void }) {
+  const targets = evolutionTargets(speciesId, dexMax);
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.evoBackdrop} onPress={onClose}>
+        <Pressable style={styles.evoBox} onPress={() => {}}>
+          <Text style={styles.evoTitle}>{species(speciesId).name} peut évoluer en…</Text>
+          <ScrollView contentContainerStyle={{ gap: 8 }}>
+          {targets.map((t) => {
+            const sp = species(t);
+            const bg = TYPE_COLOR[sp.types[0]];
+            const fg = textOn(bg);
+            return (
+              <Pressable key={t} onPress={() => onPick(t)} style={[styles.evoBtn, { backgroundColor: bg }]}>
+                <MonThumb speciesId={t} size={40} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.evoName, { color: fg }]}>{sp.name}</Text>
+                  <Text style={[styles.evoTypes, { color: fg }]}>{sp.types.map(typeLabel).join(' / ')}</Text>
+                </View>
+              </Pressable>
+            );
+          })}
+          </ScrollView>
+          <Button label="Annuler" onPress={onClose} />
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
 function TeamSwapPicker({ newUid, onClose, onChanged }: { newUid: string; onClose: () => void; onChanged: () => void }) {
   const s = useGame((g) => g.s)!;
   const act = useGame((g) => g.act);
@@ -395,6 +439,12 @@ function TeamSwapPicker({ newUid, onClose, onChanged }: { newUid: string; onClos
 }
 
 const styles = StyleSheet.create({
+  evoBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24 },
+  evoBox: { backgroundColor: C.panel, borderRadius: 20, padding: 16, gap: 8, maxHeight: '85%' },
+  evoTitle: { color: C.text, fontSize: 17, fontWeight: '800', textAlign: 'center', marginBottom: 4 },
+  evoBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 6 },
+  evoName: { fontSize: 15, fontWeight: '800' },
+  evoTypes: { fontSize: 11, fontWeight: '700', opacity: 0.85 },
   root: { flex: 1, backgroundColor: C.bg, paddingTop: 40 },
   top: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 8 },
   close: { color: C.sub, fontSize: 16, fontWeight: '700' },
