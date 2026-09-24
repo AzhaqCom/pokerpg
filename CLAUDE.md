@@ -62,7 +62,7 @@ Modules natifs : toujours `npx expo install <pkg>`. Skia 2.6.2 (épinglé) **exi
 
 ## Règles de jeu actuelles
 - **Difficulté des sauvages** : une courbe unique par région (`DIFFICULTY`/`zoneWildMult` dans `game.ts`), plus aucun
-  multiplicateur par zone : ×0,60 au départ (Nv.5 après un prestige) → ×1,6 Kanto / ×1,9 Johto / ×2,2 Hoenn / ×2,5 Sinnoh
+  multiplicateur par zone : ×0,60 au départ (Nv.5 après un prestige) → ×2 Kanto / ×2,5 Johto / ×2,9 Hoenn / ×3,3 Sinnoh
   au dernier biome, exposant 1,2, sur PV et Atq. Boss (PV ×5) et arènes (PV ×2) sont multipliés par `bossRamp`
   (×0,5 → ×1,2 sur la région). `SOLO_MALUS` ×0,8 / ×0,9 tant que l'équipe a 1 / 2 Pokémon. Sauvage = niveau de l'étape ou −1.
 - **XP** : chaque sauvage vaincu = 2 × son niveau (×5 boss), total de la vague partagé à parts égales entre les membres
