@@ -337,9 +337,10 @@ test('effectivePool : le boss rejoint le pool sauvage une fois vaincu, pas avant
 });
 
 test('pickSpecies peut tirer le boss vaincu comme un sauvage ordinaire de sa zone, pas avant', () => {
-  const zone = BIOMES[8].zones[1]; // Artikodin, pool de poids total 100 ([140,40][143,30][147,30])
-  const landOnBoss: Rng = { int: () => 100 }; // 106 avec le boss (poids 6) : 100..105 → Artikodin
-  expect(pickSpecies(zone, landOnBoss, false)).toBe(140); // sans le boss (total 100) : retombe sur le pool
+  const zone = BIOMES[8].zones[1]; // Artikodin
+  const total = zone.pool.reduce((a, [, w]) => a + w, 0);
+  const landOnBoss: Rng = { int: () => total }; // total + poids du boss (6) : total..total+5 → Artikodin
+  expect(pickSpecies(zone, landOnBoss, false)).toBe(zone.pool[0][0]); // sans le boss : retombe sur le pool
   expect(pickSpecies(zone, landOnBoss, true)).toBe(144); // avec le boss dans le pool : peut le tirer
 });
 
