@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { regionOf } from '../../game/content';
 import { ALL_SPECIES, species as speciesOf } from '../../game/data';
-import { whereToFind } from '../../game/game';
+import { Habitat, whereToFind } from '../../game/game';
 import { useGame } from '../../store/game';
 import { MonThumb } from '../components/MonThumb';
 import { TypeBadge } from '../components/TypeBadge';
@@ -54,6 +54,18 @@ export function DexPanel() {
   );
 }
 
+function HabitatList({ habitats }: { habitats: Habitat[] }) {
+  return (
+    <>
+      {habitats.map((h) => (
+        <Text key={h.biome} style={styles.line}>
+          • {h.biomeName} <Text style={styles.dim}>({h.zones.join(', ')}{h.boss ? ' · boss' : ''}{h.rare ? ' · rare' : ''})</Text>
+        </Text>
+      ))}
+    </>
+  );
+}
+
 function WhereModal({ id, prestige, onClose }: { id: number; prestige: number; onClose: () => void }) {
   const sp = speciesOf(id);
   const w = whereToFind(id, prestige);
@@ -81,11 +93,17 @@ function WhereModal({ id, prestige, onClose }: { id: number; prestige: number; o
                   </Text>
                 )}
                 <Text style={styles.section}>{evolved ? `${speciesOf(w.source).name} se trouve ici :` : 'Se trouve ici :'}</Text>
-                {w.habitats.map((h) => (
-                  <Text key={h.biome} style={styles.line}>
-                    • {h.biomeName} <Text style={styles.dim}>({h.zones.join(', ')}{h.boss ? ' · boss' : ''}{h.rare ? ' · rare' : ''})</Text>
-                  </Text>
-                ))}
+                <HabitatList habitats={w.habitats} />
+                {w.viaEvolution && (
+                  <>
+                    <Text style={[styles.msg, { marginTop: 8 }]}>
+                      S'obtient aussi par évolution : {w.viaEvolution.path.map((p) => speciesOf(p).name).join(' → ')}
+                      {' '}(Nv.{speciesOf(w.viaEvolution.path[w.viaEvolution.path.length - 2]).evolveLevel})
+                    </Text>
+                    <Text style={styles.section}>{speciesOf(w.viaEvolution.source!).name} se trouve ici :</Text>
+                    <HabitatList habitats={w.viaEvolution.habitats} />
+                  </>
+                )}
               </>
             )}
           </ScrollView>

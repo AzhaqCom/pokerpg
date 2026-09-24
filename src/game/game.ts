@@ -1107,6 +1107,8 @@ export interface WhereToFind {
   /** lignée à parcourir depuis `source` jusqu'à l'espèce demandée incluse (1 seul élément si sauvage) */
   path: number[];
   habitats: Habitat[];
+  /** espèce aussi sauvage : route alternative par évolution (pré-évolution trouvable), s'il y en a une */
+  viaEvolution?: WhereToFind;
 }
 
 /** Zones (des biomes de la région) où l'espèce apparaît en sauvage ou comme boss. */
@@ -1128,18 +1130,27 @@ function wildHabitats(id: number, region: number): Habitat[] {
   return out;
 }
 
-/** Où obtenir une espèce dans la région en cours : en sauvage, sinon par évolution (forme de base/intermédiaire). */
-export function whereToFind(id: number, prestige: number, depth = 0): WhereToFind {
+/** Route d'obtention par évolution (une pré-évolution trouvable dans la région), ou null. */
+function evolutionRoute(id: number, prestige: number, depth: number): WhereToFind | null {
   const dexMax = REGIONS[prestige].dexMax;
-  const wild = wildHabitats(id, prestige);
-  if (wild.length) return { source: id, path: [id], habitats: wild };
-  if (depth > 4) return { source: null, path: [id], habitats: [] };
   for (const p of ALL_SPECIES) {
     if (p.id > dexMax || !evolutionTargets(p.id, dexMax).includes(id)) continue;
     const up = whereToFind(p.id, prestige, depth + 1);
     if (up.source !== null) return { source: up.source, path: [...up.path, id], habitats: up.habitats };
   }
-  return { source: null, path: [id], habitats: [] };
+  return null;
+}
+
+/**
+ * Où obtenir une espèce dans la région en cours : en sauvage, sinon par évolution (forme de base ou
+ * intermédiaire). Une espèce sauvage qui a aussi une pré-évolution trouvable (Voltali via Évoli) renvoie en
+ * plus cette route dans `viaEvolution`.
+ */
+export function whereToFind(id: number, prestige: number, depth = 0): WhereToFind {
+  const wild = wildHabitats(id, prestige);
+  if (depth > 4) return { source: null, path: [id], habitats: [] };
+  if (wild.length) return { source: id, path: [id], habitats: wild, viaEvolution: evolutionRoute(id, prestige, depth) ?? undefined };
+  return evolutionRoute(id, prestige, depth) ?? { source: null, path: [id], habitats: [] };
 }
 
 // ---------------------------------------------------------------- capture

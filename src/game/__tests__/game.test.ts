@@ -975,3 +975,11 @@ test('whereToFind : une forme évoluée renvoie sa lignée, une espèce sauvage 
   expect(evolved.path.length).toBeGreaterThan(1);
   expect(evolved.habitats.length).toBeGreaterThan(0);
 });
+
+test('whereToFind : une espèce sauvage évolution d\'une autre (Voltali) propose aussi la route par évolution', () => {
+  const w = whereToFind(135, 0); // Voltali : sauvage à Kanto ET évolution d'Évoli
+  expect(w.path).toEqual([135]);
+  expect(w.viaEvolution?.path).toEqual([133, 135]);
+  expect(w.viaEvolution?.habitats.length).toBeGreaterThan(0);
+  expect(whereToFind(133, 0).viaEvolution).toBeUndefined(); // Évoli n'a pas de pré-évolution
+});
