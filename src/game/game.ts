@@ -6,7 +6,7 @@ import { Battle, FighterInit } from './battle';
 import {
   BADGE_BONUS, BIOMES, REGIONS, REGION_START, STAGES_PER_ZONE, WAVES_PER_STAGE, ZoneDef, regionLastBiome, regionOf,
 } from './content';
-import { ALL_SPECIES, PType, learnedMoves, evolutionTargets, movesAtLevel, species } from './data';
+import { ALL_SPECIES, PType, learnedMoves, evolutionTargets, move, movesAtLevel, species } from './data';
 import { SETS, STAT_WEIGHT, setOfBiome, TEMPLATES, berryHeal, fuse, canFuse, itemScore, makeItem, newUid, recycleValue, rerollCost, rerollSub, rollLoot, rollRarity, slotOf, template, upgrade, upgradeCost } from './items';
 import { BattleBonuses, Item, ItemSlot, MAX_RARITY, Mon, emptyBonuses } from './model';
 import { Rng } from './rng';
@@ -321,6 +321,32 @@ export function rankUpTalent(s: GameState, uid: string, id: string, type?: PType
   if (!canRankUp(types, mon.talents, mon.level, id)) return false;
   mon.talents[id] = (mon.talents[id] ?? 0) + 1;
   return true;
+}
+
+/** Ordre de dépense des points quand ils sont rares : puissance et vigueur d'abord, puis garde/réflexes (le même que le bot). */
+const AUTO_TALENT_ORDER = ['power', 'vigor', 'power', 'vigor', 'power', 'guard', 'reflex', 'guard', 'reflex', 'guard', 'spec', 'mastery'];
+
+/**
+ * Dépense tous les points de talent disponibles d'un Pokémon : d'abord l'ordre ci-dessus, puis chaque talent au
+ * maximum (paliers 1-3), les deux talents d'affinité (type choisi = celui de ses capacités connues le plus représenté
+ * parmi les types éligibles), puis les paliers 6-9. Ne réinitialise jamais rien. Retourne le nombre de rangs ajoutés.
+ */
+export function autoTalents(s: GameState, uid: string): number {
+  const mon = s.mons[uid];
+  if (!mon) return 0;
+  let n = 0;
+  const up = (id: string, type?: PType) => { if (rankUpTalent(s, uid, id, type)) { n++; return true; } return false; };
+  for (const id of AUTO_TALENT_ORDER) up(id);
+  for (const id of ['power', 'vigor', 'guard', 'reflex', 'spec', 'mastery']) while (up(id));
+  for (const id of ['affinity1', 'affinity2']) {
+    const exclude = Object.entries(mon.talentTypeChoices).filter(([k]) => k !== id).map(([, v]) => v);
+    const options = eligibleAffinityTypes(mon.speciesId, exclude);
+    const moveTypes = mon.moves.map((m) => move(m).type);
+    const type = [...options].sort((a, b) => moveTypes.filter((t) => t === b).length - moveTypes.filter((t) => t === a).length)[0];
+    while (up(id, type));
+  }
+  for (const id of ['spec2', 'spec3', 'fury', 'deadly']) while (up(id));
+  return n;
 }
 
 export function resetTalents(s: GameState, uid: string): boolean {

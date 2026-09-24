@@ -5,7 +5,7 @@ import { Move, learnedMoves, move, evolutionTargets, species } from '../game/dat
 import { regionOf } from '../game/content';
 import {
   CANDY_XP, GENE_MAX, GeneKey, MEGA_CANDY_COST, TEAM_SIZE, applyMegaCandy, autoEquipBest, canEvolve, craftMegaCandy, equip,
-  evolve, feedCandy, heldItems, holder, lineBase, rankUpTalent, release, resetTalents, setMoves, setTeam, unequip,
+  evolve, feedCandy, heldItems, holder, lineBase, rankUpTalent, autoTalents, release, resetTalents, setMoves, setTeam, unequip,
 } from '../game/game';
 import { itemScore, slotOf, template } from '../game/items';
 import { BattleBonuses, ItemSlot } from '../game/model';
@@ -231,6 +231,10 @@ export function MonSheet() {
 
           <Text style={styles.section}>Talents {sp.types[0] && `· ${pts} point${pts > 1 ? 's' : ''} disponible${pts > 1 ? 's' : ''}`}</Text>
           <View style={styles.panel}>
+            {pts > 0 && (
+              <Button small label={`Répartir automatiquement (${pts} pt${pts > 1 ? 's' : ''})`} color={C.accent}
+                onPress={() => { const n = act((g) => autoTalents(g, mon.uid)); if (n) feedback(); }} />
+            )}
             {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((tier) => (
               <View key={tier} style={{ gap: 6 }}>
                 {tree.filter((t) => t.tier === tier).map((t) => {

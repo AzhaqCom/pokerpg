@@ -2,7 +2,7 @@ import { BIOMES, REGION_START, REGIONS, STAGES_PER_ZONE, regionLastBiome } from 
 import { ALL_SPECIES, EVOLUTION_CHOICES, evolutionTargets, species } from '../data';
 import {
   GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, applyMegaCandy, craftMegaCandy, lineBase, arenaAvailable, assignExploration, assignPension, autoCaptureBall, autoEquipBest, bestStarsOf, biomeAvailable, bossAvailable,
-  canCompleteDex, whereToFind, canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
+  autoTalents, canCompleteDex, whereToFind, canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
   harvestExploration, harvestPension, holder, isRareInZone, makeMon, addMon, makeWaves, migrateSave, monsBelowStars, monsNotShiny, newGame, pickSpecies, rankUpTalent, recycle, release, releaseBelowStars, SHARDS_PER_MIN,
   releaseExcess, releaseNotShiny, remainingEvolutions, removePension, selectStage, START_BALLS, startPrestige, teamMaxLevel, tryCapture, unequipBox, xpGapMult,
 } from '../game';
@@ -10,7 +10,7 @@ import { SETS, TEMPLATES, makeItem } from '../items';
 import { emptyBonuses } from '../model';
 import { Rng, seededRng } from '../rng';
 import { spentPoints, talentPoints } from '../talents';
-import { combatPower, finalStats, monStars } from '../stats';
+import { combatPower, finalStats, monStars, xpForLevel } from '../stats';
 
 const H = 3600_000;
 
@@ -986,4 +986,20 @@ test('whereToFind : une espèce sauvage évolution d\'une autre (Voltali) propos
   expect(w.viaEvolution?.path).toEqual([133, 135]);
   expect(w.viaEvolution?.habitats.length).toBeGreaterThan(0);
   expect(whereToFind(133, 0).viaEvolution).toBeUndefined(); // Évoli n'a pas de pré-évolution
+});
+
+test('autoTalents : dépense tous les points disponibles, sans dépasser le maximum ni réinitialiser', () => {
+  const s = newGame();
+  chooseStarter(s, 4, seededRng(1));
+  const mon = Object.values(s.mons)[0];
+  giveXp(mon, xpForLevel(40) - mon.xp); // Nv.40 → 39 points
+  const pts = talentPoints(mon.level);
+  const before = spentPoints(mon.talents);
+  expect(autoTalents(s, mon.uid)).toBeGreaterThan(0);
+  const spent = spentPoints(mon.talents);
+  expect(spent).toBeGreaterThan(before);
+  expect(spent).toBeLessThanOrEqual(pts);
+  expect(spent).toBeGreaterThanOrEqual(pts - 1); // tout est dépensé (à un rang près si un palier verrouille)
+  const again = autoTalents(s, mon.uid);
+  expect(again).toBe(0); // rien à dépenser ensuite
 });
