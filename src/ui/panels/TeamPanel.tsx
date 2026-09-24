@@ -17,7 +17,7 @@ import { feedback } from '../components/feedback';
 import { MonThumb } from '../components/MonThumb';
 import { Stars } from '../components/Stars';
 import { TypeBadge } from '../components/TypeBadge';
-import { TYPE_COLOR, auraDisplay, monName, monStats, textOn, typeLabel, xpProgress } from '../helpers';
+import { TYPE_COLOR, auraDisplay, cpColor, monName, monStats, textOn, typeLabel, xpProgress } from '../helpers';
 import { C } from '../theme';
 import { spentPoints, talentPoints } from '../../game/talents';
 
@@ -136,7 +136,7 @@ export function TeamPanel() {
                       {species(m.speciesId).types.map((t) => <TypeBadge key={t} type={t} small />)}
                     </View>
                     <View style={styles.xpTrack}><View style={[styles.xpFill, { width: `${xpProgress(m) * 100}%` }]} /></View>
-                    <Text style={styles.stats}>PC {st.cp} · PV {st.hp} · Atq {st.atk} · Déf {st.def} · Vit {st.spe}</Text>
+                    <Text style={styles.stats}><Text style={{ color: cpColor(st.cp), fontWeight: '800' }}>PC {st.cp}</Text> · PV {st.hp} · Atq {st.atk} · Déf {st.def} · Vit {st.spe}</Text>
                     <Text style={styles.aura}>Aura à l'équipe : {auras.map((a) => `${a.label} +${a.value} %`).join(' · ')}</Text>
                     <View style={styles.row}>
                       {canEvolve(m, dexMax) && <Text style={styles.flag}>Peut évoluer</Text>}

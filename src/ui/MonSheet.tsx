@@ -5,7 +5,7 @@ import { Move, learnedMoves, move, evolutionTargets, species } from '../game/dat
 import { regionOf } from '../game/content';
 import {
   CANDY_XP, GENE_MAX, GeneKey, MEGA_CANDY_COST, TEAM_SIZE, applyMegaCandy, autoEquipBest, canEvolve, craftMegaCandy, equip, isTargeted, toggleTarget,
-  evolve, feedCandy, heldItems, holder, lineBase, rankUpTalent, autoTalents, equipGain, release, resetTalents, setMoves, setTeam, unequip,
+  evolve, feedCandy, heldItems, holder, lineBase, rankUpTalent, autoTalents, autoMoves, equipGain, release, resetTalents, setMoves, setTeam, unequip,
 } from '../game/game';
 import { itemScore, slotOf, template } from '../game/items';
 import { BattleBonuses, ItemSlot } from '../game/model';
@@ -21,7 +21,7 @@ import { MonThumb } from './components/MonThumb';
 import { Stars } from './components/Stars';
 import { feedback } from './components/feedback';
 import { TypeBadge } from './components/TypeBadge';
-import { TYPE_COLOR, monName, monStats, textOn, typeLabel, xpProgress } from './helpers';
+import { TYPE_COLOR, cpColor, monName, monStats, textOn, typeLabel, xpProgress } from './helpers';
 import { runner } from './battle/runner';
 import { C } from './theme';
 
@@ -103,7 +103,14 @@ export function MonSheet() {
       <View style={styles.root}>
         <View style={styles.top}>
           <Pressable onPress={close} hitSlop={12}><Text style={styles.close}>‹ Retour</Text></Pressable>
-          <Text style={styles.cp}>PC {st.cp}</Text>
+          <Pressable hitSlop={8} style={[styles.targetBtn, isTargeted(s, mon.speciesId) && styles.targetBtnOn]} onPress={() => {
+            feedback();
+            const on = act((g) => { toggleTarget(g, mon.speciesId); return isTargeted(g, mon.speciesId); });
+            toast(on ? '🎯 Lignée ciblée : capture auto, même déjà possédée' : 'Cible retirée', on ? '#69f0ae' : undefined);
+          }}>
+            <Text style={styles.targetTxt}>{isTargeted(s, mon.speciesId) ? '🎯 Lignée ciblée' : '🎯 Cibler la lignée'}</Text>
+          </Pressable>
+          <Text style={[styles.cp, { color: cpColor(st.cp) }]}>PC {st.cp}</Text>
         </View>
         <ScrollView contentContainerStyle={styles.body}>
           <View style={styles.head}>
@@ -172,7 +179,13 @@ export function MonSheet() {
             })()}
           </View>
 
-          <Text style={styles.section}>Capacités (ordre de priorité)</Text>
+          <View style={[styles.row, { justifyContent: 'space-between' }]}>
+            <Text style={styles.section}>Capacités (ordre de priorité)</Text>
+            <Button small label="★ Auto" color="#3d5afe" onPress={() => {
+              if (act((g) => autoMoves(g, mon.uid))) { feedback(); toast('Meilleures capacités équipées', '#69f0ae'); }
+              else toast('Déjà les meilleures capacités');
+            }} />
+          </View>
           <View style={styles.panel}>
             {mon.moves.map((id, i) => {
               const m = move(id);
@@ -207,7 +220,7 @@ export function MonSheet() {
 
           <View style={[styles.row, { justifyContent: 'space-between' }]}>
             <Text style={styles.section}>Objets tenus</Text>
-            <Button small label="Équiper le meilleur" onPress={() => {
+            <Button small label="★ Auto" color="#b8860b" onPress={() => {
               const n = act((g) => autoEquipBest(g, mon.uid));
               if (n) { feedback(); changed(); toast(`${n} objet${n > 1 ? 's' : ''} équipé${n > 1 ? 's' : ''}`, '#69f0ae'); }
               else toast('Déjà équipé au mieux');
@@ -225,12 +238,14 @@ export function MonSheet() {
             })}
           </View>
 
-          <Text style={styles.section}>Talents {sp.types[0] && `· ${pts} point${pts > 1 ? 's' : ''} disponible${pts > 1 ? 's' : ''}`}</Text>
-          <View style={styles.panel}>
+          <View style={[styles.row, { justifyContent: 'space-between' }]}>
+            <Text style={styles.section}>Talents {sp.types[0] && `· ${pts} point${pts > 1 ? 's' : ''} disponible${pts > 1 ? 's' : ''}`}</Text>
             {pts > 0 && (
-              <Button small label={`Répartir automatiquement (${pts} pt${pts > 1 ? 's' : ''})`} color={C.accent}
+              <Button small label="★ Auto" color={C.accent}
                 onPress={() => { const n = act((g) => autoTalents(g, mon.uid)); if (n) feedback(); }} />
             )}
+          </View>
+          <View style={styles.panel}>
             {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((tier) => (
               <View key={tier} style={{ gap: 6 }}>
                 {tree.filter((t) => t.tier === tier).map((t) => {
@@ -281,10 +296,6 @@ export function MonSheet() {
           <Text style={styles.section}>Bonbons {sp.name} · {candies}</Text>
           <Button small label={`Donner un bonbon (+${CANDY_XP} XP)`} disabled={!candies}
             onPress={() => { const r = act((g) => feedCandy(g, mon.uid)); if (r?.levels) toast(`${sp.name} passe au niveau ${mon.level} !`); }} />
-
-          <Button small color={isTargeted(s, mon.speciesId) ? '#2e7d32' : undefined}
-            label={isTargeted(s, mon.speciesId) ? '🎯 Lignée ciblée : capture auto (toucher pour arrêter)' : '🎯 Cibler la lignée (capture auto, farm de bonbons)'}
-            onPress={() => { feedback(); act((g) => toggleTarget(g, mon.speciesId)); }} />
 
           <Text style={styles.section}>Méga bonbons · {megaCandies}</Text>
           <Button small label={`Fabriquer 1 méga bonbon (${MEGA_CANDY_COST} bonbons)`} disabled={candies < MEGA_CANDY_COST}
@@ -431,7 +442,7 @@ function TeamSwapPicker({ newUid, onClose, onChanged }: { newUid: string; onClos
                   <MonThumb speciesId={m.speciesId} shiny={m.shiny} size={40} />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.swapName}>{monName(m)} Nv.{m.level}</Text>
-                    <Text style={styles.swapSub}>PC {stt.cp}</Text>
+                    <Text style={[styles.swapSub, { color: cpColor(stt.cp), fontWeight: '700' }]}>PC {stt.cp}</Text>
                   </View>
                   <Stars mon={m} />
                 </Pressable>
@@ -452,7 +463,10 @@ const styles = StyleSheet.create({
   evoName: { fontSize: 15, fontWeight: '800' },
   evoTypes: { fontSize: 11, fontWeight: '700', opacity: 0.85 },
   root: { flex: 1, backgroundColor: C.bg, paddingTop: 40 },
-  top: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 8 },
+  top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 8 },
+  targetBtn: { backgroundColor: C.panel2, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  targetBtnOn: { backgroundColor: '#2e7d32' },
+  targetTxt: { color: C.text, fontSize: 12, fontWeight: '700' },
   close: { color: C.sub, fontSize: 16, fontWeight: '700' },
   cp: { color: C.gold, fontSize: 16, fontWeight: '900' },
   body: { padding: 16, gap: 10, paddingBottom: 60 },

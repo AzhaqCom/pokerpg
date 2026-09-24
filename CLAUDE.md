@@ -47,13 +47,16 @@ Modules natifs : toujours `npx expo install <pkg>`. Skia 2.6.2 (épinglé) **exi
   garde toutes les anciennes capacités dans `moves.json`). Corrections appliquées au chargement dans `data.ts` (jamais dans
   les JSON) : `MOVE_FIXES` (Baston, Explosion, Destruction), `BABY_EVOLUTIONS`, `CROSS_GEN_EVOLUTIONS`. `learnedMoves`
   inclut les capacités des pré-évolutions (`lineLearnset`) ; `movesAtLevel` (kit de départ d'une capture/d'un sauvage) =
-  les 4 meilleures capacités connues (sommeil, attaques de types variés, soin).
+  les 4 meilleures capacités connues (sommeil, attaques de types variés, soin) ; même kit via le bouton « ★ Auto »
+  des capacités de la fiche (`autoMoves`).
 - Sprites : atlas PMD par espèce (`assets/sprites/p025.png`, `ps025.png` chromatique), manifeste `src/data/sprites.json`,
   `spriteAssets.ts`, miniatures `assets/thumbs` (`tools/make_thumbs.py`, 240 px).
 - UI : `App.tsx` ; `src/ui/battle/runner.ts` (singleton hors React qui pilote le combat affiché, offres de capture,
   bandeaux), `BattleView.tsx` (Skia), `Hud.tsx` (réglages), `CaptureBar.tsx`, `panels/` (Équipe, Sac, Carte, Pension,
   Exploration, Pokédex), `MonSheet.tsx` (fiche Pokémon), `HelpScreen.tsx`, `IdleSummary.tsx`, `PrestigeOffer.tsx`.
   Les listes longues (`TeamPanel`, `BagPanel`, `DexPanel`) sont des `FlatList` rendues **hors** du `ScrollView` de `App.tsx`.
+  PC colorés par palier (`CP_TIERS`/`cpColor` dans `ui/helpers.ts` : gris < 250, vert, bleu 600, violet 1 200, orange
+  2 000, rouge 3 000, doré ≥ 4 000) sur la fiche, les cartes d'équipe et la liste d'échange.
 - État : zustand + AsyncStorage (`src/store/game.ts`, clé `pokelootborn/save/v1`, `act(fn)` modifie + sauve).
   `load()` fusionne la sauvegarde avec `newGame()` → **un nouveau champ doit avoir une valeur par défaut dans `newGame()`** ;
   `migrateSave` complète les tableaux de biomes trop courts.

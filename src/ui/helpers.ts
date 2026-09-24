@@ -21,6 +21,16 @@ export function textOn(bg: string): string {
 
 export const monName = (m: Mon) => species(m.speciesId).name;
 
+/**
+ * Couleur des PC par palier (seuil minimal → couleur), sur les couleurs de rareté des objets ; le doré
+ * (ancienne couleur de tous les PC) est réservé à l'élite. Mesuré le 2026-09-24 : Nv.5 ≈ 80, Nv.30 ≈ 480,
+ * Nv.50 ≈ 1 100, Nv.70 ≈ 2 000, Nv.100 classique 2 500-3 000, légendaire 4★ en Chromatique ≈ 5 000.
+ */
+export const CP_TIERS: [number, string][] = [
+  [4000, '#f1c40f'], [3000, '#e53935'], [2000, '#ff9800'], [1200, '#a259ff'], [600, '#3d8bfd'], [250, '#4caf50'], [0, '#9aa0a6'],
+];
+export const cpColor = (cp: number) => (CP_TIERS.find(([min]) => cp >= min) ?? CP_TIERS[CP_TIERS.length - 1])[1];
+
 export function monStats(s: GameState, uid: string) {
   const f = allyFighter(s, uid);
   return { ...f.stats, cp: combatPower(f.stats), bonuses: f.bonuses };

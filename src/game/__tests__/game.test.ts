@@ -5,7 +5,7 @@ import {
   lineChain, autoTalents, canCompleteDex, whereToFind, canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
   harvestExploration, harvestPension, holder, isRareInZone, makeMon, addMon, makeWaves, migrateSave, monsBelowStars, monsNotShiny, newGame, pickSpecies, rankUpTalent, recycle, release, releaseBelowStars, SHARDS_PER_MIN,
   releaseExcess, releaseNotShiny, remainingEvolutions, removePension, selectStage, setAutoAdvance, START_BALLS, startPrestige,
-  CAPTURE_PITY, RELEASE_CANDIES, captureTarget, idleFarmTarget, isTargeted, toggleTarget, zoneHasTarget, teamMaxLevel, tryCapture, unequipBox, xpGapMult,
+  CAPTURE_PITY, RELEASE_CANDIES, autoMoves, captureTarget, idleFarmTarget, isTargeted, toggleTarget, zoneHasTarget, teamMaxLevel, tryCapture, unequipBox, xpGapMult,
 } from '../game';
 import { SETS, TEMPLATES, makeItem } from '../items';
 import { emptyBonuses } from '../model';
@@ -127,6 +127,19 @@ describe('réglage « Avancer dans les étapes » (étape fixée)', () => {
     expect(play(new StageRun(weak, 'stage', seededRng(3)))).toBe('lose');
     expect(weak.zone).toBe(1);
   });
+});
+
+test('capacités « Équiper le meilleur » : même kit qu’une capture au même niveau, puis plus rien à changer', () => {
+  const s = newGame();
+  chooseStarter(s, 4, seededRng(1));
+  const uid = s.team[0];
+  giveXp(s.mons[uid], 30 * 40 * 40); // Nv.40 : beaucoup de capacités apprises depuis la capture
+  s.mons[uid].moves = [s.mons[uid].moves[0]];
+  expect(autoMoves(s, uid)).toBe(true);
+  const expected = makeMon(4, s.mons[uid].level, seededRng(2)).moves;
+  expect(s.mons[uid].moves).toEqual(expected);
+  expect(s.mons[uid].moves.length).toBe(4);
+  expect(autoMoves(s, uid)).toBe(false); // déjà au mieux
 });
 
 describe('cibles (🎯 farm de bonbons)', () => {

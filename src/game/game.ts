@@ -328,6 +328,19 @@ export function setMoves(s: GameState, uid: string, moves: number[]) {
 }
 
 /**
+ * « Équiper le meilleur » des capacités : même kit qu'une capture à ce niveau (`movesAtLevel` : attaques les plus
+ * fortes de types variés, sommeil en premier, soin en dernier). Renvoie `false` si le kit est déjà celui-là.
+ */
+export function autoMoves(s: GameState, uid: string): boolean {
+  const mon = s.mons[uid];
+  if (!mon) return false;
+  const best = movesAtLevel(species(mon.speciesId), mon.level);
+  if (best.length === mon.moves.length && best.every((id, i) => mon.moves[i] === id)) return false;
+  setMoves(s, uid, best);
+  return true;
+}
+
+/**
  * Ajoute un rang au talent `id`. Pour un talent « au choix » (`chooseType`) pas encore entamé, `type`
  * doit être fourni et faire partie de `eligibleAffinityTypes` — il est alors figé pour cet emplacement ;
  * les rangs suivants n'ont plus besoin de `type` (ignoré s'il est fourni, déjà choisi).
