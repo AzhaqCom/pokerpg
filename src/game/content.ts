@@ -691,7 +691,7 @@ export const BIOMES: BiomeDef[] = [
       },
     ],
     arena: {
-      name: 'Camp des Scouts', leader: 'Scout Insecte', type: 'Insecte',
+      name: 'Camp des Scouts', leader: 'Barbara', type: 'Insecte',
       team: [[284, 26], [291, 27], [348, 28]], // Maskadra, Ninjask, Armaldo
       badge: 'Titre de Scout',
       grantsBadge: false,
@@ -808,7 +808,7 @@ export const BIOMES: BiomeDef[] = [
       },
     ],
     arena: {
-      name: 'Ruines du Désert', leader: 'Montagnard', type: 'Sol',
+      name: 'Ruines du Désert', leader: 'Giovanni', type: 'Sol',
       team: [[340, 53], [344, 54], [330, 55]], // Barbicha, Kaorine, Libégon
       badge: 'Titre de Montagnard',
       grantsBadge: false,
@@ -1043,7 +1043,7 @@ export const BIOMES: BiomeDef[] = [
       },
     ],
     arena: {
-      name: 'Camp des Cyclistes', leader: 'Cycliste', type: 'Normal',
+      name: 'Camp des Cyclistes', leader: 'Blanche', type: 'Normal',
       team: [[398, 22], [474, 23], [468, 24]], // Étouraptor, Porygon-Z, Togekiss
       badge: 'Titre de Cycliste',
       grantsBadge: false,
@@ -1131,7 +1131,7 @@ export const BIOMES: BiomeDef[] = [
       },
     ],
     arena: {
-      name: 'Poste des Randonneurs', leader: 'Randonneur', type: 'Poison',
+      name: 'Poste des Randonneurs', leader: 'Koga', type: 'Poison',
       team: [[454, 39], [452, 40], [407, 41]], // Coatox, Drascore, Roserade
       badge: 'Titre de Randonneur',
       grantsBadge: false,
@@ -1190,7 +1190,7 @@ export const BIOMES: BiomeDef[] = [
       },
     ],
     arena: {
-      name: 'Poste des Volcanologues', leader: 'Volcanologue', type: 'Feu',
+      name: 'Poste des Volcanologues', leader: 'Auguste', type: 'Feu',
       team: [[136, 50], [59, 51], [467, 52]], // Pyroli, Arcanin, Maganon
       badge: 'Titre de Volcanologue',
       grantsBadge: false,
@@ -1249,7 +1249,7 @@ export const BIOMES: BiomeDef[] = [
       },
     ],
     arena: {
-      name: 'Poste des Alpinistes', leader: 'Alpiniste', type: 'Ténèbres',
+      name: 'Poste des Alpinistes', leader: 'Morty', type: 'Ténèbres',
       team: [[430, 61], [452, 62], [461, 63]], // Corboss, Drascore, Dimoret
       badge: 'Titre d’Alpiniste',
       grantsBadge: false,
@@ -1337,7 +1337,7 @@ export const BIOMES: BiomeDef[] = [
       },
     ],
     arena: {
-      name: 'Poste du Mont', leader: 'Gardien du Mont', type: 'Dragon',
+      name: 'Poste du Mont', leader: 'Guirande', type: 'Dragon',
       team: [[373, 80], [149, 81], [445, 82]], // Drattak, Dracolosse, Carchacrok
       badge: 'Titre de Gardien',
       grantsBadge: false,

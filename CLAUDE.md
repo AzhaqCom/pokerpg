@@ -381,7 +381,7 @@ biomes à `BIOME_SET`.
 - **Hoenn (biomes 20-31)** codé, 12 biomes, Pokédex 1-386 autonome. `REGIONS` (`content.ts`) décrit chaque
   région (`name, start, starters, dexMax`), `regionOf(prestige)`, `regionLastBiome(prestige)`. Générateur :
   `npx tsx tools/gen_region.ts tools/regions/hoenn.json`. Le champion Glace de Johto s'appelle Frédo.
-  Reste des noms provisoires (« Scout Insecte », « Montagnard »). Sinnoh (32-46) pas encore codé.
+  Chefs de route : noms d'anciens champions. Sinnoh (32-46) pas encore codé.
 - **Difficulté des sauvages = une seule courbe par région** (`DIFFICULTY`/`zoneWildMult` dans `game.ts`),
   plus aucun `wildMult` par zone : ×0,60 au départ de la région (Nv.5 après un prestige), jusqu'à ×1,6
   (Kanto) / ×1,9 (Johto) / ×2,2 (Hoenn) au dernier biome, exposant 1,2. Boss et arènes : PV ×5 / ×2
@@ -419,5 +419,5 @@ Flo, Mélina, Lovis, Kiméra, Charles, Gladys, Tanguy), Conseil des 4 et Cynthia
 de 6 espèces par des formes évoluées, et tient compte de `EVOLUTION_CHOICES`). Les 14 légendaires de Sinnoh
 sont des boss `joinsPool` sur les 5 derniers biomes, les 21 anciens sont semés très rares. Panoplies : mapping
 `BIOME_SET` 32-46. Difficulté : `DIFFICULTY.end[3]` = 2,5. Simulation (3 graines) : 3 h 27 - 4 h, défaites
-seulement dans le 1er biome. Noms provisoires à revoir : Cycliste, Randonneur, Volcanologue, Alpiniste,
-Gardien du Mont. Le prestige Hoenn → Sinnoh est débloqué par le Champion Hoenn + Pokédex complet /386.
+seulement dans le 1er biome. Les chefs des biomes de route (sans badge) reprennent des noms d'anciens champions (Blanche, Koga, Auguste,
+Morty, Guirande à Sinnoh ; Barbara, Giovanni à Hoenn). Le prestige Hoenn → Sinnoh est débloqué par le Champion Hoenn + Pokédex complet /386.

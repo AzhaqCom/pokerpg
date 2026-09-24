@@ -131,7 +131,7 @@
       ],
       "arena": {
         "name": "Camp des Cyclistes",
-        "leader": "Cycliste",
+        "leader": "Blanche",
         "type": "Normal",
         "badge": "Titre de Cycliste",
         "grantsBadge": false
@@ -222,7 +222,7 @@
       ],
       "arena": {
         "name": "Poste des Randonneurs",
-        "leader": "Randonneur",
+        "leader": "Koga",
         "type": "Poison",
         "badge": "Titre de Randonneur",
         "grantsBadge": false
@@ -283,7 +283,7 @@
       ],
       "arena": {
         "name": "Poste des Volcanologues",
-        "leader": "Volcanologue",
+        "leader": "Auguste",
         "type": "Feu",
         "badge": "Titre de Volcanologue",
         "grantsBadge": false
@@ -344,7 +344,7 @@
       ],
       "arena": {
         "name": "Poste des Alpinistes",
-        "leader": "Alpiniste",
+        "leader": "Morty",
         "type": "Ténèbres",
         "badge": "Titre d’Alpiniste",
         "grantsBadge": false
@@ -445,7 +445,7 @@
       ],
       "arena": {
         "name": "Poste du Mont",
-        "leader": "Gardien du Mont",
+        "leader": "Guirande",
         "type": "Dragon",
         "badge": "Titre de Gardien",
         "grantsBadge": false
