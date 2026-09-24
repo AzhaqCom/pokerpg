@@ -89,7 +89,7 @@ export function BagPanel() {
             <View style={styles.row}>
               <Button small label={`Fusionner (${fusions.length})`} color={fusions.length ? '#8e24aa' : C.panel2} disabled={!fusions.length} onPress={() => {
                 let n = 0;
-                act((g) => { for (let c = fusionCandidates(g); c.length; c = fusionCandidates(g)) { const out = fuseItems(g, c[0].map((i) => i.uid), rng); if (out) { n++; toast(`Fusion : ${template(out.templateId).name} ${RARITIES[out.rarity]}`, RARITY_COLOR[out.rarity]); } } });
+                act((g) => { for (let c = fusionCandidates(g); c.length; c = fusionCandidates(g)) { const out = fuseItems(g, c[0].map((i) => i.uid), rng); if (out) { n++; toast(`Fusion : ${template(out.templateId).name}`, RARITY_COLOR[out.rarity], template(out.templateId).name); } } });
                 if (n) { feedback('medal', true); runner.restart(); }
               }} />
               <Button small label={`Recycler : ${RARITIES[recycleMaxRarity]} (${junk.length})`} disabled={!junk.length} onPress={() => {

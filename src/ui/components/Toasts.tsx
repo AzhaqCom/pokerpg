@@ -11,7 +11,11 @@ export function Toasts() {
     <View pointerEvents="none" style={[styles.wrap, { top: insets.top + 8 }]}>
       {toasts.map((t) => (
         <View key={t.id} style={styles.toast}>
-          <Text style={styles.text}>{t.text}</Text>
+          <Text style={styles.text}>
+            {t.colored && t.color && t.text.includes(t.colored)
+              ? <>{t.text.split(t.colored)[0]}<Text style={{ color: t.color }}>{t.colored}</Text>{t.text.split(t.colored).slice(1).join(t.colored)}</>
+              : t.text}
+          </Text>
         </View>
       ))}
     </View>

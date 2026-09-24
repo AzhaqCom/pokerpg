@@ -155,7 +155,7 @@ class Runner {
     }
     for (const it of r.loot) {
       const t = template(it.templateId);
-      toast(`+ ${t.name} (${RARITIES[it.rarity]})`, RARITY_COLOR[it.rarity]);
+      toast(`+ ${t.name}`, RARITY_COLOR[it.rarity], t.name);
     }
     if (r.capture) {
       const capture = r.capture;

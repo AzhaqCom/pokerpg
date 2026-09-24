@@ -1099,6 +1099,49 @@ export function selectStage(s: GameState, biome: number, zone: number, stage: nu
   s.stage = Math.max(1, Math.min(stage, s.unlocked[biome][zone]));
 }
 
+// ---------------------------------------------------------------- où trouver une espèce (Pokédex)
+export interface Habitat { biome: number; biomeName: string; zones: string[]; rare: boolean; boss: boolean }
+export interface WhereToFind {
+  /** espèce réellement rencontrée en sauvage (l'espèce demandée, ou son ancêtre) ; null = introuvable dans la région */
+  source: number | null;
+  /** lignée à parcourir depuis `source` jusqu'à l'espèce demandée incluse (1 seul élément si sauvage) */
+  path: number[];
+  habitats: Habitat[];
+}
+
+/** Zones (des biomes de la région) où l'espèce apparaît en sauvage ou comme boss. */
+function wildHabitats(id: number, region: number): Habitat[] {
+  const start = REGIONS[region].start;
+  const end = REGIONS[region + 1]?.start ?? BIOMES.length;
+  const out: Habitat[] = [];
+  for (let b = start; b < end; b++) {
+    const zones: string[] = [];
+    let rare = true;
+    let boss = false;
+    for (const z of BIOMES[b].zones) {
+      const w = z.pool.find(([sid]) => sid === id)?.[1];
+      if (w !== undefined) { zones.push(z.name); if (w >= 10) rare = false; }
+      else if (z.boss.speciesId === id) { zones.push(z.name); boss = true; }
+    }
+    if (zones.length) out.push({ biome: b, biomeName: BIOMES[b].name, zones, rare, boss });
+  }
+  return out;
+}
+
+/** Où obtenir une espèce dans la région en cours : en sauvage, sinon par évolution (forme de base/intermédiaire). */
+export function whereToFind(id: number, prestige: number, depth = 0): WhereToFind {
+  const dexMax = REGIONS[prestige].dexMax;
+  const wild = wildHabitats(id, prestige);
+  if (wild.length) return { source: id, path: [id], habitats: wild };
+  if (depth > 4) return { source: null, path: [id], habitats: [] };
+  for (const p of ALL_SPECIES) {
+    if (p.id > dexMax || !evolutionTargets(p.id, dexMax).includes(id)) continue;
+    const up = whereToFind(p.id, prestige, depth + 1);
+    if (up.source !== null) return { source: up.source, path: [...up.path, id], habitats: up.habitats };
+  }
+  return { source: null, path: [id], habitats: [] };
+}
+
 // ---------------------------------------------------------------- capture
 export function captureChance(offer: CaptureOffer, ball: BallKind, s?: GameState): number {
   if (offer.guaranteed || offer.shiny) return 100;

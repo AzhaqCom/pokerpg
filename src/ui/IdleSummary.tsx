@@ -3,7 +3,7 @@ import { move, species } from '../game/data';
 import { GameState } from '../game/game';
 import { IdleGains } from '../game/idle';
 import { template } from '../game/items';
-import { RARITIES, RARITY_COLOR } from '../game/model';
+import { RARITY_COLOR } from '../game/model';
 import { useGame } from '../store/game';
 import { runner } from './battle/runner';
 import { Button } from './components/Button';
@@ -27,6 +27,17 @@ function groupLoot(items: IdleGains['bagItems']) {
     else map.set(k, { templateId: it.templateId, rarity: it.rarity, count: 1 });
   }
   return [...map.values()].sort((a, b) => b.rarity - a.rarity || b.count - a.count);
+}
+
+/** Regroupe les chromatiques d'une même espèce ; niveau seul s'il est unique, sinon la plage « Nv.a-b ». */
+function groupShinies(mons: IdleGains['shinies']) {
+  const map = new Map<number, { speciesId: number; min: number; max: number; count: number }>();
+  for (const m of mons) {
+    const g = map.get(m.speciesId);
+    if (g) { g.count++; g.min = Math.min(g.min, m.level); g.max = Math.max(g.max, m.level); }
+    else map.set(m.speciesId, { speciesId: m.speciesId, min: m.level, max: m.level, count: 1 });
+  }
+  return [...map.values()].map((g) => ({ ...g, levels: g.min === g.max ? `Nv.${g.min}` : `Nv.${g.min}-${g.max}` }));
 }
 
 /** Résumé purement informatif : les gains sont déjà encaissés au calcul (voir `checkIdle` dans App.tsx). */
@@ -61,12 +72,14 @@ export function IdleSummary({ gains, onClose }: { gains: IdleGains | null; onClo
                 })}
                 {groupLoot(gains.bagItems).map((g) => (
                   <Text key={`${g.templateId}-${g.rarity}`} style={[styles.line, { color: RARITY_COLOR[g.rarity] }]}>
-                    + {template(g.templateId).name} ({RARITIES[g.rarity]}){g.count > 1 ? ` ×${g.count}` : ''}
+                    + {template(g.templateId).name}{g.count > 1 ? ` ×${g.count}` : ''}
                   </Text>
                 ))}
                 {gains.shardsFromRecycle > 0 && <Text style={styles.line}>💎 +{gains.shardsFromRecycle} éclats (recyclage auto)</Text>}
-                {gains.shinies.map((mon) => (
-                  <Text key={mon.uid} style={[styles.line, { color: '#ff5ec4' }]}>✨ {species(mon.speciesId).name} chromatique Nv.{mon.level} capturé !</Text>
+                {groupShinies(gains.shinies).map((g) => (
+                  <Text key={g.speciesId} style={[styles.line, { color: '#ff5ec4' }]}>
+                    ✨ {species(g.speciesId).name} chromatique {g.levels}{g.count > 1 ? ` ×${g.count}` : ''} capturé{g.count > 1 ? 's' : ''} !
+                  </Text>
                 ))}
               </>
             )}

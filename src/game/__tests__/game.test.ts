@@ -2,7 +2,7 @@ import { BIOMES, REGION_START, REGIONS, STAGES_PER_ZONE, regionLastBiome } from 
 import { ALL_SPECIES, EVOLUTION_CHOICES, evolutionTargets, species } from '../data';
 import {
   GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, applyMegaCandy, craftMegaCandy, lineBase, arenaAvailable, assignExploration, assignPension, autoCaptureBall, autoEquipBest, bestStarsOf, biomeAvailable, bossAvailable,
-  canCompleteDex, canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
+  canCompleteDex, whereToFind, canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
   harvestExploration, harvestPension, holder, isRareInZone, makeMon, addMon, makeWaves, migrateSave, monsBelowStars, monsNotShiny, newGame, pickSpecies, rankUpTalent, recycle, release, releaseBelowStars, SHARDS_PER_MIN,
   releaseExcess, releaseNotShiny, remainingEvolutions, removePension, selectStage, startPrestige, teamMaxLevel, tryCapture, unequipBox, xpGapMult,
 } from '../game';
@@ -959,4 +959,19 @@ test('évolutions à choix : la 1re cible est toujours evolvesTo, toutes existen
     expect(targets[0]).toBe(species(Number(from)).evolvesTo);
     for (const t of targets) expect(species(t).id).toBe(t);
   }
+});
+
+test.each(REGIONS.map((r, i) => [r.name, i] as const))('whereToFind %s : toute espèce de la région a un lieu d\'obtention, sauvage ou via une évolution', (_n, p) => {
+  const missing = ALL_SPECIES.filter((sp) => sp.id <= REGIONS[p].dexMax && whereToFind(sp.id, p).source === null).map((sp) => sp.name);
+  expect(missing).toEqual([]);
+});
+
+test('whereToFind : une forme évoluée renvoie sa lignée, une espèce sauvage ses biomes', () => {
+  const wild = whereToFind(135, 0); // Voltali, sauvage à Kanto
+  expect(wild.path).toEqual([135]);
+  expect(wild.habitats.length).toBeGreaterThan(0);
+  const evolved = whereToFind(3, 0); // Florizarre
+  expect(evolved.path[evolved.path.length - 1]).toBe(3);
+  expect(evolved.path.length).toBeGreaterThan(1);
+  expect(evolved.habitats.length).toBeGreaterThan(0);
 });
