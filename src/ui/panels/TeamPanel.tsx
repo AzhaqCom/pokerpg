@@ -1,12 +1,12 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
-import { species } from '../../game/data';
+import { PType, species } from '../../game/data';
 import {
   GameState, canCompleteDex, canEvolve, completeDex, excessMons, monsBelowStars, monsNotShiny, releaseBelowStars,
   releaseExcess, releaseNotShiny, setTeam, unequipBox,
 } from '../../game/game';
 import { Mon } from '../../game/model';
-import { monStars, primaryType } from '../../game/stats';
+import { monStars } from '../../game/stats';
 import { useGame } from '../../store/game';
 import { useSettings } from '../../store/settings';
 import { toast, useUi } from '../../store/ui';
@@ -16,7 +16,7 @@ import { feedback } from '../components/feedback';
 import { MonThumb } from '../components/MonThumb';
 import { Stars } from '../components/Stars';
 import { TypeBadge } from '../components/TypeBadge';
-import { TYPE_COLOR, auraDisplay, monName, monStats, xpProgress } from '../helpers';
+import { TYPE_COLOR, auraDisplay, monName, monStats, textOn, typeLabel, xpProgress } from '../helpers';
 import { C } from '../theme';
 import { spentPoints, talentPoints } from '../../game/talents';
 
@@ -24,16 +24,14 @@ const BOX_COLS = 4;
 const BOX_GAP = 8;
 /** Padding horizontal de la liste : 12 de chaque côté. */
 const SCREEN_PADDING = 24;
-const TYPE_ORDER = Object.keys(TYPE_COLOR);
+const TYPE_ORDER = Object.keys(TYPE_COLOR) as PType[];
 
-type SortMode = 'type' | 'level' | 'dex' | 'stars';
+type SortMode = 'level' | 'dex' | 'stars';
 const SORTS: { key: SortMode; label: string }[] = [
-  { key: 'dex', label: 'Ordre Pokédex' }, { key: 'type', label: 'Type' },
+  { key: 'dex', label: 'Ordre Pokédex' },
   { key: 'level', label: 'Niveau' }, { key: 'stars', label: 'Rang' },
 ];
 const SORTERS: Record<SortMode, (a: Mon, b: Mon) => number> = {
-  type: (a, b) => TYPE_ORDER.indexOf(primaryType(a.speciesId)) - TYPE_ORDER.indexOf(primaryType(b.speciesId))
-    || monStars(b) - monStars(a) || b.level - a.level,
   level: (a, b) => b.level - a.level || monStars(b) - monStars(a),
   dex: (a, b) => a.speciesId - b.speciesId || b.level - a.level,
   stars: (a, b) => monStars(b) - monStars(a) || b.level - a.level,
@@ -49,8 +47,17 @@ export function TeamPanel() {
   const [evolveOnly, setEvolveOnly] = useState(false);
   const [query, setQuery] = useState('');
   const q = query.trim().toLowerCase();
-  const box = Object.values(s.mons)
-    .filter((m) => !s.team.includes(m.uid) && (!evolveOnly || canEvolve(m)) && (!q || monName(m).toLowerCase().startsWith(q)))
+  const [typeFilter, setTypeFilter] = useState<PType | null>(null);
+  const boxAll = Object.values(s.mons).filter((m) => !s.team.includes(m.uid));
+  /** Types présents dans la boîte (un Pokémon bi-type compte pour ses deux types), dans l'ordre habituel. */
+  const boxTypes = useMemo(() => {
+    const present = new Set<PType>();
+    for (const m of boxAll) for (const t of species(m.speciesId).types) present.add(t);
+    return TYPE_ORDER.filter((t) => present.has(t));
+  }, [boxAll.length, s.mons]);
+  const activeType = typeFilter && boxTypes.includes(typeFilter) ? typeFilter : null;
+  const box = boxAll
+    .filter((m) => (!activeType || species(m.speciesId).types.includes(activeType)) && (!evolveOnly || canEvolve(m)) && (!q || monName(m).toLowerCase().startsWith(q)))
     .sort(SORTERS[sort]);
   const pensionUids = new Set(s.pension.map((p) => p.uid));
   const explorationUids = new Set(s.exploration.map((p) => p.uid));
@@ -60,7 +67,7 @@ export function TeamPanel() {
   const excess = excessMons(s, { keepEvolutionMaterial });
   const belowStars = monsBelowStars(s, 3);
   const notShiny = monsNotShiny(s);
-  const dexCompletable = canCompleteDex(s);
+  const dexCompletable = canCompleteDex(s, { keepEvolutionMaterial });
   const boxEquippedCount = Object.values(s.mons)
     .filter((m) => !s.team.includes(m.uid))
     .reduce((a, m) => a + Object.keys(m.items).length, 0);
@@ -142,7 +149,7 @@ export function TeamPanel() {
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.maintRow}>
                   {dexCompletable && (
                 <Button small label="Compléter le Pokédex" color="#2e7d32" onPress={() => {
-                  const n = act((g: GameState) => completeDex(g));
+                  const n = act((g: GameState) => completeDex(g, false, { keepEvolutionMaterial }));
                   if (n) { feedback('evolve'); toast(`${n} évolution${n > 1 ? 's' : ''} pour compléter le Pokédex`, '#69f0ae'); }
                 }} />
               )}
@@ -204,7 +211,7 @@ export function TeamPanel() {
               </>
             )}
             <View style={styles.row}>
-              <Text style={styles.title}>Ordonner</Text>
+              <Text style={styles.title}>Ordonner/Filtrer</Text>
             </View>
             <View style={styles.row}>
               {SORTS.map((so) => (
@@ -216,6 +223,20 @@ export function TeamPanel() {
                 <Text style={styles.chipTxt}>Peut évoluer</Text>
               </Pressable>
             </View>
+            {boxTypes.length > 0 && (
+              
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                <Pressable onPress={() => setTypeFilter(null)} style={[styles.chip, !activeType && styles.chipOn]}>
+                  <Text style={styles.chipTxt}>Tous types</Text>
+                </Pressable>
+                {boxTypes.map((t) => (
+                  <Pressable key={t} onPress={() => setTypeFilter(activeType === t ? null : t)}
+                    style={[styles.chip, { borderWidth: 1, borderColor: TYPE_COLOR[t] }, activeType === t && { backgroundColor: TYPE_COLOR[t] }]}>
+                    <Text style={[styles.chipTxt, activeType === t && { color: textOn(TYPE_COLOR[t]) }]}>{typeLabel(t)}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
             <TextInput
               value={query}
               onChangeText={setQuery}

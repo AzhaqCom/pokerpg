@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { cdFactor } from '../game/battle';
 import { Move, learnedMoves, move, species } from '../game/data';
@@ -230,11 +230,12 @@ export function MonSheet() {
                             {needsChoice ? 'Choisis un type à booster (hors des siens, présent dans son movepool)' : `${t.describe(Math.max(1, r) * t.perRank)}${r === 0 ? ' (rang 1)' : ''}`}
                           </Text>
                         </View>
-                        <Button small label="+" disabled={!can} color={can ? C.accent : C.panel2}
-                          onPress={() => {
+                        <TalentPlus can={can}
+                          onOne={() => {
                             if (needsChoice) { setAffinityPick(affinityPick === t.id ? null : t.id); return; }
                             feedback(); act((g) => rankUpTalent(g, mon.uid, t.id));
-                          }} />
+                          }}
+                          onRepeat={() => !needsChoice && act((g) => rankUpTalent(g, mon.uid, t.id))} />
                       </View>
                       {affinityPick === t.id && (() => {
                         const otherChoices = Object.entries(mon.talentTypeChoices).filter(([k]) => k !== t.id).map(([, v]) => v);
@@ -423,3 +424,18 @@ const styles = StyleSheet.create({
   swapName: { color: C.text, fontWeight: '800', fontSize: 14 },
   swapSub: { color: C.sub, fontSize: 11 },
 });
+
+
+/** Bouton « + » d'un talent : tap = +1 rang, appui long = dépense en rafale tant que possible (comme l'achat de Balls). */
+function TalentPlus({ can, onOne, onRepeat }: { can: boolean; onOne: () => void; onRepeat: () => boolean | void }) {
+  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const repeat = useRef(onRepeat);
+  repeat.current = onRepeat;
+  const stop = () => { if (timer.current) { clearInterval(timer.current); timer.current = null; } };
+  useEffect(() => stop, []);
+  return (
+    <Button small label="+" disabled={!can} color={can ? C.accent : C.panel2} onPress={onOne} delayLongPress={350}
+      onLongPress={() => { stop(); timer.current = setInterval(() => { if (!repeat.current()) stop(); }, 100); }}
+      onPressOut={stop} />
+  );
+}

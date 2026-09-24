@@ -80,18 +80,18 @@ la région calé sur le biome 1).
 
 ### 7. Équilibrage
 
-`wildMult` par zone calé via `bot.ts`/`simulate()`, simulation bout en bout étendue à Hoenn.
+FAIT (2026-09-24) : courbe de difficulté unique par région (`DIFFICULTY`), simulation bout en bout étendue à Hoenn.
 
 ### 8. Tests, UI, docs
 
 - Test générique de couverture **par région** dans `game.test.ts` (toutes les formes de base
   ≤ `dexMax` obtenables dans les biomes de la région), continuité de la courbe de niveau.
 - Carte, Pokédex (386), page Aide, textes du prestige.
-- `CLAUDE.md`, `BIOMES.md`.
+- `CLAUDE.md`, `BIOMES.md` : FAIT.
 
 ### 9. Test manuel par Arno
 
-Prestige Johto → Hoenn sur une vraie sauvegarde, puis début de Hoenn.
+FAIT le 2026-09-24 : prestige Johto → Hoenn OK.
 
 ---
 

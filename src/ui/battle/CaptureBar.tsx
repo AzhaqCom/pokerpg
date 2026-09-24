@@ -40,7 +40,7 @@ export function CaptureBar() {
       </View>
       <View style={styles.ballRow}>
         {(Object.keys(BALLS) as BallKind[]).filter((b) => s.balls[b] > 0).map((b) => (
-          <Button key={b} small icon={<BallIcon kind={b} size={16} />} label={`${s.balls[b]} · ${captureChance(offer, b)}%`} color={C.panel2} onPress={() => throwBall(b)} />
+          <Button key={b} small icon={<BallIcon kind={b} size={16} />} label={`${s.balls[b]} · ${captureChance(offer, b, s)}%`} color={C.panel2} onPress={() => throwBall(b)} />
         ))}
         {!Object.values(s.balls).some((n) => n > 0) && <Text style={styles.sub}>Plus de Balls</Text>}
       </View>

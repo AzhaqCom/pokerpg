@@ -1,7 +1,7 @@
 import { Battle } from '../battle';
 import { ALL_SPECIES, species, typeMultiplier } from '../data';
-import { BIOMES } from '../content';
-import { makeMon, makeWaves, wildFighter, WILD_MALUS } from '../game';
+import { BIOMES, REGION_START, regionLastBiome } from '../content';
+import { DIFFICULTY, makeMon, makeWaves, wildFighter, WILD_MALUS, zoneWildMult } from '../game';
 import { seededRng } from '../rng';
 import { finalStats } from '../stats';
 import { emptyBonuses } from '../model';
@@ -32,7 +32,7 @@ describe('types', () => {
   });
 });
 
-describe('wildMult : zones où le joueur roule sur le contenu, sauvages renforcés', () => {
+describe('difficulté des sauvages (wildMult / courbe par région)', () => {
   test('wildFighter : sans wildMult, malus standard (-15 %) ; avec, le multiplicateur donné remplace le malus', () => {
     const mon = makeMon(25, 30, seededRng(1), false, 8);
     const base = finalStats(mon, emptyBonuses());
@@ -44,12 +44,21 @@ describe('wildMult : zones où le joueur roule sur le contenu, sauvages renforc�
     expect(buffed.stats.atk).toBe(Math.round(base.atk * 1.4));
   });
 
-  test('makeWaves : une zone marquée wildMult transmet bien la valeur à ses sauvages', () => {
-    const zoneIdx = BIOMES[2].zones.findIndex((z) => z.wildMult !== undefined); // Biome Électrique
-    expect(zoneIdx).toBeGreaterThanOrEqual(0);
-    const waves = makeWaves('stage', 2, zoneIdx, 3, seededRng(1));
-    const enemy = waves.flat()[0];
-    expect(enemy.wildMult).toBe(BIOMES[2].zones[zoneIdx].wildMult);
+  test('courbe de difficulté : très douce au départ de chaque région, croissante jusqu à la fin', () => {
+    for (const r of [0, 1, 2]) {
+      const start = REGION_START[r];
+      const last = regionLastBiome(r);
+      const first = zoneWildMult(start, 0, 1);
+      const end = zoneWildMult(last, 2, 5);
+      expect(first).toBeCloseTo(DIFFICULTY.from, 5);
+      expect(end).toBeCloseTo(DIFFICULTY.end[r], 5);
+      let prev = 0;
+      for (let b = start; b <= last; b++) for (let z = 0; z < 3; z++) for (let st = 1; st <= 5; st++) {
+        const m = zoneWildMult(b, z, st);
+        expect(m).toBeGreaterThanOrEqual(prev);
+        prev = m;
+      }
+    }
   });
 });
 

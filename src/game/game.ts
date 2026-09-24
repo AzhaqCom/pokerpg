@@ -24,6 +24,12 @@ export const BALLS = {
   hyper: { name: 'Hyper Ball', chance: 80 },
 } as const;
 export type BallKind = keyof typeof BALLS;
+/** Poké Balls de départ (nouvelle partie et début de chaque région) : de quoi former une équipe de 3 sans idle. */
+export const START_BALLS = 25;
+/** Tant que l'équipe n'a pas ses 3 membres, la Poké Ball vaut au moins ce taux (%). */
+export const EARLY_POKE_CHANCE = 50;
+/** Échecs de capture consécutifs après lesquels la suivante est garantie. */
+export const CAPTURE_PITY = 3;
 export const FREE_BALLS_PER_DAY = 5;
 /** Boutique : prix des Balls en éclats */
 export const BALL_PRICE: Record<'poke' | 'super' | 'hyper', number> = { poke: 20, super: 60, hyper: 150 };
@@ -47,6 +53,8 @@ export interface GameState {
   items: Record<string, Item>;
   shards: number;
   balls: Record<BallKind, number>;
+  /** Échecs de capture consécutifs (pitié : voir `CAPTURE_PITY`). */
+  missStreak: number;
   lastFreeBallsDay: number;
   /** biome courant (0..BIOMES.length-1), zone courante (0..2) et étape courante (1..5) */
   biome: number;
@@ -74,7 +82,7 @@ export interface GameState {
 export function newGame(): GameState {
   return {
     version: 1, starterChosen: false, mons: {}, team: [], pension: [], exploration: [], items: {},
-    shards: 0, balls: { poke: 10, super: 0, hyper: 0 }, lastFreeBallsDay: 0,
+    shards: 0, balls: { poke: START_BALLS, super: 0, hyper: 0 }, lastFreeBallsDay: 0, missStreak: 0,
     biome: 0, zone: 0, stage: 1,
     unlocked: BIOMES.map((b, i) => b.zones.map((_, j) => (i === 0 && j === 0 ? 1 : 0))),
     bossesBeaten: BIOMES.map((b) => b.zones.map(() => false)),
@@ -458,7 +466,8 @@ function maxReachableStage(mon: Mon): number {
  * `dryRun: true` ne modifie jamais `s` et s'arrête dès la 1re évolution possible trouvée (utile pour
  * savoir si le bouton a quelque chose à faire, voir `canCompleteDex`).
  */
-export function completeDex(s: GameState, dryRun = false): number {
+export function completeDex(s: GameState, dryRun = false, opts: { keepEvolutionMaterial?: boolean } = {}): number {
+  const keep = opts.keepEvolutionMaterial ?? true;
   const maxId = regionOf(s.prestige).dexMax;
   const bases = new Set<number>();
   for (let id = 1; id <= maxId; id++) bases.add(lineBase(id));
@@ -474,7 +483,7 @@ export function completeDex(s: GameState, dryRun = false): number {
       // 1 exemplaire protégé par étage déjà possédé (équipe/pension/exploration prioritaires)
       const protectedUids = new Set<string>();
       for (const stage of chain) {
-        if (!(cnt.get(stage) ?? 0)) continue;
+        if (!keep || !(cnt.get(stage) ?? 0)) continue;
         const held = all.find((m) => m.speciesId === stage
           && (s.team.includes(m.uid) || s.pension.some((p) => p.uid === m.uid) || s.exploration.some((p) => p.uid === m.uid)))
           ?? all.find((m) => m.speciesId === stage);
@@ -484,7 +493,9 @@ export function completeDex(s: GameState, dryRun = false): number {
         .filter((m) => !protectedUids.has(m.uid) && !s.team.includes(m.uid)
           && !s.pension.some((p) => p.uid === m.uid) && !s.exploration.some((p) => p.uid === m.uid))
         .sort((a, b) => chain.indexOf(a.speciesId) - chain.indexOf(b.speciesId));
-      const missing = chain.filter((stage) => !(cnt.get(stage) ?? 0));
+      // mode collectionneur : un étage manque s'il n'est plus possédé ; mode léger : s'il n'est pas dans le Pokédex
+      const seen = shiny ? s.dex.shiny : s.dex.caught;
+      const missing = chain.filter((stage) => (keep ? !(cnt.get(stage) ?? 0) : !seen.includes(stage)));
       for (const target of missing) {
         const ti = chain.indexOf(target);
         const idx = freeSpares.findIndex((m) => chain.indexOf(m.speciesId) < ti && chain.indexOf(maxReachableStage(m)) >= ti);
@@ -499,8 +510,8 @@ export function completeDex(s: GameState, dryRun = false): number {
 }
 
 /** Le bouton « Compléter le Pokédex » a-t-il quelque chose à faire ? Ne modifie jamais `s`. */
-export function canCompleteDex(s: GameState): boolean {
-  return completeDex(s, true) > 0;
+export function canCompleteDex(s: GameState, opts: { keepEvolutionMaterial?: boolean } = {}): boolean {
+  return completeDex(s, true, opts) > 0;
 }
 
 export function feedCandy(s: GameState, uid: string, n = 1) {
@@ -767,6 +778,34 @@ export function allyFighter(s: GameState, uid: string, hp?: number): FighterInit
 export const WILD_MALUS = { hp: 0.85, atk: 0.85 };
 
 /**
+ * Difficulté des sauvages : une seule règle continue par région (plus de multiplicateur posé à la main
+ * par zone). mult = from + (end[région] − from) × p^exp, où p = avancement dans la région (0 à 1, par
+ * étape). Le départ (Nv.5 après un prestige) est très doux, la fin de région est la plus serrée.
+ */
+export const DIFFICULTY = { from: 0.6, end: [1.6, 1.9, 2.2], exp: 1.2 };
+
+/** Avancement (0 à 1) dans la région d'un biome/zone/étape : base de toutes les courbes de difficulté. */
+export function regionProgress(biomeIndex: number, zoneIndex: number, stage: number): { region: number; p: number } {
+  const region = REGION_START.length - 1 - [...REGION_START].reverse().findIndex((b) => b <= biomeIndex);
+  const start = REGION_START[region] ?? 0;
+  const total = (regionLastBiome(region) - start + 1) * 3 * STAGES_PER_ZONE;
+  const p = Math.min(1, ((biomeIndex - start) * 3 * STAGES_PER_ZONE + zoneIndex * STAGES_PER_ZONE + (stage - 1)) / (total - 1));
+  return { region, p };
+}
+
+export function zoneWildMult(biomeIndex: number, zoneIndex: number, stage: number): number {
+  const { region, p } = regionProgress(biomeIndex, zoneIndex, stage);
+  return DIFFICULTY.from + ((DIFFICULTY.end[region] ?? 2) - DIFFICULTY.from) * Math.pow(p, DIFFICULTY.exp);
+}
+
+/** Boss et arènes : leurs PV de base (×5 / ×2) suivent aussi la région, de ×0,5 au départ à ×1,2 en fin. */
+export const BOSS_RAMP = { from: 0.5, to: 1.2 };
+export function bossRamp(biomeIndex: number, zoneIndex: number, stage: number): number {
+  const { p } = regionProgress(biomeIndex, zoneIndex, stage);
+  return BOSS_RAMP.from + (BOSS_RAMP.to - BOSS_RAMP.from) * p;
+}
+
+/**
  * Malus additionnel tant que l'équipe n'a pas ses 3 membres : un K.O. sans remplaçant fait perdre
  * l'étape, donc on amortit la période fragile avant la 3e capture.
  */
@@ -825,13 +864,13 @@ export interface WaveEnemy {
 export function makeWaves(kind: StageKind, biomeIndex: number, zoneIndex: number, stage: number, rng: Rng, teamSize = 3, bossBeaten = false): WaveEnemy[][] {
   const biome = BIOMES[biomeIndex];
   if (kind === 'arena') {
-    return biome.arena.team.map(([id, lv]) => [{ mon: makeMon(id, lv, rng, false, 12), hpMult: 2, boss: true }]);
+    return biome.arena.team.map(([id, lv]) => [{ mon: makeMon(id, lv, rng, false, 12), hpMult: 2 * bossRamp(biomeIndex, 2, 5), boss: true }]);
   }
   const zone = biome.zones[zoneIndex];
   if (kind === 'boss') {
     // le combat de boss lui-même n'est jamais chromatique (ne pas trivialiser sa capture garantie) ;
     // une fois vaincu, il rejoint le pool sauvage (`joinsPool`) et peut y être chromatique comme les autres.
-    return [[{ mon: makeMon(zone.boss.speciesId, zone.boss.level, rng, false, 10), boss: true, hpMult: 5 }]];
+    return [[{ mon: makeMon(zone.boss.speciesId, zone.boss.level, rng, false, 10), boss: true, hpMult: 5 * bossRamp(biomeIndex, zoneIndex, 5) }]];
   }
   const lv = zone.minLv + Math.floor(((zone.maxLv - zone.minLv) * (stage - 1)) / (STAGES_PER_ZONE - 1));
   const waves: WaveEnemy[][] = [];
@@ -842,7 +881,7 @@ export function makeWaves(kind: StageKind, biomeIndex: number, zoneIndex: number
     const wave: WaveEnemy[] = [];
     for (let i = 0; i < n; i++) {
       const shiny = rng.int(SHINY_ODDS) === 0;
-      wave.push({ mon: makeMon(pickSpecies(zone, rng, bossBeaten), Math.max(2, lv - 1 + rng.int(2)), rng, shiny), wild: true, wildMult: zone.wildMult });
+      wave.push({ mon: makeMon(pickSpecies(zone, rng, bossBeaten), Math.max(2, lv - 1 + rng.int(2)), rng, shiny), wild: true, wildMult: zoneWildMult(biomeIndex, zoneIndex, stage) });
     }
     waves.push(wave);
   }
@@ -1059,9 +1098,11 @@ export function selectStage(s: GameState, biome: number, zone: number, stage: nu
 }
 
 // ---------------------------------------------------------------- capture
-export function captureChance(offer: CaptureOffer, ball: BallKind): number {
+export function captureChance(offer: CaptureOffer, ball: BallKind, s?: GameState): number {
   if (offer.guaranteed || offer.shiny) return 100;
-  return Math.round(BALLS[ball].chance * (offer.rare ? 0.5 : 1));
+  if (s && s.missStreak >= CAPTURE_PITY) return 100;
+  const base = s && s.team.length < 3 && ball === 'poke' ? Math.max(BALLS.poke.chance, EARLY_POKE_CHANCE) : BALLS[ball].chance;
+  return Math.round(base * (offer.rare ? 0.5 : 1));
 }
 
 /** Niveau du meilleur Pokémon de l'équipe : plafond des captures, jamais en dessous de 2. */
@@ -1102,8 +1143,9 @@ export function tryCapture(s: GameState, offer: CaptureOffer, ball: BallKind | n
   if (!offer.guaranteed) {
     if (!ball || s.balls[ball] <= 0) return null;
     s.balls[ball]--;
-    if (rng.int(100) >= captureChance(offer, ball)) return null;
+    if (rng.int(100) >= captureChance(offer, ball, s)) { s.missStreak++; return null; }
   }
+  s.missStreak = 0;
   const mon = makeMon(offer.speciesId, captureLevel(s, offer), rng, offer.shiny, genesMinForBadges(s.badges));
   addMon(s, mon);
   s.totals.captures++;

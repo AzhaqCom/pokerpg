@@ -59,6 +59,10 @@ export function PensionPanel() {
         toast(`+${totalXp} XP${levels ? ` · ${levels} niveau${levels > 1 ? 'x' : ''} gagné${levels > 1 ? 's' : ''}` : ''}`, '#69f0ae');
       }} />
       <Text style={styles.title}>Pension · {s.pension.length}/{pensionSlots(s)}</Text>
+      {s.pension.length < pensionSlots(s) && (
+        <Button small label="+ Poster un Pokémon" disabled={!free.length} onPress={() => setPick(true)} />
+      )}
+      {!free.length && <Text style={styles.hint}>Capture d'autres Pokémon : ceux qui ne sont pas dans l'équipe (ni déjà en Exploration) peuvent gagner de l'XP ici.</Text>}
       {posted.map((p) => {
         const m = s.mons[p.uid];
         if (!m) return null;
@@ -80,10 +84,6 @@ export function PensionPanel() {
           </View>
         );
       })}
-      {s.pension.length < pensionSlots(s) && (
-        <Button small label="+ Poster un Pokémon" disabled={!free.length} onPress={() => setPick(true)} />
-      )}
-      {!free.length && <Text style={styles.hint}>Capture d'autres Pokémon : ceux qui ne sont pas dans l'équipe (ni déjà en Exploration) peuvent gagner de l'XP ici.</Text>}
 
       <Modal visible={pick} transparent animationType="slide" onRequestClose={() => setPick(false)}>
         <Pressable style={styles.backdrop} onPress={() => setPick(false)}>

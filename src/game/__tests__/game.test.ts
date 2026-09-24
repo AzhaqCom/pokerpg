@@ -922,3 +922,15 @@ test('boutique : Balls contre éclats', () => {
   expect(buyBall(s, 'super')).toBe(false);
   expect(s.shards).toBe(10);
 });
+
+test('completeDex : un chromatique en un seul exemplaire n\'évolue qu\'en mode léger (keepEvolutionMaterial off)', () => {
+  const s = newGame();
+  chooseStarter(s, 4, seededRng(1));
+  addMon(s, makeMon(1, 5, seededRng(50)));
+  addMon(s, makeMon(7, 5, seededRng(51))); // équipe pleine : l'Abo va en boîte
+  addMon(s, makeMon(23, 23, seededRng(7), true)); // Abo chromatique Nv.23, seul de son étage (Arbok jamais vu)
+  expect(canCompleteDex(s)).toBe(false); // mode collectionneur : l'unique Abo chromatique est protégé
+  expect(canCompleteDex(s, { keepEvolutionMaterial: false })).toBe(true);
+  expect(completeDex(s, false, { keepEvolutionMaterial: false })).toBeGreaterThan(0);
+  expect(s.dex.shiny).toContain(24); // Arbok chromatique au Pokédex
+});

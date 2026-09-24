@@ -301,3 +301,14 @@ par un joueur déjà suréquipé/talents avancés à ce stade. Mais l'écart est
 manuel en jeu, et éventuellement retravailler la difficulty de ces 3 zones si ça se confirme trop facile
 en conditions réelles (pas fait ici : décision d'équilibrage à trancher avec Arno, pas une correction de
 bug comme Onix/Racaillou).
+
+---
+
+## Hoenn (biomes 20-31) et courbe de difficulté (2026-09-24)
+
+12 biomes, Nv.5 → 100 : Mérouville, Myokara, Bois de Clémenti, Lavandia, Mont Chimnée, Clémenti-Ville,
+Route du Désert, Cimetronelle, Algatia, Atalanopolis, Route Victoire, Éternara. Le détail des équipes et
+des pools vient du générateur (`tools/gen_region.ts`, `tools/regions/hoenn.json`). La difficulté des
+sauvages suit une seule courbe par région (`DIFFICULTY` dans `game.ts`) : ×0,60 au départ → ×1,6 Kanto /
+×1,9 Johto / ×2,2 Hoenn ; boss et arènes via `bossRamp`. Durée de simulation d'un joueur « humain » :
+~3 h à 3 h 30 par région.

@@ -74,15 +74,13 @@ couverture par région (`test.each(REGIONS)`) doit passer avant de considérer S
   du même thème (`BIOME_SET` dans `items.ts`, `setOfBiome()`), et `biomeTier()` recale la puissance sur la
   région (1er biome = Kanto 1, dernier ≈ +60 %, champ `Item.tier`). Le starter reçoit la panoplie du
   1er biome de sa région. Sinnoh : ajouter ses biomes dans `BIOME_SET`, rien d'autre.
-- **Équilibrage** : pas de `wildMult` sur les zones Hoenn/Sinnoh (malus standard). Le caler via
-  `bot.ts`/`simulate()`, puis étendre la simulation bout en bout aux nouvelles régions.
+- **Équilibrage** : FAIT pour Hoenn — courbe de difficulté unique par région (`DIFFICULTY` dans `game.ts`),
+  simulation bout en bout étendue (`simulate(..., region)`). Sinnoh : ajouter sa valeur dans `DIFFICULTY.end`.
 - **Doc** : `CLAUDE.md` (Hoenn codé, `REGIONS`, générateur), `BIOMES.md` (courbes Hoenn/Sinnoh),
   cocher `PLAN_GEN3_GEN4.md`.
-- **Détail de nom** : le champion Glace de Johto s'appelle « Alizée » dans `content.ts`, alors que son
-  vrai nom français est **Frédo**. Alizée est la championne Vol de Hoenn, désormais aussi dans le jeu.
+- **Détail de nom** : FAIT (Frédo).
 - **Taille de l'APK** : +29 Mo de sprites. À surveiller au prochain build EAS.
 
 ### Test manuel par Arno
-- Prestige Kanto → Johto → Hoenn sur une vraie sauvegarde (boutons debug du HUD relatifs à la région),
-  puis début de Hoenn : starter, Carte, Pokédex /386.
+- Prestige Kanto → Johto → Hoenn : FAIT le 2026-09-24, fonctionne.
 - Même chose vers Sinnoh une fois codé.

@@ -39,7 +39,7 @@ export function StarterScreen() {
           );
         })}
       </View>
-      <Text >
+      <Text style={styles.lia}>
         Je t'aime Lia 💖
       </Text>
     </View>
@@ -54,4 +54,5 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 8 },
   card: { alignItems: 'center', backgroundColor: C.panel, borderRadius: 18, padding: 8, gap: 4 },
   name: { color: C.text, fontWeight: '800' },
+  lia: { color: C.gold, fontSize: 16, fontWeight: '800', marginTop: 12 },
 });

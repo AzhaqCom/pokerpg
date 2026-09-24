@@ -12,10 +12,6 @@ export interface ZoneDef {
   boss: { speciesId: number; level: number; joinsPool?: boolean };
   /** fond de combat */
   biome: 'forest' | 'meadow' | 'cave' | 'water' | 'electric' | 'swamp' | 'temple' | 'volcano' | 'desert';
-  /** zone traversée sans perte mesurée en simulation (joueur largement en avance à ce stade) :
-   * multiplicateur de stats des sauvages, remplace `WILD_MALUS` (-15 %) au lieu de s'y ajouter — 1 =
-   * pleines stats, > 1 = plus fort que la normale (calé empiriquement par simulation, voir bot.ts). */
-  wildMult?: number;
 }
 
 export interface ArenaDef {
@@ -121,17 +117,17 @@ export const BIOMES: BiomeDef[] = [
     name: 'Biome Électrique',
     zones: [
       {
-        name: 'Sous-station', minLv: 30, maxLv: 31, biome: 'electric', wildMult: 1,
+        name: 'Sous-station', minLv: 30, maxLv: 31, biome: 'electric',
         pool: [[81, 30], [39, 30], [98, 25], [100, 15]],
         boss: { speciesId: 99, level: 32 },
       },
       {
-        name: 'Salle des Générateurs', minLv: 31, maxLv: 33, biome: 'electric', wildMult: 1,
+        name: 'Salle des Générateurs', minLv: 31, maxLv: 33, biome: 'electric',
         pool: [[81, 20], [100, 20], [40, 20], [98, 15], [125, 10], [83, 15]],
         boss: { speciesId: 82, level: 33 },
       },
       {
-        name: 'Centrale Principale', minLv: 33, maxLv: 34, biome: 'electric', wildMult: 1,
+        name: 'Centrale Principale', minLv: 33, maxLv: 34, biome: 'electric',
         pool: [[81, 15], [40, 20], [99, 15], [125, 15], [83, 10], [135, 15], [133, 10]],
         boss: { speciesId: 101, level: 34 },
       },
@@ -147,17 +143,17 @@ export const BIOMES: BiomeDef[] = [
     name: 'Biome Verdoyant',
     zones: [
       {
-        name: 'Clos Fleuri', minLv: 35, maxLv: 37, biome: 'meadow', wildMult: 1,
+        name: 'Clos Fleuri', minLv: 35, maxLv: 37, biome: 'meadow',
         pool: [[35, 30], [52, 30], [102, 25], [108, 15]],
         boss: { speciesId: 53, level: 38 },
       },
       {
-        name: 'Ronce Profonde', minLv: 37, maxLv: 39, biome: 'forest', wildMult: 1,
+        name: 'Ronce Profonde', minLv: 37, maxLv: 39, biome: 'forest',
         pool: [[102, 20], [108, 15], [114, 20], [123, 15], [118, 10], [35, 10], [52, 10]],
         boss: { speciesId: 103, level: 40 },
       },
       {
-        name: 'Canopée Verdoyante', minLv: 39, maxLv: 42, biome: 'forest', wildMult: 1,
+        name: 'Canopée Verdoyante', minLv: 39, maxLv: 42, biome: 'forest',
         pool: [[114, 15], [123, 15], [127, 15], [118, 15], [108, 10], [102, 15], [35, 15]],
         boss: { speciesId: 119, level: 42 },
       },
@@ -199,17 +195,17 @@ export const BIOMES: BiomeDef[] = [
     name: 'Sanctuaire Psy',
     zones: [
       {
-        name: 'Torii Embrumé', minLv: 61, maxLv: 62, biome: 'temple', wildMult: 1.15,
+        name: 'Torii Embrumé', minLv: 61, maxLv: 62, biome: 'temple',
         pool: [[96, 30], [56, 30], [66, 25], [128, 15]],
         boss: { speciesId: 57, level: 63 },
       },
       {
-        name: 'Dojo de la Prévoyance', minLv: 62, maxLv: 64, biome: 'temple', wildMult: 1.15,
+        name: 'Dojo de la Prévoyance', minLv: 62, maxLv: 64, biome: 'temple',
         pool: [[96, 15], [56, 15], [66, 20], [106, 15], [107, 15], [115, 10], [128, 10]],
         boss: { speciesId: 97, level: 65 },
       },
       {
-        name: 'Sanctuaire Intérieur', minLv: 64, maxLv: 65, biome: 'temple', wildMult: 1.15,
+        name: 'Sanctuaire Intérieur', minLv: 64, maxLv: 65, biome: 'temple',
         pool: [[106, 20], [107, 20], [115, 15], [128, 15], [66, 10], [56, 10], [96, 10]],
         boss: { speciesId: 68, level: 65 },
       },
@@ -225,17 +221,17 @@ export const BIOMES: BiomeDef[] = [
     name: 'Terres de Feu',
     zones: [
       {
-        name: 'Contrefort Cendré', minLv: 66, maxLv: 68, biome: 'volcano', wildMult: 1.7,
+        name: 'Contrefort Cendré', minLv: 66, maxLv: 68, biome: 'volcano',
         pool: [[37, 30], [58, 30], [77, 25], [124, 15]],
         boss: { speciesId: 38, level: 69 },
       },
       {
-        name: 'Champ de Lave', minLv: 68, maxLv: 70, biome: 'volcano', wildMult: 1.7,
+        name: 'Champ de Lave', minLv: 68, maxLv: 70, biome: 'volcano',
         pool: [[37, 15], [58, 15], [77, 15], [116, 20], [126, 15], [124, 10], [136, 10]],
         boss: { speciesId: 59, level: 71 },
       },
       {
-        name: 'Caldeira Ardente', minLv: 70, maxLv: 72, biome: 'volcano', wildMult: 1.7,
+        name: 'Caldeira Ardente', minLv: 70, maxLv: 72, biome: 'volcano',
         pool: [[116, 15], [117, 10], [126, 15], [136, 15], [124, 15], [77, 15], [37, 15]],
         boss: { speciesId: 78, level: 72 },
       },
@@ -251,17 +247,17 @@ export const BIOMES: BiomeDef[] = [
     name: 'Plaines Rocheuses',
     zones: [
       {
-        name: 'Carrière Aride', minLv: 73, maxLv: 74, biome: 'desert', wildMult: 2.6,
+        name: 'Carrière Aride', minLv: 73, maxLv: 74, biome: 'desert',
         pool: [[27, 30], [50, 30], [104, 25], [84, 15]],
         boss: { speciesId: 28, level: 75 },
       },
       {
-        name: 'Crevasse Rocheuse', minLv: 74, maxLv: 76, biome: 'desert', wildMult: 2.6,
+        name: 'Crevasse Rocheuse', minLv: 74, maxLv: 76, biome: 'desert',
         pool: [[27, 15], [50, 15], [104, 15], [111, 20], [84, 15], [129, 20]],
         boss: { speciesId: 51, level: 76 },
       },
       {
-        name: 'Plateau Desséché', minLv: 76, maxLv: 77, biome: 'desert', wildMult: 2.6,
+        name: 'Plateau Desséché', minLv: 76, maxLv: 77, biome: 'desert',
         pool: [[111, 20], [129, 20], [104, 15], [84, 15], [50, 15], [27, 15]],
         boss: { speciesId: 105, level: 77 },
       },
@@ -277,17 +273,17 @@ export const BIOMES: BiomeDef[] = [
     name: 'Route Victoire',
     zones: [
       {
-        name: 'Entrée de la Route Victoire', minLv: 78, maxLv: 82, biome: 'cave', wildMult: 1.4,
+        name: 'Entrée de la Route Victoire', minLv: 78, maxLv: 82, biome: 'cave',
         pool: [[147, 40], [142, 30], [131, 30]],
         boss: { speciesId: 149, level: 84 },
       },
       {
-        name: 'Passage Rocheux', minLv: 82, maxLv: 86, biome: 'cave', wildMult: 1.4,
+        name: 'Passage Rocheux', minLv: 82, maxLv: 86, biome: 'cave',
         pool: [[140, 40], [143, 30], [147, 30]],
         boss: { speciesId: 144, level: 87, joinsPool: true },
       },
       {
-        name: 'Sommet Balayé par les Vents', minLv: 86, maxLv: 89, biome: 'cave', wildMult: 1.4,
+        name: 'Sommet Balayé par les Vents', minLv: 86, maxLv: 89, biome: 'cave',
         pool: [[138, 40], [122, 30], [143, 30]],
         boss: { speciesId: 145, level: 90, joinsPool: true },
       },
@@ -516,7 +512,7 @@ export const BIOMES: BiomeDef[] = [
       },
     ],
     arena: {
-      name: 'Arène d’Irisia', leader: 'Alizée', type: 'Glace',
+      name: 'Arène d’Irisia', leader: 'Frédo', type: 'Glace',
       team: [[91, 65], [221, 67], [131, 70]],
       badge: 'Badge Glace',
     },
@@ -677,13 +673,13 @@ export const BIOMES: BiomeDef[] = [
       {
         // Chenipan, Blindalys, Aspicot, Chenipotte, Mimigal, Ningale, Munja
         name: 'Orée des Bois', minLv: 22, maxLv: 24, biome: 'forest',
-        pool: [[10, 20], [268, 20], [13, 20], [265, 20], [167, 20], [290, 8], [292, 8]],
+        pool: [[10, 6], [12, 14], [268, 6], [269, 14], [13, 6], [15, 14], [265, 6], [267, 14], [167, 6], [168, 14], [290, 8], [292, 8]],
         boss: { speciesId: 292, level: 25 },
       },
       {
         // Coxy, Arakdo, Paras, Pomdepik, Mimitoss, Noeunoeuf, Yanma
         name: 'Sous-bois Humide', minLv: 24, maxLv: 26, biome: 'forest',
-        pool: [[165, 20], [283, 20], [46, 20], [204, 20], [48, 20], [102, 8], [193, 8]],
+        pool: [[165, 6], [166, 14], [283, 6], [284, 14], [46, 6], [47, 14], [204, 20], [48, 20], [102, 8], [193, 8]],
         boss: { speciesId: 193, level: 27 },
       },
       {
@@ -707,13 +703,13 @@ export const BIOMES: BiomeDef[] = [
       {
         // Pichu, Wattouat, Terhal, Dynavolt, Pikachu
         name: 'Route Cyclable', minLv: 28, maxLv: 30, biome: 'electric',
-        pool: [[172, 20], [179, 20], [374, 20], [309, 8], [25, 8]],
+        pool: [[172, 20], [179, 6], [181, 14], [374, 6], [375, 14], [309, 8], [25, 8]],
         boss: { speciesId: 26, level: 31 },
       },
       {
         // Voltorbe, Magnéti, Élekid, Posipi, Négapi
         name: 'Nouvelle Centrale', minLv: 30, maxLv: 32, biome: 'electric',
-        pool: [[100, 20], [81, 20], [239, 20], [311, 8], [312, 8]],
+        pool: [[100, 6], [101, 14], [81, 6], [82, 14], [239, 20], [311, 8], [312, 8]],
         boss: { speciesId: 312, level: 33 },
       },
       {
@@ -736,13 +732,13 @@ export const BIOMES: BiomeDef[] = [
       {
         // Limagma, Balbuto, Chamallot, Goupix, Kraknoix
         name: 'Pente de Cendres', minLv: 34, maxLv: 36, biome: 'volcano',
-        pool: [[218, 20], [343, 20], [322, 20], [37, 8], [328, 8]],
+        pool: [[218, 20], [343, 6], [344, 14], [322, 6], [323, 14], [37, 8], [328, 8]],
         boss: { speciesId: 330, level: 37 },
       },
       {
         // Caninos, Phanpy, Magby, Rhinocorne, Ponyta
         name: 'Cratère Fumant', minLv: 36, maxLv: 39, biome: 'volcano',
-        pool: [[58, 20], [231, 20], [240, 20], [111, 8], [77, 8]],
+        pool: [[58, 6], [59, 14], [231, 6], [232, 14], [240, 20], [111, 8], [77, 8]],
         boss: { speciesId: 78, level: 40 },
       },
       {
@@ -765,13 +761,13 @@ export const BIOMES: BiomeDef[] = [
       {
         // Azurill, Fouinette, Mélo, Zigzaton, Togepi, Roucool, Rondoudou
         name: 'Hautes Herbes', minLv: 41, maxLv: 43, biome: 'meadow',
-        pool: [[298, 20], [161, 20], [173, 20], [263, 20], [175, 20], [16, 8], [39, 8]],
+        pool: [[298, 20], [161, 6], [162, 14], [173, 20], [263, 6], [264, 14], [175, 6], [176, 14], [16, 8], [39, 8]],
         boss: { speciesId: 40, level: 44 },
       },
       {
         // Métamorph, Piafabec, Parecool, Teddiursa, Spinda, Excelangue, Canarticho
         name: 'Ranch Paisible', minLv: 43, maxLv: 46, biome: 'meadow',
-        pool: [[132, 20], [21, 20], [287, 20], [216, 20], [327, 20], [108, 8], [83, 8]],
+        pool: [[132, 20], [21, 6], [22, 14], [287, 6], [289, 14], [216, 6], [217, 14], [327, 20], [108, 8], [83, 8]],
         boss: { speciesId: 83, level: 47 },
       },
       {
@@ -794,19 +790,19 @@ export const BIOMES: BiomeDef[] = [
       {
         // Tournegrin, Grainipiot, Granivol, Nidoran♀, Taupiqueur, Nidoran♂
         name: 'Jungle Tropicale', minLv: 48, maxLv: 50, biome: 'forest',
-        pool: [[191, 20], [273, 20], [187, 20], [29, 20], [50, 8], [32, 8]],
+        pool: [[191, 6], [192, 14], [273, 6], [275, 14], [187, 6], [189, 14], [29, 6], [31, 14], [50, 8], [32, 8]],
         boss: { speciesId: 34, level: 51 },
       },
       {
         // Balignon, Chétiflor, Abo, Osselait, Cacnea, Mystherbe
         name: 'Marais Poisseux', minLv: 50, maxLv: 53, biome: 'swamp',
-        pool: [[285, 20], [69, 20], [23, 20], [104, 20], [331, 8], [43, 8]],
+        pool: [[285, 6], [286, 14], [69, 6], [71, 14], [23, 6], [24, 14], [104, 6], [105, 14], [331, 8], [43, 8]],
         boss: { speciesId: 45, level: 54 },
       },
       {
         // Sabelette, Tadmorv, Rosélia, Tropius, Saquedeneu, Joliflor
         name: 'Désert Ensablé', minLv: 53, maxLv: 54, biome: 'desert',
-        pool: [[27, 20], [88, 20], [315, 20], [357, 20], [114, 8], [182, 8]],
+        pool: [[27, 6], [28, 14], [88, 6], [89, 14], [315, 20], [357, 20], [114, 8], [182, 8]],
         boss: { speciesId: 182, level: 55 },
       },
     ],
@@ -824,13 +820,13 @@ export const BIOMES: BiomeDef[] = [
       {
         // Toudoudou, Chuchmur, Queulorior, Skitty, Hoothoot, Rattata, Nirondelle
         name: 'Pont Suspendu', minLv: 55, maxLv: 57, biome: 'meadow',
-        pool: [[174, 20], [293, 20], [235, 20], [300, 20], [163, 20], [19, 8], [276, 8]],
+        pool: [[174, 20], [293, 6], [295, 14], [235, 20], [300, 6], [301, 14], [163, 6], [164, 14], [19, 8], [276, 8]],
         boss: { speciesId: 377, level: 58, joinsPool: true },
       },
       {
         // Miaouss, Tylton, Snubbull, Mélofée, Évoli, Doduo, Capumain
         name: 'Canopée Venteuse', minLv: 57, maxLv: 60, biome: 'forest',
-        pool: [[52, 20], [333, 20], [209, 20], [35, 20], [133, 20], [84, 8], [190, 8]],
+        pool: [[52, 6], [53, 14], [333, 6], [334, 14], [209, 6], [210, 14], [35, 6], [36, 14], [133, 6], [134, 14], [84, 8], [190, 8]],
         boss: { speciesId: 378, level: 61, joinsPool: true },
       },
       {
@@ -853,13 +849,13 @@ export const BIOMES: BiomeDef[] = [
       {
         // Tarsal, Okéoké, Skelénox, Polichombr, Soporifik
         name: 'Rivage Spirituel', minLv: 62, maxLv: 65, biome: 'water',
-        pool: [[280, 20], [360, 20], [355, 20], [353, 8], [96, 8]],
+        pool: [[280, 6], [282, 14], [360, 20], [355, 6], [356, 14], [353, 8], [96, 8]],
         boss: { speciesId: 380, level: 66, joinsPool: true },
       },
       {
         // Zarbi, Natu, Fantominus, Spoink, Abra
         name: 'Centre Spatial', minLv: 65, maxLv: 67, biome: 'temple',
-        pool: [[201, 20], [177, 20], [92, 20], [325, 8], [63, 8]],
+        pool: [[201, 20], [177, 6], [178, 14], [92, 6], [94, 14], [325, 8], [63, 8]],
         boss: { speciesId: 381, level: 68, joinsPool: true },
       },
       {
@@ -882,19 +878,19 @@ export const BIOMES: BiomeDef[] = [
       {
         // Barpau, Axoloto, Barloche, Goélise, Kokiyas, Ptitard, Artikodin, Raikou, Celebi
         name: 'Courants Chauds', minLv: 70, maxLv: 73, biome: 'water',
-        pool: [[349, 20], [194, 20], [339, 20], [278, 20], [90, 8], [60, 8], [144, 3], [243, 3], [251, 3]],
+        pool: [[349, 6], [350, 14], [194, 6], [195, 14], [339, 6], [340, 14], [278, 6], [279, 14], [90, 8], [60, 8], [144, 3], [243, 3], [251, 3]],
         boss: { speciesId: 62, level: 74 },
       },
       {
         // Hypotrempe, Otaria, Carvanha, Psykokwak, Ramoloss, Stari, Électhor, Entei
         name: 'Grotte Sous-Marine', minLv: 73, maxLv: 75, biome: 'water',
-        pool: [[116, 20], [86, 20], [318, 20], [54, 20], [79, 8], [120, 8], [145, 3], [244, 3]],
+        pool: [[116, 6], [117, 14], [86, 6], [87, 14], [318, 6], [319, 14], [54, 6], [55, 14], [79, 8], [120, 8], [145, 3], [244, 3]],
         boss: { speciesId: 121, level: 76 },
       },
       {
         // Wailmer, Rosabyss, Roigada, Tarpaud, Hyporoi, Lokhlass
         name: 'Abysses Anciens', minLv: 75, maxLv: 77, biome: 'water',
-        pool: [[320, 20], [368, 20], [199, 20], [186, 20], [230, 8], [131, 8]],
+        pool: [[320, 6], [321, 14], [368, 20], [199, 20], [186, 20], [230, 8], [131, 8]],
         boss: { speciesId: 382, level: 78, joinsPool: true },
       },
     ],
@@ -911,7 +907,7 @@ export const BIOMES: BiomeDef[] = [
       {
         // Medhyèna, Marcacrin, Stalgamin, Obalie, Cadoizo, Malosse, Sulfura, Suicune
         name: 'Caverne Glacée', minLv: 78, maxLv: 82, biome: 'cave',
-        pool: [[261, 20], [220, 20], [361, 20], [363, 20], [225, 8], [228, 8], [146, 3], [245, 3]],
+        pool: [[261, 6], [262, 14], [220, 6], [221, 14], [361, 6], [362, 14], [363, 6], [365, 14], [225, 8], [228, 8], [146, 3], [245, 3]],
         boss: { speciesId: 229, level: 83 },
       },
       {
@@ -941,19 +937,19 @@ export const BIOMES: BiomeDef[] = [
       {
         // Magicarpe, Nénupiot, Marill, Rémoraid, Minidraco, Écrapince
         name: 'Pilier Céleste', minLv: 89, maxLv: 93, biome: 'temple',
-        pool: [[129, 20], [270, 20], [183, 20], [223, 20], [147, 8], [341, 8]],
+        pool: [[129, 6], [130, 14], [270, 6], [272, 14], [183, 6], [184, 14], [223, 6], [224, 14], [147, 8], [341, 8]],
         boss: { speciesId: 384, level: 94, joinsPool: true },
       },
       {
         // Draby, Coquiperl, Tentacool, Galekid, Lovdisc, Poissirène
         name: 'Météorite Mystérieuse', minLv: 93, maxLv: 96, biome: 'cave',
-        pool: [[371, 20], [366, 20], [72, 20], [304, 20], [370, 8], [118, 8]],
+        pool: [[371, 6], [373, 14], [366, 6], [367, 14], [72, 6], [73, 14], [304, 6], [306, 14], [370, 8], [118, 8]],
         boss: { speciesId: 386, level: 97, joinsPool: true },
       },
       {
         // Loupio, Krabby, Mysdibule, Airmure, Démanta, Mew, Ho-Oh
         name: 'Salle du Champion', minLv: 96, maxLv: 99, biome: 'temple',
-        pool: [[170, 20], [98, 20], [303, 20], [227, 8], [226, 8], [151, 3], [250, 3]],
+        pool: [[170, 6], [171, 14], [98, 6], [99, 14], [303, 20], [227, 8], [226, 8], [151, 3], [250, 3]],
         boss: { speciesId: 226, level: 100 },
       },
     ],

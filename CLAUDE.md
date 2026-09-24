@@ -373,3 +373,30 @@ du même thème, `setOfBiome(biome)` la donne à `rollLoot` et à `starterItems`
 pas sa `base` d'origine : `biomeTier()` pose `Item.tier` pour que le 1er biome de la région vaille Kanto 1
 et le dernier ≈ +60 % (`mainValue` multiplie par `tier`, la fusion le conserve). Pour Sinnoh : ajouter ses
 biomes à `BIOME_SET`.
+
+---
+
+## Hoenn jouable et refonte de la difficulté (2026-09-24)
+
+- **Hoenn (biomes 20-31)** codé, 12 biomes, Pokédex 1-386 autonome. `REGIONS` (`content.ts`) décrit chaque
+  région (`name, start, starters, dexMax`), `regionOf(prestige)`, `regionLastBiome(prestige)`. Générateur :
+  `npx tsx tools/gen_region.ts tools/regions/hoenn.json`. Le champion Glace de Johto s'appelle Frédo.
+  Reste des noms provisoires (« Scout Insecte », « Montagnard »). Sinnoh (32-46) pas encore codé.
+- **Difficulté des sauvages = une seule courbe par région** (`DIFFICULTY`/`zoneWildMult` dans `game.ts`),
+  plus aucun `wildMult` par zone : ×0,60 au départ de la région (Nv.5 après un prestige), jusqu'à ×1,6
+  (Kanto) / ×1,9 (Johto) / ×2,2 (Hoenn) au dernier biome, exposant 1,2. Boss et arènes : PV ×5 / ×2
+  multipliés par `bossRamp` (×0,5 → ×1,2 sur la région). `regionProgress` donne l'avancement (0-1).
+- **Début de partie adouci** : `START_BALLS` = 25 (nouvelle partie et chaque prestige), Poké Ball à 50 %
+  (`EARLY_POKE_CHANCE`) tant que l'équipe a moins de 3 Pokémon, pitié de capture (`CAPTURE_PITY` = 3
+  échecs de suite → capture garantie, champ `missStreak`).
+- **`completeDex`** suit le mode collectionneur (`keepEvolutionMaterial`) : décoché, un exemplaire unique
+  peut évoluer si l'étage suivant manque dans le Pokédex.
+- **Bot (`bot.ts`)** : `simulate(rng, secondes, trace, region)`. `region` > 0 démarre au 1er biome de la
+  région (comme après un prestige). Comportement « humain » : change d'équipe après 2 défaites de boss,
+  attend d'être à 4 niveaux du boss/de l'arène (45 min de farm max), range la boîte en pension/exploration,
+  récolte et achète des Balls (`chores`). Un bot humain finit chaque région en ~3 h - 3 h 30 avec peu de
+  défaites après le 1er biome : le joueur est fort en fin de région (équipement, talents, badges).
+- **Simulation** (`balance.test.ts`) : Kanto, Johto et Hoenn. Scripts de mesure locaux dans `tools/scratch/`
+  (non versionnés).
+- **UI** : modale d'absence groupée (×N), talents et Balls en appui long, filtre par type dans la boîte
+  (remplace le tri par type), bouton « Poster » en haut de Pension/Exploration.

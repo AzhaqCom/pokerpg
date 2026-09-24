@@ -1,12 +1,12 @@
 import { simulate } from '../bot';
 import { seededRng } from '../rng';
 
-test('équilibrage V1 : un joueur efficace gagne le 1er badge en 30 min à 3 h de combat pur', () => {
+test('équilibrage V1 : un joueur efficace gagne le 1er badge en 20 min à 3 h (début de partie adouci) de combat pur', () => {
   const reports = [1, 2, 3, 4, 5, 6].map((seed) => simulate(seededRng(seed), 3 * 3600));
   for (const r of reports) {
     const badge1 = r.milestones['biome1-badge']; // en minutes (voir bot.ts, mark())
     expect(badge1).toBeDefined();
-    expect(badge1!).toBeGreaterThan(30);
+    expect(badge1!).toBeGreaterThan(20);
     expect(badge1!).toBeLessThan(180);
   }
 });
@@ -31,5 +31,22 @@ test('équilibrage bout en bout (Kanto) : un joueur efficace termine les 10 biom
     expect(minutes).toBeDefined();
     expect(minutes!).toBeGreaterThan(90);
     expect(minutes!).toBeLessThan(600);
+  }
+});
+
+/**
+ * Bout en bout Hoenn (région n° 2) : la simulation démarre directement au 1er biome de Hoenn, ce qui
+ * est exactement l'état d'un nouveau départ après prestige (tout à zéro), plutôt que de rejouer Kanto puis
+ * Johto avant. Calé le 2026-09-24 sur 3 graines : 3h40-5h10 de combat pur, jamais de blocage, `wildMult`
+ * posés sur les zones qui se traversaient sans aucune défaite. Les 3 derniers biomes restent rapides
+ * (~3-5 min), comme les biomes 6-8 de Kanto : monter plus haut le `wildMult` provoque des blocages.
+ */
+test('équilibrage bout en bout (Hoenn) : un joueur efficace bat le Champion en 1h30 à 12h de combat pur', () => {
+  const reports = [1, 2].map((seed) => simulate(seededRng(seed), 14 * 3600, undefined, 2));
+  for (const r of reports) {
+    const minutes = r.milestones['biome32-badge']; // biome 31 (0-indexé) = Ligue d'Éternara
+    expect(minutes).toBeDefined();
+    expect(minutes!).toBeGreaterThan(90);
+    expect(minutes!).toBeLessThan(720);
   }
 });

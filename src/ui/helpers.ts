@@ -12,6 +12,13 @@ export const TYPE_COLOR: Record<PType, string> = {
   steel: '#b8b8d0', dark: '#705848',
 };
 
+/** Texte lisible sur un fond de couleur : noir si le fond est clair (jaune, gris clair…), blanc sinon. */
+export function textOn(bg: string): string {
+  const n = parseInt(bg.slice(1), 16);
+  const lum = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+  return lum > 0.6 ? '#111' : '#fff';
+}
+
 export const monName = (m: Mon) => species(m.speciesId).name;
 
 export function monStats(s: GameState, uid: string) {

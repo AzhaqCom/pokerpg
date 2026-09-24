@@ -17,6 +17,18 @@ function formatDuration(ms: number): string {
   return `${h} h ${String(m).padStart(2, '0')}`;
 }
 
+/** Regroupe les objets identiques (même modèle, même rareté), les plus rares d'abord. */
+function groupLoot(items: IdleGains['bagItems']) {
+  const map = new Map<string, { templateId: (typeof items)[number]['templateId']; rarity: (typeof items)[number]['rarity']; count: number }>();
+  for (const it of items) {
+    const k = `${it.templateId}-${it.rarity}`;
+    const g = map.get(k);
+    if (g) g.count++;
+    else map.set(k, { templateId: it.templateId, rarity: it.rarity, count: 1 });
+  }
+  return [...map.values()].sort((a, b) => b.rarity - a.rarity || b.count - a.count);
+}
+
 /** Résumé purement informatif : les gains sont déjà encaissés au calcul (voir `checkIdle` dans App.tsx). */
 export function IdleSummary({ gains, onClose }: { gains: IdleGains | null; onClose: () => void }) {
   const s = useGame((g) => g.s) as GameState | null;
@@ -47,8 +59,10 @@ export function IdleSummary({ gains, onClose }: { gains: IdleGains | null; onClo
                     </Text>
                   );
                 })}
-                {gains.bagItems.map((it) => (
-                  <Text key={it.uid} style={[styles.line, { color: RARITY_COLOR[it.rarity] }]}>+ {template(it.templateId).name} ({RARITIES[it.rarity]})</Text>
+                {groupLoot(gains.bagItems).map((g) => (
+                  <Text key={`${g.templateId}-${g.rarity}`} style={[styles.line, { color: RARITY_COLOR[g.rarity] }]}>
+                    + {template(g.templateId).name} ({RARITIES[g.rarity]}){g.count > 1 ? ` ×${g.count}` : ''}
+                  </Text>
                 ))}
                 {gains.shardsFromRecycle > 0 && <Text style={styles.line}>💎 +{gains.shardsFromRecycle} éclats (recyclage auto)</Text>}
                 {gains.shinies.map((mon) => (

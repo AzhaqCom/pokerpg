@@ -43,6 +43,10 @@ export function ExplorationPanel() {
         toast(`+${gained} éclats`, '#69f0ae');
       }} />
       <Text style={styles.title}>Postes · {s.exploration.length}/{explorationSlots(s)}</Text>
+      {s.exploration.length < explorationSlots(s) && (
+        <Button small label="+ Poster un Pokémon" disabled={!free.length} onPress={() => setPick(true)} />
+      )}
+      {!free.length && <Text style={styles.hint}>Capture d'autres Pokémon : ceux qui ne sont pas dans l'équipe (ni déjà en pension) peuvent explorer ici.</Text>}
       {posted.map((p) => {
         const m = s.mons[p.uid];
         if (!m) return null;
@@ -65,10 +69,6 @@ export function ExplorationPanel() {
           </View>
         );
       })}
-      {s.exploration.length < explorationSlots(s) && (
-        <Button small label="+ Poster un Pokémon" disabled={!free.length} onPress={() => setPick(true)} />
-      )}
-      {!free.length && <Text style={styles.hint}>Capture d'autres Pokémon : ceux qui ne sont pas dans l'équipe (ni déjà en pension) peuvent explorer ici.</Text>}
 
       <Modal visible={pick} transparent animationType="slide" onRequestClose={() => setPick(false)}>
         <Pressable style={styles.backdrop} onPress={() => setPick(false)}>
