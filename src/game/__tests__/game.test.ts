@@ -2,7 +2,7 @@ import { BIOMES, REGION_START, REGIONS, STAGES_PER_ZONE, regionLastBiome } from 
 import { ALL_SPECIES, EVOLUTION_CHOICES, evolutionTargets, species } from '../data';
 import {
   GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, applyMegaCandy, craftMegaCandy, lineBase, arenaAvailable, assignExploration, assignPension, autoCaptureBall, autoEquipBest, bestStarsOf, biomeAvailable, bossAvailable,
-  autoTalents, canCompleteDex, whereToFind, canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
+  lineChain, autoTalents, canCompleteDex, whereToFind, canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
   harvestExploration, harvestPension, holder, isRareInZone, makeMon, addMon, makeWaves, migrateSave, monsBelowStars, monsNotShiny, newGame, pickSpecies, rankUpTalent, recycle, release, releaseBelowStars, SHARDS_PER_MIN,
   releaseExcess, releaseNotShiny, remainingEvolutions, removePension, selectStage, START_BALLS, startPrestige, teamMaxLevel, tryCapture, unequipBox, xpGapMult,
 } from '../game';
@@ -1002,4 +1002,16 @@ test('autoTalents : dépense tous les points disponibles, sans dépasser le maxi
   expect(spent).toBeGreaterThanOrEqual(pts - 1); // tout est dépensé (à un rang près si un palier verrouille)
   const again = autoTalents(s, mon.uid);
   expect(again).toBe(0); // rien à dépenser ensuite
+});
+
+test('bébés reliés à leur forme adulte : Pichu → Pikachu, lignée et bonbons regroupés, sans fuite vers Kanto', () => {
+  expect(species(172).evolvesTo).toBe(25);
+  expect(lineBase(26)).toBe(172); // Raichu → base Pichu
+  expect(lineChain(172, 151)).toEqual([25, 26]); // en Kanto, Pichu n'existe pas : la lignée commence à Pikachu
+  expect(lineChain(172, 251)).toEqual([172, 25, 26]);
+  expect(whereToFind(25, 0).path).toEqual([25]); // Kanto : Pikachu reste un sauvage, jamais « via Pichu »
+  // ancienne sauvegarde : les bonbons Pikachu (clé 25) rejoignent la nouvelle base (172)
+  const raw = migrateSave({ ...newGame(), candies: { 25: 5 }, megaCandies: {} } as never) as { candies: Record<string, number> };
+  expect(raw.candies['172']).toBe(5);
+  expect(raw.candies['25']).toBeUndefined();
 });

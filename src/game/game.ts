@@ -373,6 +373,16 @@ export function release(s: GameState, uid: string): boolean {
   return true;
 }
 
+/**
+ * Étages d'une lignée depuis sa base, limités au Pokédex de la région (`maxId`) : un bébé d'une génération
+ * suivante (Pichu en Kanto) est sauté, mais la lignée continue derrière lui (Pikachu, Raichu).
+ */
+export function lineChain(base: number, maxId = Infinity): number[] {
+  const chain: number[] = [];
+  for (let id = base, g = 0; id && g < 5; id = species(id).evolvesTo || 0, g++) if (id <= maxId) chain.push(id);
+  return chain;
+}
+
 /** Nombre d'évolutions restantes depuis cette espèce (0 pour une forme finale). */
 export function remainingEvolutions(speciesId: number): number {
   let n = 0;
@@ -402,8 +412,7 @@ export function excessMons(s: GameState, opts: { keepEvolutionMaterial?: boolean
   const bases = new Set<number>();
   for (const m of Object.values(s.mons)) bases.add(lineBase(m.speciesId));
   for (const base of bases) {
-    const chain: number[] = [];
-    for (let id = base; id; id = species(id).evolvesTo || 0) chain.push(id);
+    const chain = lineChain(base, regionOf(s.prestige).dexMax);
     for (const shiny of [false, true]) {
       const all = Object.values(s.mons).filter((m) => m.shiny === shiny && chain.includes(m.speciesId));
       if (!all.length) continue;
@@ -502,8 +511,7 @@ export function completeDex(s: GameState, dryRun = false, opts: { keepEvolutionM
   for (let id = 1; id <= maxId; id++) bases.add(lineBase(id));
   let count = 0;
   for (const base of bases) {
-    const chain: number[] = [];
-    for (let id = base; id && id <= maxId; id = species(id).evolvesTo || 0) chain.push(id);
+    const chain = lineChain(base, maxId);
     if (chain.length < 2) continue;
     for (const shiny of [false, true]) {
       const all = Object.values(s.mons).filter((m) => m.shiny === shiny && chain.includes(m.speciesId));

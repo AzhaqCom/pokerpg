@@ -30,6 +30,34 @@ export type Move =
 const SPECIES = speciesRaw as Species[];
 
 /**
+ * Bébés reliés à leur forme adulte (dans les jeux d'origine : évolution par bonheur, absente ici → par niveau).
+ * Appliqué au chargement plutôt que dans `species.json`, qui est régénéré par les scripts `tools/gen_data*.py`.
+ * Les cibles sont toutes d'une génération antérieure ou égale : jamais une évolution qui « fuirait » vers une
+ * région pas encore débloquée. [bébé, adulte, niveau]
+ */
+export const BABY_EVOLUTIONS: [number, number, number][] = [
+  [172, 25, 15], // Pichu → Pikachu
+  [173, 35, 15], // Mélo → Mélofée
+  [174, 39, 15], // Toudoudou → Rondoudou
+  [238, 124, 30], // Lippouti → Lippoutou
+  [239, 125, 30], // Élekid → Élektek
+  [240, 126, 30], // Magby → Magmar
+  [298, 183, 15], // Azurill → Marill
+  [360, 202, 15], // Okéoké → Qulbutoké
+  [406, 315, 15], // Rozbouton → Rosélia
+  [433, 358, 20], // Korillon → Éoko
+  [438, 185, 20], // Manzaï → Simularbre
+  [439, 122, 20], // Mime Jr. → M. Mime
+  [440, 113, 20], // Ptiravi → Leveinard
+  [446, 143, 35], // Goinfrex → Ronflex
+  [458, 226, 20], // Babimanta → Démanta
+];
+for (const [baby, adult, level] of BABY_EVOLUTIONS) {
+  const sp = SPECIES.find((x) => x.id === baby);
+  if (sp && !sp.evolvesTo) { sp.evolvesTo = adult; sp.evolveLevel = level; }
+}
+
+/**
  * Évolutions à choix (pas de pierres d'évolution dans le jeu : c'est le joueur qui choisit). Clé = espèce
  * qui évolue, valeur = toutes les formes possibles, la 1re étant `evolvesTo` (évolution par défaut, utilisée
  * par les automatismes : bot, « Compléter le Pokédex »). Les formes alternatives restent des espèces à part
