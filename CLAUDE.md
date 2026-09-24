@@ -46,8 +46,8 @@ Modules natifs : toujours `npx expo install <pkg>`. Skia 2.6.2 (épinglé) **exi
   **Capacités par niveau : celles de Platine pour les 493** (`tools/gen_learnsets_pt.py`, ne touche que `learnset` et
   garde toutes les anciennes capacités dans `moves.json`). Corrections appliquées au chargement dans `data.ts` (jamais dans
   les JSON) : `MOVE_FIXES` (Baston, Explosion, Destruction), `BABY_EVOLUTIONS`, `CROSS_GEN_EVOLUTIONS`. `learnedMoves`
-  inclut les capacités des pré-évolutions (`lineLearnset`) ; `movesAtLevel` (kit d'une capture) = 4 dernières du propre
-  learnset.
+  inclut les capacités des pré-évolutions (`lineLearnset`) ; `movesAtLevel` (kit de départ d'une capture/d'un sauvage) =
+  les 4 meilleures capacités connues (sommeil, attaques de types variés, soin).
 - Sprites : atlas PMD par espèce (`assets/sprites/p025.png`, `ps025.png` chromatique), manifeste `src/data/sprites.json`,
   `spriteAssets.ts`, miniatures `assets/thumbs` (`tools/make_thumbs.py`, 240 px).
 - UI : `App.tsx` ; `src/ui/battle/runner.ts` (singleton hors React qui pilote le combat affiché, offres de capture,
@@ -80,8 +80,14 @@ Modules natifs : toujours `npx expo install <pkg>`. Skia 2.6.2 (épinglé) **exi
   meilleur objet par emplacement aux panoplies complétables. Recyclage en éclats (`recycleValue`).
 - **Qualité génétique** : gènes 0-15 (PV/Atq/Déf/Vit) tirés à la capture, jamais modifiés (sauf méga bonbons). Étoiles :
   4★ parfait, 3★ ≥ 80 %, 2★ ≥ 50 %. Plancher garanti par badge (`genesMinForBadges` : ≥ 8 dès 4 badges, ≥ 12 dès 8).
+- **Sous-stats** (depuis le 2026-09-24) : Attaque, Défense, PV, Vitesse, Critique, Dégâts critiques, Dégâts du type,
+  Recharge, Vol de vie, Esquive. Chance de statut, dégâts contre statut, attaque de base et zone ont été **supprimées**
+  (valeur quasi nulle mesurée). Dégâts critiques n'ont de valeur qu'avec beaucoup de Critique.
 - **Talents** : 1 arbre par type primaire, `talentPoints(level)` = niveau − 1 (+1 à Nv.100). 9 paliers ; paliers 4-5 = affinités
-  « au choix » (type figé au 1er rang) ; paliers 6-9 = Spécialité II, saveur du 2e type, Fureur, Précision mortelle.
+  « au choix » (type figé au 1er rang) ; paliers 6-9 = Spécialité II, saveur du 2e type (valeur par rang ÷ 2), Fureur,
+  Précision mortelle. Les deux Affinités peuvent viser le même type. **Spécialités rééquilibrées** : chaque type vaut à
+  peu près autant au rang max (84-88 % de victoires en 3 contre 3 contre 60 % sans, voir `AUDIT_EQUILIBRAGE.md`) ;
+  Réflexes donne de l'Esquive.
 - **Auras** : chaque membre de l'équipe donne l'aura de son type à toute l'équipe (pleine en équipe, moitié en
   pension/exploration) ; un Pokémon bi-type donne ses deux auras, chacune divisée par 2.
 - **Évolutions à choix** : `EVOLUTION_CHOICES` (11 espèces, dont Évoli ×7), filtrées par `dexMax` ; la fiche Pokémon a un bouton

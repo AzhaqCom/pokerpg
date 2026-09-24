@@ -19,6 +19,16 @@ Limite : le 1 contre 1 surestime sommeil/soin et ignore les capacités de zone ;
   aucun blocage, défaites seulement dans le 1er biome de chaque région (et un peu à Sinnoh b34). Restent faibles surtout
   des Pokémon aux stats basses (Rattatac, Persian, Linéon, Fouinar, Hélédelle…) et les cas spéciaux.
 
+- **Sous-stats supprimées** : chance de statut, dégâts contre statut, attaque de base, zone (valeur quasi nulle mesurée).
+  Dégâts critiques gardés : +20 % valent ~0,3 à 0,5 fois +20 % d'Attaque avec 36 à 56 % de Critique.
+- **Talents rééquilibrés** (valeur en 3 contre 3, +20 points : Esquive 1,34 · PV 1,06 · Défense 1,05 · Attaque 1 · Vol de vie
+  0,73 · Dégâts du type 0,64 · Critique 0,54 · Recharge 0,30 · Vitesse 0,14). Spécialités I+II au max, par type : 84 à 88 %
+  de victoires contre 60,5 % sans (avant : de ≈ 0 à 31 « points d'attaque » selon le type). Réflexes → Esquive 3 %/rang,
+  Maîtrise 8 %/rang, Puissance 6 %/rang, Précision mortelle 3,5 %/rang, saveur du 2e type ÷ 2 par rang (10 rangs).
+- **Kit de départ** = 4 meilleures capacités (proposition 3). Simulations des 4 régions (2 graines) : aucun blocage, régions
+  ~15-25 % plus courtes (Johto ~2 h 10, Hoenn 2 h 30-2 h 50, Sinnoh 3 h 15-3 h 35) — le joueur profite plus du meilleur
+  kit que les sauvages.
+
 ## Constats (avant corrections)
 ### Données
 - Types peu fournis en formes finales : Dragon 6, Spectre 12, Acier 13 (Normal 45, Eau 45).

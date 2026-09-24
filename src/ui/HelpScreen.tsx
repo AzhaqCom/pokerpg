@@ -59,8 +59,9 @@ export function HelpScreen({ open, onClose }: { open: boolean; onClose: () => vo
               <Text style={styles.section}>Talents communs à tous les types</Text>
               <Text style={styles.hint}>
                 Paliers 1-2 (0/5 points) : Puissance {'('}dégâts du type{')'}, Vigueur (PV), Garde
-                (Défense), Réflexes (Vitesse). Paliers 4-5 (20/40 points) : Affinité I et II, un type au
-                choix (hors des siens, présent dans son movepool) à booster. Paliers 8-9 (80/90 points) :
+                (Défense), Réflexes (Esquive), Maîtrise (Recharge). Paliers 4-5 (20/40 points) : Affinité I et
+                II, un type au choix (hors des siens, présent dans son movepool) à booster, le même type possible
+                deux fois. Paliers 8-9 (80/90 points) :
                 Fureur (Attaque), Précision mortelle (Critique).
               </Text>
             </View>

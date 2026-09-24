@@ -186,9 +186,27 @@ export function lineLearnset(sp: Species): [number, number][] {
   return out;
 }
 
+/**
+ * Kit de départ d'un Pokémon (capture, sauvage, starter) : les 4 meilleures capacités connues à ce niveau, et non plus
+ * les 4 dernières apprises (Dracaufeu partait avec Frénésie). Attaques les plus fortes d'abord (STAB ×1,5), un type
+ * différent par attaque tant que possible ; + une capacité de sommeil et un soin s'il en connaît (très efficaces dans
+ * ce moteur). Ordre = ordre d'utilisation en combat : le sommeil d'abord, le soin en dernier.
+ */
 export function movesAtLevel(sp: Species, level: number): number[] {
-  const known = sp.learnset.filter(([lv]) => lv <= level).map(([, id]) => id);
-  return known.slice(-4);
+  const known = [...new Set(learnedMoves(sp, level))].map(move);
+  const score = (m: Move) => (m.kind === 'damage' ? m.power * (sp.types.includes(m.type) ? 1.5 : 1) : 0);
+  const dmg = known.filter((m) => m.kind === 'damage').sort((a, b) => score(b) - score(a));
+  const sleep = known.find((m) => m.kind === 'status' && m.ailment === 'sleep');
+  const heal = known.find((m) => m.kind === 'heal');
+  const slots = 4 - (sleep ? 1 : 0) - (heal ? 1 : 0);
+  const attacks: Move[] = [];
+  const types = new Set<string>();
+  for (const m of dmg) if (attacks.length < slots && !types.has(m.type)) { attacks.push(m); types.add(m.type); }
+  for (const m of dmg) if (attacks.length < slots && !attacks.includes(m)) attacks.push(m);
+  const kit = [...(sleep ? [sleep] : []), ...attacks, ...(heal ? [heal] : [])].map((m) => m.id);
+  // aucune attaque connue (tout début de lignée) : on complète avec ce qu'il sait, comme avant
+  for (const m of known) if (kit.length < 4 && !kit.includes(m.id)) kit.push(m.id);
+  return kit.slice(0, 4);
 }
 
 /** Toutes les capacités apprises jusqu'à ce niveau (choix du joueur). */

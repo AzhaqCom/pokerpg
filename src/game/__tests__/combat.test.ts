@@ -1,5 +1,5 @@
 import { Battle } from '../battle';
-import { ALL_SPECIES, species, typeMultiplier } from '../data';
+import { ALL_SPECIES, move, movesAtLevel, species, typeMultiplier } from '../data';
 import { BIOMES, REGION_START, regionLastBiome } from '../content';
 import { DIFFICULTY, makeMon, makeWaves, wildFighter, WILD_MALUS, zoneWildMult } from '../game';
 import { seededRng } from '../rng';
@@ -131,4 +131,13 @@ describe('combat automatique', () => {
     expect(b.runToEnd()).toBe('lose');
     expect(b.t).toBeLessThanOrEqual(121);
   });
+});
+
+test('kit de départ : les 4 meilleures capacités, types variés (plus les 4 dernières apprises)', () => {
+  const kit = movesAtLevel(species(6), 100).map(move); // Dracaufeu
+  expect(kit.length).toBe(4);
+  expect(kit.some((m) => m.type === 'fire' && m.kind === 'damage')).toBe(true);
+  expect(kit.map((m) => m.slug)).not.toContain('rage'); // plus de Frénésie
+  const dmgTypes = kit.filter((m) => m.kind === 'damage').map((m) => m.type);
+  expect(new Set(dmgTypes).size).toBe(dmgTypes.length); // un type différent par attaque
 });
