@@ -124,7 +124,7 @@ export function MonSheet() {
             </View>
           </View>
 
-          {canEvolve(mon) && (() => {
+          {canEvolve(mon, regionOf(s.prestige).dexMax) && (() => {
             const targets = evolutionTargets(mon.speciesId, regionOf(s.prestige).dexMax);
             const doEvolve = (target: number) => {
               feedback('evolve', true);

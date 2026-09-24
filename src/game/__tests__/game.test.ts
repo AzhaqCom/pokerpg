@@ -1015,3 +1015,20 @@ test('bébés reliés à leur forme adulte : Pichu → Pikachu, lignée et bonbo
   expect(raw.candies['172']).toBe(5);
   expect(raw.candies['25']).toBeUndefined();
 });
+
+test('évolutions inter-générations : Magnéton évolue en Magnézone à Sinnoh seulement, jamais vers une région future', () => {
+  const mon = makeMon(82, 60, seededRng(3)); // Magnéton Nv.60
+  expect(species(82).evolvesTo).toBe(462);
+  expect(canEvolve(mon, 151)).toBe(false); // Kanto : Magnézone n'existe pas encore
+  expect(canEvolve(mon, 386)).toBe(false); // Hoenn non plus
+  expect(canEvolve(mon, 493)).toBe(true); // Sinnoh
+  const s = newGame(); chooseStarter(s, 4, seededRng(1));
+  addMon(s, mon);
+  evolve(s, mon.uid); // prestige 0 = Kanto : rien ne se passe
+  expect(mon.speciesId).toBe(82);
+  s.prestige = 3;
+  evolve(s, mon.uid);
+  expect(mon.speciesId).toBe(462);
+  expect(lineChain(lineBase(462), 151)).toEqual([81, 82]); // Kanto : la lignée s'arrête à Magnéton
+  expect(whereToFind(208, 1).path.length).toBeGreaterThanOrEqual(1); // Steelix toujours obtenable à Johto
+});

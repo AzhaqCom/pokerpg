@@ -52,7 +52,39 @@ export const BABY_EVOLUTIONS: [number, number, number][] = [
   [446, 143, 35], // Goinfrex → Ronflex
   [458, 226, 20], // Babimanta → Démanta
 ];
-for (const [baby, adult, level] of BABY_EVOLUTIONS) {
+/**
+ * Évolutions ajoutées par une génération suivante à une espèce plus ancienne (Onix → Steelix, Magnéton →
+ * Magnézone…). Même mécanisme que les bébés. Une région dont le Pokédex n'inclut pas encore la cible n'y a pas
+ * accès : `evolutionTargets(id, dexMax)` ne la propose pas, donc `canEvolve`/`evolve` restent bloqués
+ * (Magnéton est une forme finale à Kanto, pas à Sinnoh). [espèce, évolution, niveau]
+ */
+export const CROSS_GEN_EVOLUTIONS: [number, number, number][] = [
+  [42, 169, 40], // Nosferalto → Nostenfer
+  [95, 208, 40], // Onix → Steelix
+  [123, 212, 40], // Insécateur → Cizayox
+  [117, 230, 45], // Hypocéan → Hyporoi
+  [137, 233, 30], // Porygon → Porygon2
+  [233, 474, 50], // Porygon2 → Porygon-Z
+  [113, 242, 40], // Leveinard → Leuphorie
+  [315, 407, 35], // Rosélia → Roserade
+  [190, 424, 32], // Capumain → Capidextre
+  [200, 429, 35], // Feuforêve → Magirêve
+  [198, 430, 35], // Cornèbre → Corboss
+  [215, 461, 40], // Farfuret → Dimoret
+  [82, 462, 45], // Magnéton → Magnézone
+  [108, 463, 33], // Excelangue → Coudlangue
+  [112, 464, 55], // Rhinoféros → Rhinastoc
+  [114, 465, 33], // Saquedeneu → Bouldeneu
+  [125, 466, 45], // Élektek → Élekable
+  [126, 467, 45], // Magmar → Maganon
+  [176, 468, 40], // Togetic → Togekiss
+  [193, 469, 33], // Yanma → Yanmega
+  [207, 472, 40], // Scorplane → Scorvol
+  [221, 473, 45], // Cochignon → Mammochon
+  [299, 476, 40], // Tarinor → Tarinorme
+  [356, 477, 50], // Téraclope → Noctunoir
+];
+for (const [baby, adult, level] of [...BABY_EVOLUTIONS, ...CROSS_GEN_EVOLUTIONS]) {
   const sp = SPECIES.find((x) => x.id === baby);
   if (sp && !sp.evolvesTo) { sp.evolvesTo = adult; sp.evolveLevel = level; }
 }
@@ -79,12 +111,12 @@ export const EVOLUTION_CHOICES: Record<number, number[]> = {
 
 /**
  * Formes vers lesquelles l'espèce peut évoluer (vide si elle n'évolue pas). `dexMax` = dernière espèce de la
- * région en cours : une forme d'une région future n'est jamais proposée (Évoli ne donne pas Phyllali à Kanto).
+ * région en cours : une forme d'une région future n'est jamais proposée (Évoli ne donne pas Phyllali à Kanto,
+ * Magnéton n'évolue pas du tout à Kanto : liste vide).
  */
 export function evolutionTargets(id: number, dexMax = Infinity): number[] {
   const all = EVOLUTION_CHOICES[id] ?? (species(id).evolvesTo ? [species(id).evolvesTo] : []);
-  const ok = all.filter((t) => t <= dexMax);
-  return ok.length ? ok : all.slice(0, 1);
+  return all.filter((t) => t <= dexMax);
 }
 const MOVES = movesRaw as unknown as Record<string, Move>;
 const CHART = typesRaw.chart as Record<string, Record<string, number>>;

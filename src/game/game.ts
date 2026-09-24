@@ -275,18 +275,20 @@ export function giveXp(mon: Mon, xp: number): { levels: number; newMoves: number
   return { levels: mon.level - before, newMoves };
 }
 
-export function canEvolve(mon: Mon): boolean {
+/** `dexMax` : Pokédex de la région en cours — une évolution vers une espèce pas encore disponible est bloquée. */
+export function canEvolve(mon: Mon, dexMax = Infinity): boolean {
   const sp = species(mon.speciesId);
-  return !!sp.evolvesTo && mon.level >= sp.evolveLevel;
+  return !!sp.evolvesTo && mon.level >= sp.evolveLevel && evolutionTargets(mon.speciesId, dexMax).length > 0;
 }
 
 /** `target` : forme choisie parmi `evolutionTargets` (défaut = `evolvesTo`, l'évolution classique). */
 export function evolve(s: GameState, uid: string, target?: number) {
   const mon = s.mons[uid];
-  if (!mon || !canEvolve(mon)) return;
+  const dexMax = regionOf(s.prestige).dexMax;
+  if (!mon || !canEvolve(mon, dexMax)) return;
   const typeBefore = primaryType(mon.speciesId);
-  const targets = evolutionTargets(mon.speciesId, regionOf(s.prestige).dexMax);
-  mon.speciesId = target !== undefined && targets.includes(target) ? target : species(mon.speciesId).evolvesTo;
+  const targets = evolutionTargets(mon.speciesId, dexMax);
+  mon.speciesId = target !== undefined && targets.includes(target) ? target : targets[0];
   addUnique(s.dex.seen, mon.speciesId);
   addUnique(s.dex.caught, mon.speciesId);
   if (mon.shiny) addUnique(s.dex.shiny, mon.speciesId);
@@ -491,7 +493,7 @@ function maxReachableStage(mon: Mon): number {
   for (;;) {
     const sp = species(id);
     if (!sp.evolvesTo || mon.level < sp.evolveLevel) return id;
-    id = sp.evolvesTo;
+    id = sp.evolvesTo; // une cible hors région n'est jamais une étape manquante (`lineChain`), sans effet ici
   }
 }
 

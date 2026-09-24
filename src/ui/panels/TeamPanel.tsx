@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { regionOf } from '../../game/content';
 import { PType, species } from '../../game/data';
 import {
   GameState, canCompleteDex, canEvolve, completeDex, excessMons, monsBelowStars, monsNotShiny, releaseBelowStars,
@@ -47,6 +48,7 @@ export function TeamPanel() {
   const [evolveOnly, setEvolveOnly] = useState(false);
   const [query, setQuery] = useState('');
   const q = query.trim().toLowerCase();
+  const dexMax = regionOf(s.prestige).dexMax;
   const [typeFilter, setTypeFilter] = useState<PType | null>(null);
   const boxAll = Object.values(s.mons).filter((m) => !s.team.includes(m.uid));
   /** Types présents dans la boîte (un Pokémon bi-type compte pour ses deux types), dans l'ordre habituel. */
@@ -57,7 +59,7 @@ export function TeamPanel() {
   }, [boxAll.length, s.mons]);
   const activeType = typeFilter && boxTypes.includes(typeFilter) ? typeFilter : null;
   const box = boxAll
-    .filter((m) => (!activeType || species(m.speciesId).types.includes(activeType)) && (!evolveOnly || canEvolve(m)) && (!q || monName(m).toLowerCase().startsWith(q)))
+    .filter((m) => (!activeType || species(m.speciesId).types.includes(activeType)) && (!evolveOnly || canEvolve(m, dexMax)) && (!q || monName(m).toLowerCase().startsWith(q)))
     .sort(SORTERS[sort]);
   const pensionUids = new Set(s.pension.map((p) => p.uid));
   const explorationUids = new Set(s.exploration.map((p) => p.uid));
@@ -133,7 +135,7 @@ export function TeamPanel() {
                     <Text style={styles.stats}>PC {st.cp} · PV {st.hp} · Atq {st.atk} · Déf {st.def} · Vit {st.spe}</Text>
                     <Text style={styles.aura}>Aura à l'équipe : {auras.map((a) => `${a.label} +${a.value} %`).join(' · ')}</Text>
                     <View style={styles.row}>
-                      {canEvolve(m) && <Text style={styles.flag}>Peut évoluer</Text>}
+                      {canEvolve(m, dexMax) && <Text style={styles.flag}>Peut évoluer</Text>}
                       {pts > 0 && <Text style={[styles.flag, { backgroundColor: '#3d5afe' }]}>{pts} talent{pts > 1 ? 's' : ''}</Text>}
                       {Object.keys(m.items).length < 3 && <Text style={[styles.flag, { backgroundColor: '#455a64' }]}>{3 - Object.keys(m.items).length} emplacement{3 - Object.keys(m.items).length > 1 ? 's' : ''} libre</Text>}
                     </View>

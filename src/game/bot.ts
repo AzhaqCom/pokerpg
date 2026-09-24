@@ -55,7 +55,7 @@ function chores(s: GameState, rng: Rng, tSec: number) {
 function manage(s: GameState, rng: Rng, threat: PType[] = []) {
   // évolutions + talents
   for (const m of Object.values(s.mons)) {
-    if (canEvolve(m)) evolve(s, m.uid);
+    if (canEvolve(m, regionOf(s.prestige).dexMax)) evolve(s, m.uid);
     for (const id of TALENT_ORDER) rankUpTalent(s, m.uid, id);
     for (const id of ['power', 'vigor', 'guard', 'reflex', 'spec', 'mastery']) while (rankUpTalent(s, m.uid, id));
     // affinités (paliers 4-5) : type choisi au 1er rang, ignoré ensuite ; on prend le 1er type éligible
