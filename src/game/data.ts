@@ -165,6 +165,29 @@ export function typeMultiplier(atk: PType, def: PType[]): number {
 }
 
 /** Capacités connues à un niveau (les 4 dernières apprises, comme les jeux). */
+/**
+ * Pokémon dont les capacités d'origine ne sont pas gérées par ce moteur (Morphing, Gribouille, Téléport, Cadeau,
+ * Riposte/Voile Miroir…) : ils reçoivent en plus un kit classique de leur type, appris par niveau, pour être des
+ * Pokémon « normaux ». [espèce, [niveau, capacité][]]
+ */
+const LEARNSET_ADDITIONS: [number, [number, number][]][] = [
+  [63, [[1, 93]]], // Abra : Choc Mental
+  [132, [[1, 33], [10, 98], [20, 29], [30, 129], [40, 34], [50, 36], [60, 38]]], // Métamorph : Charge → Damoclès
+  [175, [[1, 1]]], // Togepi : Écras'Face
+  [201, [[1, 93], [15, 60], [25, 246], [35, 326], [45, 94]]], // Zarbi : Choc Mental → Psyko
+  [202, [[1, 93], [15, 60], [30, 326], [40, 94]]], // Qulbutoké : attaques Psy
+  [360, [[1, 93]]], // Okéoké : Choc Mental
+  [225, [[1, 181], [10, 64], [20, 196], [30, 17], [40, 65], [50, 58], [60, 59]]], // Cadoizo : Glace et Vol
+  [235, [[1, 10], [5, 98], [15, 154], [25, 163], [35, 332], [45, 34], [55, 247]]], // Queulorior : kit varié (esprit Gribouille)
+];
+for (const [id, extra] of LEARNSET_ADDITIONS) {
+  const sp = SPECIES.find((x) => x.id === id);
+  if (sp) sp.learnset = [...sp.learnset, ...extra].sort((a, b) => a[0] - b[0]);
+}
+/** Munja : 1 PV dans les jeux (compensé par Garde Mystik, non codée ici) → un Pokémon fragile mais jouable. */
+const shedinja = SPECIES.find((x) => x.id === 292);
+if (shedinja && shedinja.base.hp === 1) shedinja.base.hp = 40;
+
 /** Pré-évolution directe (évolution classique, à choix, bébé ou inter-générations). */
 const PREV = new Map<number, number>();
 for (const sp of SPECIES) if (sp.evolvesTo) PREV.set(sp.evolvesTo, sp.id);
