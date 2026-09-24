@@ -142,3 +142,10 @@ d'équilibrage toujours dans la fourchette 30 min – 3 h.
   uniquement), la fenêtre indique où trouver sa forme de base (ou intermédiaire). Il suffit de
   parcourir `pool` des zones de `BIOMES` (et `boss` pour les légendaires) et de remonter la lignée via
   `evolvesTo`/`EVOLUTION_CHOICES`.
+
+- **Performances (à revoir après le build APK)** :
+  - Réduire les vignettes `assets/thumbs` de 240 à 144 px (`SIZE` dans `tools/make_thumbs.py`, le docstring prévoit
+    144). Décodage ~2,8× plus léger, pixel art un peu moins net : à juger visuellement.
+  - Le combat déclenche des mises à jour fréquentes du store (`rev`) qui redessinent les panneaux ouverts : à mesurer
+    dans l'APK avant de toucher.
+  - Le Pokédex est une `FlatList` virtualisée à cases mémoïsées (`DexCell`) ; Expo Go exagère les lenteurs.
