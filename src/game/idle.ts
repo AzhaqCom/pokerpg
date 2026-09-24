@@ -9,7 +9,7 @@
  * déterministe, sans RNG.
  */
 import { Battle } from './battle';
-import { BIOMES } from './content';
+import { BIOMES, STAGES_PER_ZONE } from './content';
 import {
   BETWEEN_WAVES_MS, GameState, LOOT_CHANCE, PENSION_CAP_MS, SHINY_ODDS, addMon, allyFighter,
   genesMinForBadges, giveXp, idleFarmTarget, makeMon, makeWaves, pickSpecies, teamMaxLevel, wildFighter, xpGapMult,
@@ -57,8 +57,8 @@ interface WaveSample {
   lootLevel: number;
 }
 
-/** Simule ~`target` vagues réelles de l'étape 1 de la zone `biome`/`zone` (la zone en cours par défaut), sans toucher à `s`. */
-function sampleWaves(s: GameState, rng: Rng, target: number, biome = s.biome, zone = s.zone): WaveSample {
+/** Simule ~`target` vagues réelles de l'étape `stage` (1 par défaut) de la zone `biome`/`zone` (la zone en cours par défaut), sans toucher à `s`. */
+function sampleWaves(s: GameState, rng: Rng, target: number, biome = s.biome, zone = s.zone, stage = 1): WaveSample {
   let sampled = 0;
   let wins = 0;
   let totalMs = 0;
@@ -68,7 +68,7 @@ function sampleWaves(s: GameState, rng: Rng, target: number, biome = s.biome, zo
   for (const uid of s.team) xpShareSum[uid] = 0;
 
   while (sampled < target) {
-    const waves = makeWaves('stage', biome, zone, 1, rng, s.team.length, s.bossesBeaten[biome][zone]);
+    const waves = makeWaves('stage', biome, zone, stage, rng, s.team.length, s.bossesBeaten[biome][zone]);
     const hp: Record<string, number | undefined> = {};
     for (const wave of waves) {
       if (sampled >= target) break;
@@ -124,6 +124,33 @@ export function teamXpPerHour(s: GameState, rng: Rng): Record<string, number> {
   return out;
 }
 
+/**
+ * Nombre d'ennemis vaincus pendant `durationMs` en farmant l'étape en cours, pour la chasse aux chromatiques :
+ * l'équipe gravit les étapes jusqu'à `cap` ; à une défaite elle repart de l'étape 1 et remonte (l'idle
+ * ne s'enlise donc jamais). `samples[k]` = échantillon de l'étape k (index 1 à `cap`). Tout le hasard vient de `rng`.
+ */
+export function idleShinyKills(samples: WaveSample[], startStage: number, cap: number, durationMs: number, rng: Rng): number {
+  const WAVES = 3;
+  let stage = Math.max(1, Math.min(startStage, cap));
+  let t = 0;
+  let kills = 0;
+  while (t < durationMs) {
+    const smp = samples[stage] ?? samples[1];
+    const waveMs = Math.max(500, smp.avgWaveMs);
+    const winP = Math.pow(smp.winRate, WAVES);
+    if (rng.int(10000) < winP * 10000) {
+      t += WAVES * waveMs;
+      kills += WAVES * smp.avgKillsPerWonWave;
+      stage = Math.min(cap, stage + 1);
+    } else {
+      t += waveMs; // K.O. : on ne récolte qu'une vague, puis retour à l'étape 1
+      kills += smp.avgKillsPerWonWave * Math.max(0, smp.winRate);
+      stage = 1;
+    }
+  }
+  return Math.round(kills);
+}
+
 function emptyGains(s: GameState, absenceMs: number, durationMs: number): IdleGains {
   return {
     absenceMs, durationMs, wavesWon: 0, kills: 0,
@@ -172,10 +199,17 @@ export function computeIdleGains(
     }
   }
 
+  // chasse aux chromatiques : l'équipe farme l'étape en cours et regrimpe après un K.O. (voir `idleShinyKills`)
+  const stageCap = Math.max(1, Math.min(STAGES_PER_ZONE, s.unlocked[farmBiome]?.[farmZone] ?? 1));
+  const samples: WaveSample[] = [sample, sample];
+  for (let k = 2; k <= stageCap; k++) samples[k] = sampleWaves(s, rng, 3, farmBiome, farmZone, k);
+  samples[1] = sample;
+  const sameZone = farmBiome === s.biome && farmZone === s.zone;
+  const shinyKills = idleShinyKills(samples, sameZone ? s.stage : 1, stageCap, durationMs, rng);
   const shinies: Mon[] = [];
   const zone = BIOMES[farmBiome].zones[farmZone];
   const cap = teamMaxLevel(s);
-  for (let i = 0; i < kills; i++) {
+  for (let i = 0; i < shinyKills; i++) {
     if (rng.int(SHINY_ODDS) === 0) {
       // même tirage qu'en combat (`makeWaves`) : un légendaire `joinsPool` vaincu fait partie du pool
       const speciesId = pickSpecies(zone, rng, s.bossesBeaten[farmBiome][farmZone]);

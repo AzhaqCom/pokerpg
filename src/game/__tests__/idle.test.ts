@@ -1,6 +1,6 @@
 import { BIOMES } from '../content';
 import { addMon, chooseStarter, makeMon, newGame, teamMaxLevel } from '../game';
-import { IDLE_CAP_MS, applyIdleGains, computeIdleGains, teamXpPerHour } from '../idle';
+import { IDLE_CAP_MS, applyIdleGains, computeIdleGains, idleShinyKills, teamXpPerHour } from '../idle';
 import { seededRng } from '../rng';
 
 const H = 3600_000;
@@ -163,4 +163,28 @@ test('teamXpPerHour : 0 pour une équipe hors de portée de la zone (jamais de v
   s.zone = 2; // Clairière, Nv 10-14 : hors de portée d'un Nv.2
   const rates = teamXpPerHour(s, seededRng(1));
   expect(rates[weak.uid]).toBe(0);
+});
+
+describe('idleShinyKills : farm de l\'étape en cours, retour à l\'étape 1 après un K.O.', () => {
+  const smp = (kills: number, winRate = 1) => ({ winRate, avgWaveMs: 5000, avgKillsPerWonWave: kills, avgXpShare: {}, lootLevel: 1 });
+  const H8 = 8 * 3600_000;
+
+  test('grimper jusqu\'à l\'étape 5 (3 ennemis/vague) rapporte plus que rester à l\'étape 1 (1,5 ennemi/vague)', () => {
+    const samples = [smp(0), smp(1.5), smp(2), smp(2.5), smp(3), smp(3)];
+    const climbing = idleShinyKills(samples as never, 1, 5, H8, seededRng(1));
+    const stage1Only = idleShinyKills(samples as never, 1, 1, H8, seededRng(1));
+    expect(climbing).toBeGreaterThan(stage1Only * 1.7);
+  });
+
+  test('une étape jamais gagnée (taux 0) bloque la montée : on tourne entre les étapes 1 et 3', () => {
+    const blocked = [smp(0), smp(1.5), smp(2), smp(2.5, 0), smp(3), smp(3)];
+    const free = [smp(0), smp(1.5), smp(2), smp(2.5), smp(3), smp(3)];
+    expect(idleShinyKills(blocked as never, 1, 5, H8, seededRng(2))).toBeLessThan(idleShinyKills(free as never, 1, 5, H8, seededRng(2)));
+  });
+
+  test('partir de l\'étape 5 rapporte tout de suite le plein débit', () => {
+    const samples = [smp(0), smp(1.5), smp(2), smp(2.5), smp(3), smp(3)];
+    const short = 10 * 60_000;
+    expect(idleShinyKills(samples as never, 5, 5, short, seededRng(3))).toBeGreaterThan(idleShinyKills(samples as never, 1, 5, short, seededRng(3)));
+  });
 });

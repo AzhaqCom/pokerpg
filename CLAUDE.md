@@ -421,3 +421,10 @@ sont des boss `joinsPool` sur les 5 derniers biomes, les 21 anciens sont semés 
 `BIOME_SET` 32-46. Difficulté : `DIFFICULTY.end[3]` = 2,5. Simulation (3 graines) : 3 h 27 - 4 h, défaites
 seulement dans le 1er biome. Les chefs des biomes de route (sans badge) reprennent des noms d'anciens champions (Blanche, Koga, Auguste,
 Morty, Guirande à Sinnoh ; Barbara, Giovanni à Hoenn). Le prestige Hoenn → Sinnoh est débloqué par le Champion Hoenn + Pokédex complet /386.
+
+## Hors ligne : chasse aux chromatiques à l'étape en cours (2026-09-24)
+
+`idleShinyKills` (`idle.ts`) : pour les tirages de chromatiques uniquement, l'idle farme l'**étape en cours**
+(pas la 1) et regrimpe après un K.O. (retour à l'étape 1, remontée jusqu'à l'étape débloquée), échantillon
+réel par étape. XP et butin hors ligne restent calculés sur l'étape 1 comme avant (décision d'Arno : ne
+pas les augmenter pour l'instant).
