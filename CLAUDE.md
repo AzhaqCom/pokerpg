@@ -436,3 +436,11 @@ et les anciens légendaires semés dans les régions suivantes sont à 20 aussi 
 tous les chromatiques en hors ligne en 5 h (Kanto), 9 h (Johto), 18 h (Hoenn), 40 h (Sinnoh) environ, calcul
 `tools/scratch` : 256 ennemis ÷ probabilité, 3 ennemis/vague. Effet de bord : plus « rares » (poids ≥ 10),
 donc capture normale à 30 % en Poké Ball.
+
+## Starters répartis par type (2026-09-24)
+
+Les starters ne sont plus tous dans la 1re zone du 1er biome : chaque starter est un sauvage (poids 10) dans un biome
+de son type (Plante, Feu, Eau) de sa région, hors 1er biome et hors 3 derniers. Kanto : 3 ; Johto : 6 (Kanto +
+Johto, pas ceux de Sinnoh) ; Hoenn : 9 ; Sinnoh : 12. Les 1res zones de Johto/Hoenn/Sinnoh ont été refaites à 6
+espèces normales minimum (formes évoluées ou formes de base dupliquées de leur type). Script de la refonte :
+`tools/scratch/spread_starters.py` (non versionné).
