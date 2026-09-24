@@ -421,7 +421,7 @@ export const STAT_WEIGHT: Record<NumericBonusStat, number> = {
  * Valeur de combat d'un ensemble de bonus, en « % d'Attaque équivalent » (modèle multiplicatif calé sur les mesures
  * 3 contre 3). Critique et Dégâts critiques y sont liés : le gain d'un critique = chance × (0,5 + dégâts critiques),
  * donc des Dégâts critiques ne valent presque rien sans Critique, et beaucoup avec. La Recharge est plafonnée à 40 %
- * comme en combat.
+ * comme en combat, et la Vitesse a un rendement décroissant.
  */
 export function combatValue(b: BattleBonuses): number {
   const crit = Math.min(1, (6 + b.critPct) / 100);
@@ -432,7 +432,8 @@ export function combatValue(b: BattleBonuses): number {
     * Math.pow(1 / (1 - dodge), 1.1)
     * (1 + (0.73 * b.lifestealPct) / 100)
     * (1 + (0.3 * Math.min(40, b.cdrPct)) / 100)
-    * (1 + (0.14 * b.spePct) / 100);
+    // Vitesse à rendement décroissant (mesuré : +20 % ≈ 2,8, +100 % ≈ 10,5, +300 % ≈ 20 « % d'Attaque »)
+    * (1 + (13 * Math.log(1 + Math.max(0, b.spePct) / 80)) / 100);
   return (f - 1) * 100;
 }
 

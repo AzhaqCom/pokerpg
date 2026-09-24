@@ -4,8 +4,8 @@
  */
 import { BIOMES, REGIONS, regionLastBiome, regionOf } from './content';
 import {
-  GameState, PENSION_XP_SHARE, StageRun, assignExploration, assignPension, buyBall, harvestExploration, harvestPension, pensionSlots, explorationSlots, arenaAvailable, bossAvailable, canEvolve, canPrestige, chooseStarter, equip, evolve, fuseItems,
-  fusionCandidates, heldItems, newGame, rankUpTalent, recycle, setTeam, startPrestige, tryCapture, holder,
+  GameState, PENSION_XP_SHARE, autoEquipBest, StageRun, assignExploration, assignPension, buyBall, harvestExploration, harvestPension, pensionSlots, explorationSlots, arenaAvailable, bossAvailable, canEvolve, canPrestige, chooseStarter, equip, evolve, fuseItems,
+  fusionCandidates, heldItems, newGame, rankUpTalent, recycle, selectStage, setTeam, startPrestige, tryCapture, holder,
 } from './game';
 import { itemScore, slotOf, template } from './items';
 import { teamXpPerHour } from './idle';
@@ -76,14 +76,8 @@ function manage(s: GameState, rng: Rng, threat: PType[] = []) {
   setTeam(s, ranked.slice(0, 3).map((m) => m.uid));
   // fusions
   for (let g = fusionCandidates(s); g.length; g = fusionCandidates(s)) fuseItems(s, g[0].map((i) => i.uid), rng);
-  // meilleur objet par emplacement pour chaque membre
-  for (const uid of s.team) {
-    for (const slot of ['offense', 'defense', 'berry'] as const) {
-      const free = Object.values(s.items).filter((i) => slotOf(i) === slot && (!holder(s, i.uid) || holder(s, i.uid)!.uid === uid));
-      const best = free.sort((a, b) => itemScore(b) - itemScore(a))[0];
-      if (best) equip(s, uid, best.uid);
-    }
-  }
+  // le bouton « Équiper le meilleur » pour chaque membre (équipement évalué pour ce Pokémon, panoplies comprises)
+  for (const uid of s.team) autoEquipBest(s, uid);
   // recyclage : garde les objets portés et 2 exemplaires de chaque (fusion future)
   const keep = new Set<string>();
   for (const m of Object.values(s.mons)) for (const it of heldItems(s, m)) keep.add(it.uid);
@@ -119,6 +113,8 @@ export function simulate(rng: Rng, maxSeconds = 6 * 3600, trace?: string[], regi
   let bossFails = 0; // défaites consécutives face au boss/à l'arène en cours
   let lastChores = -1e9;
   let farmSince = t;
+  let stageFails = 0; // défaites consécutives sur des étapes normales
+  let retreat: { biome: number; zone: number; until: number } | null = null; // zone à reprendre après s'être entraîné
   let cooldown = 0; // après un boss raté, le bot farme 3 étapes de plus à chaque échec (15 max) avant de réessayer
   while (t < maxSeconds && !s.arenaBeaten[lastBiome]) {
     let kind: 'stage' | 'boss' | 'arena' = 'stage';
@@ -129,8 +125,8 @@ export function simulate(rng: Rng, maxSeconds = 6 * 3600, trace?: string[], regi
       const lvls = s.team.map((u) => s.mons[u].level);
       const minLv = Math.min(...lvls);
       const ready = (need: number) => minLv >= need - 4 || t - farmSince > 45 * 60;
-      if (arenaAvailable(s) && s.zone === 2 && s.stage >= 5 && ready(Math.min(...BIOMES[s.biome].arena.team.map(([, l]) => l)))) kind = 'arena';
-      else if (bossAvailable(s) && !s.bossesBeaten[s.biome][s.zone] && s.stage >= 5 && ready(BIOMES[s.biome].zones[s.zone].boss.level)) kind = 'boss';
+      if (!retreat && arenaAvailable(s) && !s.arenaBeaten[s.biome] && s.zone === 2 && s.stage >= 5 && ready(Math.min(...BIOMES[s.biome].arena.team.map(([, l]) => l)))) kind = 'arena';
+      else if (!retreat && bossAvailable(s) && !s.bossesBeaten[s.biome][s.zone] && s.stage >= 5 && ready(BIOMES[s.biome].zones[s.zone].boss.level)) kind = 'boss';
     }
     if (t - lastChores > 20 * 60) { chores(s, rng, t); lastChores = t; }
     const run = new StageRun(s, kind, rng);
@@ -147,6 +143,17 @@ export function simulate(rng: Rng, maxSeconds = 6 * 3600, trace?: string[], regi
     trace?.push(`${Math.round(t / 60)}min b${run.biome} ${kind} z${run.zone}s${run.stage} ${run.result} lv=${s.team.map((u) => s.mons[u].level)} sp=${s.team.map((u) => s.mons[u].speciesId)}`);
     if (run.result === 'lose' && kind !== 'stage') { bossFails++; cooldown = Math.min(15, 3 * bossFails); }
     if (run.result === 'win' && kind !== 'stage') { bossFails = 0; farmSince = t; }
+    // comme un joueur : après 3 défaites de suite sur une étape, il recule d'une zone pour s'entraîner 20 min, puis revient
+    if (kind === 'stage') stageFails = run.result === 'lose' ? stageFails + 1 : 0;
+    if (retreat && t > retreat.until) { selectStage(s, retreat.biome, retreat.zone, 1); retreat = null; stageFails = 0; }
+    else if (!retreat && stageFails >= 3) {
+      const [pb, pz] = s.zone > 0 ? [s.biome, s.zone - 1] : [s.biome - 1, 2];
+      if (pb >= REGIONS[s.prestige].start && pb >= 0) {
+        retreat = { biome: s.biome, zone: s.zone, until: t + 20 * 60 };
+        selectStage(s, pb, pz, 5);
+      }
+      stageFails = 0;
+    }
     if (run.result === 'win') {
       if (kind === 'boss') mark(`biome${run.biome + 1}-boss${run.zone + 1}`);
       if (kind === 'arena') mark(`biome${run.biome + 1}-badge`);
