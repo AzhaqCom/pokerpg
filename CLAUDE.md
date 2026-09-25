@@ -84,6 +84,10 @@ Modules natifs : toujours `npx expo install <pkg>`. Skia 2.6.2 (épinglé) **exi
   Critique × Dégâts critiques liés, Recharge plafonnée à 40 %) dans le contexte du Pokémon (`monBaseBonuses` : talents,
   auras, badges) : `autoEquipBest` évalue chaque combinaison complète, `equipGain` donne les flèches du sélecteur.
   Anciennes sauvegardes : sous-stats converties une fois (`balanceVersion`). Recyclage en éclats (`recycleValue`).
+  **Critique (2026-09-25)** : la chance de critique au-delà de 100 % est convertie 1 pour 1 en Dégâts critiques
+  (`critOverflow`, en combat et dans `combatValue`). Les 5 objets Critique sont **mixtes** (`bonusCrit`) : Critique fixe par
+  rareté (`CRIT_BY_RARITY` 8→25 %) + Dégâts critiques qui grimpent avec le niveau (`CRIT_HYBRID_BASE`, calés pour valoir
+  l'objet Attaque équivalent à ~30 % de Critique) ; les objets déjà possédés suivent (valeur recalculée depuis le modèle).
 - **Qualité génétique** : gènes 0-15 (PV/Atq/Déf/Vit) tirés à la capture, jamais modifiés (sauf méga bonbons). Étoiles :
   4★ parfait, 3★ ≥ 80 %, 2★ ≥ 50 %. Plancher garanti par badge (`genesMinForBadges` : ≥ 8 dès 4 badges, ≥ 12 dès 8).
 - **Sous-stats** (depuis le 2026-09-24) : Attaque, Défense, PV, Vitesse, Critique, Dégâts critiques, Dégâts du type,
@@ -102,7 +106,7 @@ Modules natifs : toujours `npx expo install <pkg>`. Skia 2.6.2 (épinglé) **exi
 - **Compléter le Pokédex / doublons** : `completeDex` et `excessMons`/`releaseExcess` suivent le réglage
   `keepEvolutionMaterial` (mode collectionneur par défaut : garde 1 exemplaire par étage possédé + matière pour les étages
   manquants ; décoché : un exemplaire unique peut évoluer si l'étage suivant manque au Pokédex). Choix de l'exemplaire gardé
-  **par étoiles puis PC** (`byQuality`) : le meilleur en étoiles d'un étage est toujours gardé en plus du porteur en
+  **par total des gènes puis PC** (`byQuality`) : le meilleur en gènes d'un étage est toujours gardé en plus du porteur en
   équipe/pension/exploration s'il fait mieux (bug du 2026-09-25 : un 4★ bas niveau partait, le tri se faisait aux PC).
 - **Verrou 🔒** (`Mon.locked`, `toggleLock`) : un verrouillé n'est jamais relâché (`release` refuse), ni nettoyé
   (doublons, 3★+, chromatiques), ni utilisé par `completeDex`. Posé d'office sur tout 4★ (`addMon`, méga bonbon qui rend

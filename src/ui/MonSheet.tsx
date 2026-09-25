@@ -8,7 +8,7 @@ import {
   evolve, feedCandy, heldItems, holder, lineBase, rankUpTalent, autoTalents, autoMoves, equipGain, release, resetTalents, setMoves, setTeam, unequip,
 } from '../game/game';
 import { itemScore, slotOf, template } from '../game/items';
-import { BattleBonuses, ItemSlot } from '../game/model';
+import { BattleBonuses, ItemSlot, critOverflow } from '../game/model';
 import { TIER_REQ, eligibleAffinityTypes, spentPoints, talentPoints, talentTree } from '../game/talents';
 import { AnimatedSprite } from '../sprites/AnimatedSprite';
 import { useGame } from '../store/game';
@@ -167,7 +167,10 @@ export function MonSheet() {
             <Bar label="Attaque" value={st.atk} max={Math.max(120, st.atk)} color="#e53935" />
             <Bar label="Défense" value={st.def} max={Math.max(120, st.def)} color="#1e88e5" />
             <Bar label="Vitesse" value={st.spe} max={Math.max(120, st.spe)} color="#fdd835" />
-            <Text style={styles.sub}>Critique {st.crit.toFixed(1)} % · Dégâts critiques ×{(1.5 + (st.bonuses?.critDmgPct ?? 0) / 100).toFixed(2)}</Text>
+            <Text style={styles.sub}>
+              Critique {Math.min(100, st.crit).toFixed(1)} % · Dégâts critiques ×{(1.5 + ((st.bonuses?.critDmgPct ?? 0) + critOverflow(st.crit)) / 100).toFixed(2)}
+              {st.crit > 100 ? ` (surplus de ${(st.crit - 100).toFixed(1)} % de Critique converti)` : ''}
+            </Text>
             <Pressable onPress={() => setShowSubs((v) => !v)}>
               <Text style={styles.subsToggle}>{showSubs ? '▾' : '▸'} Sous-stats</Text>
             </Pressable>

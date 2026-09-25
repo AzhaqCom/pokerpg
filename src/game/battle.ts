@@ -4,7 +4,7 @@
  * et lit `events` pour jouer les animations. Aucune dépendance à React.
  */
 import { Ailment, Move, PType, basicAttack, move, species, typeMultiplier } from './data';
-import { BattleBonuses, emptyBonuses } from './model';
+import { BattleBonuses, critOverflow, emptyBonuses } from './model';
 import { Rng } from './rng';
 
 export const ACTION_LOCK = 0.7; // s : durée d'une animation d'action
@@ -279,7 +279,8 @@ export class Battle {
     let bonus = 1;
     if (m.id !== 0 && f.types.includes(m.type)) bonus += f.bonuses.typeDmgPct / 100;
     for (const a of f.bonuses.affinities) if (a.type === m.type) bonus += a.pct / 100;
-    const critMult = crit ? 1.5 + f.bonuses.critDmgPct / 100 : 1;
+    // chance de critique au-delà de 100 % : convertie 1 pour 1 en Dégâts critiques (voir `critOverflow`)
+    const critMult = crit ? 1.5 + (f.bonuses.critDmgPct + critOverflow(f.stats.crit)) / 100 : 1;
     const rand = 0.85 + this.rng.int(16) / 100;
     dmg = dmg * stab * eff * critMult * bonus * rand;
     return { amount: eff === 0 ? 0 : Math.max(1, Math.round(dmg)), eff, crit };

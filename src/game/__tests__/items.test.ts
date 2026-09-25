@@ -1,5 +1,5 @@
-import { BIOME_SET, SETS, combatValue, TEMPLATES, addItemBonuses, canFuse, fuse, itemScore, makeItem, mainValue, recycleValue, rollLoot, setOfBiome, template, upgrade } from '../items';
-import { emptyBonuses } from '../model';
+import { BIOME_SET, CRIT_BY_RARITY, SETS, bonusCritValue, combatValue, TEMPLATES, addItemBonuses, canFuse, fuse, itemScore, makeItem, mainValue, recycleValue, rollLoot, setOfBiome, template, upgrade } from '../items';
+import { critOverflow, emptyBonuses } from '../model';
 import { seededRng } from '../rng';
 
 const rng = seededRng(7);
@@ -103,5 +103,44 @@ describe('valeur de combat des équipements (poids mesurés)', () => {
   });
   test('Recharge plafonnée à 40 % comme en combat', () => {
     expect(combatValue(b({ cdrPct: 60 }))).toBeCloseTo(combatValue(b({ cdrPct: 40 })), 5);
+  });
+});
+
+describe('Critique : objets mixtes et surplus converti en Dégâts critiques', () => {
+  test('un objet Critique mixte donne une Critique fixe par rareté + des Dégâts critiques qui grimpent avec le niveau', () => {
+    const low = makeItem('croc-givre', 4, 10, seededRng(1));
+    const high = makeItem('croc-givre', 4, 100, seededRng(1));
+    expect(bonusCritValue(low)).toBe(CRIT_BY_RARITY[4]);
+    expect(bonusCritValue(high)).toBe(CRIT_BY_RARITY[4]); // ne grimpe pas avec le niveau
+    expect(mainValue(high)).toBeGreaterThan(mainValue(low));
+    const b = emptyBonuses();
+    addItemBonuses(b, [{ ...high, subs: [] }]);
+    expect(b.critPct).toBe(CRIT_BY_RARITY[4]);
+    expect(b.critDmgPct).toBe(mainValue(high));
+  });
+
+  test('ses secondaires ne tirent jamais Critique ni Dégâts critiques (déjà dans la stat principale)', () => {
+    for (let seed = 0; seed < 40; seed++) {
+      const it = makeItem('bec-ciel', 6, 50, seededRng(seed));
+      expect(it.subs.some((sub) => sub.stat === 'critPct' || sub.stat === 'critDmgPct')).toBe(false);
+    }
+  });
+
+  test('en fin de partie, un objet Critique mixte vaut à peu près l’objet Attaque équivalent (plus 6 fois moins)', () => {
+    const base = { ...emptyBonuses(), critPct: 24, critDmgPct: 20 };
+    const gain = (id: string) => { const b = { ...base }; addItemBonuses(b, [{ ...makeItem(id, 4, 100, seededRng(2)), subs: [] }]); return combatValue(b) - combatValue(base); };
+    const atkEquivalent = (() => { const b = { ...base, atkPct: base.atkPct + 15.9 * 0.54 * (1 + 0.08 * 99) * 2 }; return combatValue(b) - combatValue(base); })();
+    expect(gain('croc-givre') / atkEquivalent).toBeGreaterThan(0.85);
+    expect(gain('croc-givre') / atkEquivalent).toBeLessThan(1.2);
+  });
+
+  test('surplus de Critique au-delà de 100 % : converti 1 pour 1 en Dégâts critiques', () => {
+    expect(critOverflow(80)).toBe(0);
+    expect(critOverflow(150)).toBe(50);
+    const capped = { ...emptyBonuses(), critPct: 94 }; // 6 + 94 = 100 %
+    const over = { ...emptyBonuses(), critPct: 144 }; // 150 % : 50 de surplus
+    const sameAsDmg = { ...emptyBonuses(), critPct: 94, critDmgPct: 50 };
+    expect(combatValue(over)).toBeGreaterThan(combatValue(capped));
+    expect(combatValue(over)).toBeCloseTo(combatValue(sameAsDmg), 6);
   });
 });

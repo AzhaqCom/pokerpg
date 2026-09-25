@@ -35,6 +35,11 @@ export const RARITY_COLOR = ['#9aa0a6', '#4caf50', '#3d8bfd', '#a259ff', '#ff980
 /** multiplicateur de la stat principale par rareté : 0-3 inchangés (jeu tôt/moyen déjà équilibré),
  * seul le sommet (Légendaire/Mythique/Chromatique) est compressé pour freiner l'explosion de fin de
  * partie sans toucher au reste de la courbe. */
+/** Chance de critique au-delà de 100 % : convertie 1 pour 1 en Dégâts critiques (en combat et dans `combatValue`). */
+export function critOverflow(critChance: number): number {
+  return Math.max(0, critChance - 100);
+}
+
 export const RARITY_MULT = [1, 1.25, 1.5, 1.8, 2.0, 2.2, 2.4];
 /** nombre de bonus secondaires par rareté */
 export const RARITY_SUBS = [0, 1, 1, 2, 2, 3, 3];
@@ -51,6 +56,9 @@ export interface ItemTemplate {
   set?: string;
   /** baies : soin en % des PV sous 30 %, ou statut soigné */
   berry?: { heal?: number; cures?: string };
+  /** objet Critique « mixte » : en plus de sa stat principale (Dégâts critiques, qui grimpe avec le niveau), une
+   *  chance de critique fixée par la rareté (`CRIT_BY_RARITY`), qui ne grimpe pas avec le niveau */
+  bonusCrit?: boolean;
 }
 
 export interface Item {

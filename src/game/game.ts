@@ -457,9 +457,14 @@ export function remainingEvolutions(speciesId: number): number {
  * Mode « léger » (`keepEvolutionMaterial: false`) : ne garde que ce qui est déjà possédé, sans réserve —
  * dans le même exemple, garde 1 seul Bulbizarre et relâche les 13 autres.
  */
-/** Meilleur d'abord : étoiles (qualité génétique, définitive), puis PC (niveau). */
+const geneTotal = (m: Mon) => m.genes.hp + m.genes.atk + m.genes.def + m.genes.spe;
+
+/**
+ * Meilleur d'abord : total des gènes (sur 60, définitif hors méga bonbons ; inclut les étoiles, qui en découlent),
+ * puis PC (le niveau se regagne, les gènes non).
+ */
 function byQuality(a: Mon, b: Mon): number {
-  return monStars(b) - monStars(a) || combatPower(finalStats(b, emptyBonuses())) - combatPower(finalStats(a, emptyBonuses()));
+  return geneTotal(b) - geneTotal(a) || combatPower(finalStats(b, emptyBonuses())) - combatPower(finalStats(a, emptyBonuses()));
 }
 
 export function excessMons(s: GameState, opts: { keepEvolutionMaterial?: boolean } = {}): Mon[] {
@@ -485,7 +490,7 @@ export function excessMons(s: GameState, opts: { keepEvolutionMaterial?: boolean
         const atStage = [...all.filter((m) => m.speciesId === stage)].sort(byQuality);
         const held = atStage.find((m) => s.team.includes(m.uid) || s.pension.some((p) => p.uid === m.uid) || s.exploration.some((p) => p.uid === m.uid));
         if (held) protectedUids.add(held.uid);
-        if (!held || monStars(atStage[0]) > monStars(held)) protectedUids.add(atStage[0].uid);
+        if (!held || geneTotal(atStage[0]) > geneTotal(held)) protectedUids.add(atStage[0].uid);
       }
       const missing = keepEvolutionMaterial ? chain.filter((stage) => !(cnt.get(stage) ?? 0)).length : 0;
       const freeSpares = all
@@ -583,7 +588,7 @@ export function completeDex(s: GameState, dryRun = false, opts: { keepEvolutionM
         const atStage = [...all.filter((m) => m.speciesId === stage)].sort(byQuality);
         const held = atStage.find((m) => s.team.includes(m.uid) || s.pension.some((p) => p.uid === m.uid) || s.exploration.some((p) => p.uid === m.uid));
         if (held) protectedUids.add(held.uid);
-        if (!held || monStars(atStage[0]) > monStars(held)) protectedUids.add(atStage[0].uid);
+        if (!held || geneTotal(atStage[0]) > geneTotal(held)) protectedUids.add(atStage[0].uid);
       }
       // on fait évoluer en priorité les exemplaires les plus faibles (jamais un verrouillé 🔒)
       const freeSpares = all

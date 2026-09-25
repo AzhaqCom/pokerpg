@@ -1,5 +1,5 @@
 import {
-  BattleBonuses, BonusStat, Item, emptyBonuses, ItemSlot, ItemTemplate, MAX_RARITY, NumericBonusStat, RARITY_MULT, RARITY_SUBS,
+  BattleBonuses, BonusStat, Item, critOverflow, emptyBonuses, ItemSlot, ItemTemplate, MAX_RARITY, NumericBonusStat, RARITY_MULT, RARITY_SUBS,
 } from './model';
 import { BIOMES, REGIONS } from './content';
 import { Rng } from './rng';
@@ -12,6 +12,16 @@ import { Rng } from './rng';
  * les panoplies dont le thème colle (Circuit Survolté = paralysie, Brume Toxique = poison, Troisième
  * Œil = sommeil) ; les 7 autres soignent toutes 25 % des PV avant multiplicateur de rareté (`berryHeal`).
  */
+/**
+ * Objets Critique « mixtes » (2026-09-25) : une chance de critique fixe par rareté + des Dégâts critiques qui grimpent
+ * avec le niveau. Avant, leur stat principale était la seule Critique, calibrée linéairement : +117 % dès un Rare Nv.50,
+ * donc plafonnée à 100 % par l'objet seul, et une valeur figée (~6 fois moins qu'un objet Attaque en fin de partie).
+ * Bases des Dégâts critiques calées (`tools/scratch/crit_value.ts`) pour valoir à peu près l'objet Attaque équivalent
+ * pour un Pokémon à ~30 % de Critique. Les objets déjà possédés suivent (valeur recalculée depuis le modèle).
+ */
+export const CRIT_BY_RARITY = [8, 10, 12, 15, 18, 21, 25];
+const CRIT_HYBRID_BASE = { brume: 15.1, oeil: 15.7, ciel: 13.6, brume2: 17.7, givre: 20.2 };
+
 export const TEMPLATES: ItemTemplate[] = [
   // biome 1 — Forêt de Jade
   { id: 'griffe-sylve', name: 'Griffe Sylvestre', slot: 'offense', main: 'atkPct', base: 6, set: 'sylve' },
@@ -30,11 +40,11 @@ export const TEMPLATES: ItemTemplate[] = [
   { id: 'ecorce-chloro', name: 'Écorce Vivace', slot: 'defense', main: 'hpPct', base: 4.6, set: 'chloro' },
   { id: 'baie-chloro', name: 'Baie Feuillue', slot: 'berry', main: 'hpPct', base: 0, set: 'chloro', berry: { heal: 25, cures: 'sleep' } },
   // biome 5 — Marais Toxique
-  { id: 'piquant-brume', name: 'Piquant Empoisonné', slot: 'offense', main: 'critPct', base: 12.2, set: 'brume' },
+  { id: 'piquant-brume', name: 'Piquant Empoisonné', slot: 'offense', main: 'critDmgPct', base: CRIT_HYBRID_BASE.brume, bonusCrit: true, set: 'brume' },
   { id: 'carapace-brume', name: 'Carapace Visqueuse', slot: 'defense', main: 'defPct', base: 4.6, set: 'brume' },
   { id: 'pecha', name: 'Baie Pêcha', slot: 'berry', main: 'hpPct', base: 0, set: 'brume', berry: { heal: 25, cures: 'poison' } },
   // biome 6 — Sanctuaire Psy
-  { id: 'amulette-oeil', name: 'Amulette Prescience', slot: 'offense', main: 'critPct', base: 12.6, set: 'oeil' },
+  { id: 'amulette-oeil', name: 'Amulette Prescience', slot: 'offense', main: 'critDmgPct', base: CRIT_HYBRID_BASE.oeil, bonusCrit: true, set: 'oeil' },
   { id: 'voile-oeil', name: 'Voile Mental', slot: 'defense', main: 'cdrPct', base: 16, set: 'oeil' },
   { id: 'maron', name: 'Baie Maron', slot: 'berry', main: 'hpPct', base: 0, set: 'oeil', berry: { heal: 25 } },
   // biome 7 — Terres de Feu
@@ -54,7 +64,7 @@ export const TEMPLATES: ItemTemplate[] = [
   { id: 'cape-champion', name: 'Cape du Vainqueur', slot: 'defense', main: 'defPct', base: 6.1, set: 'champion' },
   { id: 'baie-champion', name: 'Baie du Sacre', slot: 'berry', main: 'hpPct', base: 0, set: 'champion', berry: { heal: 25 } },
   // biome 11 — Route des Cieux (Johto)
-  { id: 'bec-ciel', name: 'Bec Acéré', slot: 'offense', main: 'critPct', base: 11.1, set: 'ciel' },
+  { id: 'bec-ciel', name: 'Bec Acéré', slot: 'offense', main: 'critDmgPct', base: CRIT_HYBRID_BASE.ciel, bonusCrit: true, set: 'ciel' },
   { id: 'plume-ciel', name: 'Plume Véloce', slot: 'defense', main: 'spePct', base: 40, set: 'ciel' },
   { id: 'baie-ciel', name: 'Baie des Cieux', slot: 'berry', main: 'hpPct', base: 0, set: 'ciel', berry: { heal: 25 } },
   // biome 12 — Forêt Fourmillante (Johto)
@@ -66,7 +76,7 @@ export const TEMPLATES: ItemTemplate[] = [
   { id: 'toison-prairie', name: 'Toison Épaisse', slot: 'defense', main: 'hpPct', base: 4.6, set: 'prairie' },
   { id: 'baie-prairie', name: 'Baie des Prairies', slot: 'berry', main: 'hpPct', base: 0, set: 'prairie', berry: { heal: 25 } },
   // biome 14 — Tour Hantée (Johto)
-  { id: 'griffe-brume', name: 'Griffe Spectrale', slot: 'offense', main: 'critPct', base: 14.1, set: 'brume2' },
+  { id: 'griffe-brume', name: 'Griffe Spectrale', slot: 'offense', main: 'critDmgPct', base: CRIT_HYBRID_BASE.brume2, bonusCrit: true, set: 'brume2' },
   { id: 'voile-brume', name: 'Voile Brumeux', slot: 'defense', main: 'cdrPct', base: 16, set: 'brume2' },
   { id: 'baie-brume', name: 'Baie Fantomatique', slot: 'berry', main: 'hpPct', base: 0, set: 'brume2', berry: { heal: 25 } },
   // biome 15 — Dojo d'Ébène (Johto)
@@ -78,7 +88,7 @@ export const TEMPLATES: ItemTemplate[] = [
   { id: 'armure-phare', name: 'Armure Polie', slot: 'defense', main: 'defPct', base: 5.3, set: 'phare' },
   { id: 'baie-phare', name: 'Baie du Phare', slot: 'berry', main: 'hpPct', base: 0, set: 'phare', berry: { heal: 25 } },
   // biome 17 — Grotte Gelée (Johto)
-  { id: 'croc-givre', name: 'Croc de Glace', slot: 'offense', main: 'critPct', base: 15.9, set: 'givre' },
+  { id: 'croc-givre', name: 'Croc de Glace', slot: 'offense', main: 'critDmgPct', base: CRIT_HYBRID_BASE.givre, bonusCrit: true, set: 'givre' },
   { id: 'manteau-givre', name: 'Manteau Givré', slot: 'defense', main: 'defPct', base: 4.6, set: 'givre' },
   { id: 'baie-givre', name: 'Baie Givrée', slot: 'berry', main: 'hpPct', base: 0, set: 'givre', berry: { heal: 25, cures: 'freeze' } },
   // biome 18 — Tanière des Dragons (Johto)
@@ -220,6 +230,16 @@ export function template(id: string): ItemTemplate {
 const lvlMult = (level: number) => 1 + 0.08 * (level - 1);
 const round1 = (v: number) => Math.round(v * 10) / 10;
 
+/** Chance de critique fixe d'un objet Critique mixte (0 pour les autres). */
+export function bonusCritValue(item: Item): number {
+  return template(item.templateId).bonusCrit ? CRIT_BY_RARITY[item.rarity] : 0;
+}
+
+/** Stats exclues des secondaires d'un objet : sa stat principale (et la Critique d'un objet mixte). */
+function mainStats(t: ItemTemplate): BonusStat[] {
+  return t.bonusCrit ? [t.main, 'critPct'] : [t.main];
+}
+
 /** Valeur de la stat principale (0 pour les baies, qui agissent en combat). */
 export function mainValue(item: Item): number {
   const t = template(item.templateId);
@@ -248,7 +268,7 @@ export function newUid(prefix: string) {
 export function makeItem(templateId: string, rarity: number, level: number, rng: Rng, biome?: number): Item {
   const t = template(templateId);
   const subs: Item['subs'] = [];
-  for (let i = 0; i < RARITY_SUBS[rarity]; i++) subs.push(rollSub(rng, level, [t.main, ...subs.map((s) => s.stat)]));
+  for (let i = 0; i < RARITY_SUBS[rarity]; i++) subs.push(rollSub(rng, level, [...mainStats(t), ...subs.map((s) => s.stat)]));
   const item: Item = { uid: newUid('i'), templateId, rarity, level, subs };
   const tier = biome === undefined ? 1 : biomeTier(biome, t);
   if (tier !== 1) item.tier = tier;
@@ -382,7 +402,7 @@ export function fuse(items: Item[], rng: Rng): Item {
   for (const it of items) for (const s of it.subs) best.set(s.stat, Math.max(best.get(s.stat) ?? 0, s.value));
   const subs = [...best.entries()].sort((a, b) => b[1] - a[1]).slice(0, RARITY_SUBS[rarity])
     .map(([stat, value]) => ({ stat, value }));
-  while (subs.length < RARITY_SUBS[rarity]) subs.push(rollSub(rng, level, [t.main, ...subs.map((s) => s.stat)]));
+  while (subs.length < RARITY_SUBS[rarity]) subs.push(rollSub(rng, level, [...mainStats(t), ...subs.map((s) => s.stat)]));
   const tier = Math.max(...items.map((i) => i.tier ?? 1));
   const out: Item = { uid: newUid('i'), templateId: t.id, rarity, level, subs };
   if (tier !== 1) out.tier = tier;
@@ -395,6 +415,7 @@ export function addItemBonuses(b: BattleBonuses, held: Item[]) {
   for (const it of held) {
     const t = template(it.templateId);
     if (t.base > 0) b[t.main] += mainValue(it);
+    b.critPct += bonusCritValue(it);
     for (const s of it.subs) b[s.stat] += s.value;
     if (t.set) setCount[t.set] = (setCount[t.set] ?? 0) + 1;
   }
@@ -425,9 +446,10 @@ export const STAT_WEIGHT: Record<NumericBonusStat, number> = {
  */
 export function combatValue(b: BattleBonuses): number {
   const crit = Math.min(1, (6 + b.critPct) / 100);
+  const critDmg = b.critDmgPct + critOverflow(6 + b.critPct); // surplus au-delà de 100 % converti, comme en combat
   const dodge = Math.min(0.6, b.dodgePct / 100);
   const f = (1 + b.atkPct / 100) * (1 + b.hpPct / 100) * (1 + b.defPct / 100)
-    * ((1 + crit * (0.5 + b.critDmgPct / 100)) / 1.03)
+    * ((1 + crit * (0.5 + critDmg / 100)) / 1.03)
     * (1 + (0.64 * b.typeDmgPct) / 100)
     * Math.pow(1 / (1 - dodge), 1.1)
     * (1 + (0.73 * b.lifestealPct) / 100)

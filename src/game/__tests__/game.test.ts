@@ -190,6 +190,16 @@ describe('verrou 🔒 et nettoyage des doublons par étoiles', () => {
     expect(s.mons[mid.uid]).toBeUndefined();
   });
 
+  test('à étoiles égales, le nettoyage garde les meilleurs gènes, pas le plus haut niveau', () => {
+    const s = teamOf3();
+    const lowLvGood = { ...makeMon(46, 10, seededRng(20)), genes: { hp: 15, atk: 15, def: 14, spe: 14 } }; // 58/60, 3★
+    const highLvWorse = { ...makeMon(46, 40, seededRng(21)), genes: { hp: 13, atk: 12, def: 12, spe: 12 } }; // 49/60, 3★
+    addMon(s, lowLvGood); addMon(s, highLvWorse);
+    releaseExcess(s, { keepEvolutionMaterial: false });
+    expect(s.mons[lowLvGood.uid]).toBeDefined();
+    expect(s.mons[highLvWorse.uid]).toBeUndefined();
+  });
+
   test('un 4★ est verrouillé d’office à la capture ; un 3★ non', () => {
     const s = teamOf3();
     const perfect = { ...makeMon(46, 10, seededRng(5)), genes: genes(15) };
@@ -597,8 +607,8 @@ test('excessMons / releaseExcess : garde 1 exemplaire par étage possédé + 1 d
   const cp = (m: (typeof excess)[number]) => combatPower(finalStats(m, emptyBonuses()));
   const normalKept = Object.values(s.mons).filter((m) => m.speciesId === 46 && !m.shiny && !excess.includes(m));
   expect(normalKept.length).toBe(2);
-  // les meilleurs sont gardés : étoiles d'abord, puis PC
-  const q = (m: (typeof excess)[number]) => monStars(m) * 1e6 + cp(m);
+  // les meilleurs sont gardés : total des gènes d'abord, puis PC
+  const q = (m: (typeof excess)[number]) => (m.genes.hp + m.genes.atk + m.genes.def + m.genes.spe) * 1e6 + cp(m);
   expect(Math.min(...normalKept.map(q))).toBeGreaterThanOrEqual(Math.max(...excess.filter((m) => !m.shiny).map(q)));
   const r = releaseExcess(s);
   expect(r.count).toBe(excess.length);
@@ -658,10 +668,11 @@ test('excessMons : protège les Pokémon postés en pension ou en exploration', 
   chooseStarter(s, 4, seededRng(1));
   addMon(s, makeMon(1, 5, seededRng(50)));
   addMon(s, makeMon(7, 5, seededRng(51)));
-  const a = makeMon(46, 10, seededRng(1), false); addMon(s, a); // posté en pension
-  const b = makeMon(46, 11, seededRng(2), false); addMon(s, b);
-  const c = makeMon(46, 12, seededRng(3), false); addMon(s, c);
-  const d = makeMon(46, 13, seededRng(4), false); addMon(s, d); // le plus fort, gardé en réserve
+  const g = (v: number) => ({ hp: v, atk: v, def: v, spe: v });
+  const a = { ...makeMon(46, 10, seededRng(1), false), genes: g(14) }; addMon(s, a); // posté en pension, meilleurs gènes
+  const b = { ...makeMon(46, 11, seededRng(2), false), genes: g(5) }; addMon(s, b);
+  const c = { ...makeMon(46, 12, seededRng(3), false), genes: g(5) }; addMon(s, c);
+  const d = { ...makeMon(46, 13, seededRng(4), false), genes: g(12) }; addMon(s, d); // meilleurs gènes de la boîte, gardé en réserve
   s.pension.push({ uid: a.uid, since: 0, xpPerHour: 10 });
   const excess = excessMons(s);
   expect(excess.some((m) => m.uid === a.uid)).toBe(false); // protégé (posté en pension)
