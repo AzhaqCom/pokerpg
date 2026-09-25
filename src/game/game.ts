@@ -1449,7 +1449,7 @@ export function grantDailyBalls(s: GameState, now = Date.now()) {
  * plus lente que jouer activement (sinon personne ne combattrait), mais scale avec la progression du
  * joueur au lieu d'un chiffre fixe qui devient dérisoire à mesure que les niveaux montent.
  */
-export const PENSION_XP_SHARE = 0.4;
+export const PENSION_XP_SHARE = 0.5;
 /** Repli pour les sauvegardes migrées dont le taux n'a pas encore été calculé (voir `migrateSave`). */
 export const PENSION_XP_FALLBACK_PER_HOUR = 50;
 

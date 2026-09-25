@@ -99,7 +99,7 @@ export const BIOMES: BiomeDef[] = [
       },
       {
         name: 'Récif Corallien', minLv: 21, maxLv: 24, biome: 'water',
-        pool: [[90, 25], [79, 25], [86, 25], [55, 15], [61, 10], [8, 10]],
+        pool: [[90, 25], [79, 25], [86, 25], [55, 15], [61, 10], [7, 10],[8, 5]],
         boss: { speciesId: 91, level: 27 },
       },
       {
@@ -146,7 +146,7 @@ export const BIOMES: BiomeDef[] = [
     zones: [
       {
         name: 'Clos Fleuri', minLv: 35, maxLv: 37, biome: 'meadow',
-        pool: [[35, 30], [52, 30], [102, 25], [108, 15], [17, 10], [70, 10], [1, 10]],
+        pool: [[35, 30], [52, 30], [102, 25], [108, 15], [16, 10], [69, 10], [1, 10]],
         boss: { speciesId: 53, level: 38 },
       },
       {
