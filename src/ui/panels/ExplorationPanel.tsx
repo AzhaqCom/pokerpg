@@ -84,7 +84,7 @@ export function ExplorationPanel() {
       <Modal visible={pick} transparent animationType="slide" onRequestClose={() => setPick(false)}>
         <Pressable style={styles.backdrop} onPress={() => setPick(false)}>
           <Pressable style={styles.sheet} onPress={() => {}}>
-            <Text style={styles.title}>Qui envoyer explorer ?</Text>
+            <Text style={styles.title}>Qui envoyer explorer ? <Text style={styles.sub}>({explorationSlots(s) - s.exploration.length} place{explorationSlots(s) - s.exploration.length > 1 ? 's' : ''} libre{explorationSlots(s) - s.exploration.length > 1 ? 's' : ''})</Text></Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }} style={{ flexGrow: 0 }}>
               <Pressable onPress={() => setAuraFilter(null)} style={[styles.chip, !activeAura && styles.chipOn]}>
                 <Text style={styles.chipTxt}>Toutes les auras</Text>
@@ -106,7 +106,12 @@ export function ExplorationPanel() {
               renderItem={({ item: m }) => {
                 const auras = auraDisplay(m.speciesId, 0.5);
                 return (
-                  <Pressable style={styles.card} onPress={() => { act((g) => assignExploration(g, m.uid)); setPick(false); feedback(); }}>
+                  <Pressable style={styles.card} onPress={() => {
+                    // la fenêtre reste ouverte tant qu'il reste une place libre
+                    const full = act((g) => { assignExploration(g, m.uid); return g.exploration.length >= explorationSlots(g); });
+                    if (full) setPick(false);
+                    feedback();
+                  }}>
                     <MonThumb speciesId={m.speciesId} shiny={m.shiny} size={40} />
                     <View style={{ flex: 1 }}>
                       <Text style={styles.name}>{monName(m)} Nv.{m.level}</Text>

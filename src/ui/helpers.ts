@@ -5,18 +5,19 @@ import { combatPower } from '../game/stats';
 import { xpForLevel } from '../game/stats';
 import { AURA } from '../game/talents';
 
+/** Couleur par type. Sol plus brun (#c9a05a au lieu de #e0c068) pour ne plus se confondre avec Électrik. */
 export const TYPE_COLOR: Record<PType, string> = {
   normal: '#9e9e7a', fire: '#f0803c', water: '#6890f0', grass: '#78c850', electric: '#f8d030', ice: '#98d8d8',
-  fighting: '#c03028', poison: '#a040a0', ground: '#e0c068', flying: '#a890f0', psychic: '#f85888',
+  fighting: '#c03028', poison: '#a040a0', ground: '#c9a05a', flying: '#a890f0', psychic: '#f85888',
   bug: '#a8b820', rock: '#b8a038', ghost: '#705898', dragon: '#7038f8',
   steel: '#b8b8d0', dark: '#705848',
 };
 
 /** Texte lisible sur un fond de couleur : noir si le fond est clair (jaune, gris clair…), blanc sinon. */
-export function textOn(bg: string): string {
+export function textOn(bg: string, threshold = 0.6): string {
   const n = parseInt(bg.slice(1), 16);
   const lum = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
-  return lum > 0.6 ? '#111' : '#fff';
+  return lum > threshold ? '#111' : '#fff';
 }
 
 export const monName = (m: Mon) => species(m.speciesId).name;

@@ -28,6 +28,9 @@ export function PensionPanel() {
   const [minStars, setMinStars] = useState(0);
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<PType | null>(null);
+  // tri de la liste : Pokédex → niveau croissant → niveau décroissant → Pokédex
+  const [levelSort, setLevelSort] = useState<'dex' | 'asc' | 'desc'>('dex');
+  const nextLevelSort = () => setLevelSort((v) => (v === 'dex' ? 'asc' : v === 'asc' ? 'desc' : 'dex'));
   const ready = pensionXpReady(s, now);
   const candidates = Object.values(s.mons)
     .filter((m) => !s.team.includes(m.uid) && !s.pension.some((p) => p.uid === m.uid) && !s.exploration.some((p) => p.uid === m.uid));
@@ -41,7 +44,7 @@ export function PensionPanel() {
   const free = candidates
     .filter((m) => monStars(m) >= minStars && (!activeType || species(m.speciesId).types.includes(activeType))
       && (!query.trim() || monName(m).toLowerCase().startsWith(query.trim().toLowerCase())))
-    .sort((a, b) => a.speciesId - b.speciesId);
+    .sort((a, b) => (levelSort === 'asc' ? a.level - b.level : levelSort === 'desc' ? b.level - a.level : 0) || a.speciesId - b.speciesId);
   // les postes en cours suivent le même ordre : meilleur potentiel d'abord
   const starsOf = (uid: string) => (s.mons[uid] ? monStars(s.mons[uid]) : 0);
   const posted = [...s.pension].sort((a, b) => starsOf(b.uid) - starsOf(a.uid));
@@ -99,7 +102,7 @@ export function PensionPanel() {
       <Modal visible={pick} transparent animationType="slide" onRequestClose={() => setPick(false)}>
         <Pressable style={styles.backdrop} onPress={() => setPick(false)}>
           <Pressable style={styles.sheet} onPress={() => {}}>
-            <Text style={styles.title}>Qui envoyer en pension ?</Text>
+            <Text style={styles.title}>Qui envoyer en pension ? <Text style={styles.sub}>({pensionSlots(s) - s.pension.length} place{pensionSlots(s) - s.pension.length > 1 ? 's' : ''} libre{pensionSlots(s) - s.pension.length > 1 ? 's' : ''})</Text></Text>
             <TextInput
               value={query}
               onChangeText={setQuery}
@@ -113,6 +116,9 @@ export function PensionPanel() {
                   <Text style={styles.chipTxt}>{n === 0 ? 'Tous' : `${n}★+`}</Text>
                 </Pressable>
               ))}
+              <Pressable onPress={nextLevelSort} style={[styles.chip, levelSort !== 'dex' && styles.chipOn]}>
+                <Text style={styles.chipTxt}>{levelSort === 'dex' ? 'Trier par niveau' : levelSort === 'asc' ? 'Niveau ▲' : 'Niveau ▼'}</Text>
+              </Pressable>
             </View>
             {candTypes.length > 0 && (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }} style={{ flexGrow: 0 }}>
@@ -137,7 +143,13 @@ export function PensionPanel() {
               windowSize={5}
               removeClippedSubviews
               renderItem={({ item: m }) => (
-                <Pressable style={styles.card} onPress={() => { const rate = nextRate(); act((g) => assignPension(g, m.uid, rate)); setPick(false); feedback(); }}>
+                <Pressable style={styles.card} onPress={() => {
+                  const rate = nextRate();
+                  // la fenêtre reste ouverte tant qu'il reste une place libre
+                  const full = act((g) => { assignPension(g, m.uid, rate); return g.pension.length >= pensionSlots(g); });
+                  if (full) setPick(false);
+                  feedback();
+                }}>
                   <MonThumb speciesId={m.speciesId} shiny={m.shiny} size={40} />
                   <Text style={[styles.name, { flex: 1 }]}>{monName(m)} Nv.{m.level}</Text>
                   <Stars mon={m} />
