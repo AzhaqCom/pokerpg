@@ -94,6 +94,7 @@ export function TeamPanel() {
               <MonThumb speciesId={m.speciesId} shiny={m.shiny} size={48} />
               {/* lignée ciblée (🎯) : en haut à gauche, à l'opposé du ✨ des chromatiques */}
               {isTargeted(s, m.speciesId) && <Text style={styles.targetMark}>🎯</Text>}
+              {m.locked && <Text style={styles.lockMark}>🔒</Text>}
             </View>
             <Text style={styles.boxName} numberOfLines={1}>{monName(m)}</Text>
             <Text style={styles.boxLv}>Nv.{m.level}{pensionUids.has(m.uid) ? ' · 🏡' : explorationUids.has(m.uid) ? ' · 🧭' : ''}</Text>
@@ -284,6 +285,7 @@ const styles = StyleSheet.create({
   flag: { color: '#fff', fontSize: 10, fontWeight: '800', backgroundColor: '#c0392b', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6, overflow: 'hidden' },
   boxCell: { alignItems: 'center', backgroundColor: C.panel, borderRadius: 12, paddingVertical: 6 },
   targetMark: { position: 'absolute', top: -2, left: -4, fontSize: 11, opacity: 0.85 },
+  lockMark: { position: 'absolute', bottom: -2, left: -4, fontSize: 10, opacity: 0.85 },
   boxName: { color: C.text, fontSize: 10, fontWeight: '700', maxWidth: 70 },
   boxLv: { color: C.sub, fontSize: 10 },
   chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: C.panel },

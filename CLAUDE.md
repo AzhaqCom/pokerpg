@@ -101,7 +101,13 @@ Modules natifs : toujours `npx expo install <pkg>`. Skia 2.6.2 (épinglé) **exi
   par défaut (`evolvesTo`).
 - **Compléter le Pokédex / doublons** : `completeDex` et `excessMons`/`releaseExcess` suivent le réglage
   `keepEvolutionMaterial` (mode collectionneur par défaut : garde 1 exemplaire par étage possédé + matière pour les étages
-  manquants ; décoché : un exemplaire unique peut évoluer si l'étage suivant manque au Pokédex).
+  manquants ; décoché : un exemplaire unique peut évoluer si l'étage suivant manque au Pokédex). Choix de l'exemplaire gardé
+  **par étoiles puis PC** (`byQuality`) : le meilleur en étoiles d'un étage est toujours gardé en plus du porteur en
+  équipe/pension/exploration s'il fait mieux (bug du 2026-09-25 : un 4★ bas niveau partait, le tri se faisait aux PC).
+- **Verrou 🔒** (`Mon.locked`, `toggleLock`) : un verrouillé n'est jamais relâché (`release` refuse), ni nettoyé
+  (doublons, 3★+, chromatiques), ni utilisé par `completeDex`. Posé d'office sur tout 4★ (`addMon`, méga bonbon qui rend
+  parfait, et 4★ des anciennes sauvegardes via `migrateSave` quand `locked` est absent). Cadenas à côté du nom dans la fiche,
+  🔒 en bas à gauche de la vignette dans la boîte.
 - **Pension** (XP passive, 40 % de l'XP/h de l'équipe, taux rafraîchi à chaque récolte) et **Exploration**
   (`SHARDS_PER_MIN` = 3 éclats/min par Pokémon) : plafond 8 h, un Pokémon ne peut être que dans l'une des deux.
 - **Hors ligne** (`idle.ts`) : plafond 8 h (`IDLE_CAP_MS`), calcul par échantillon réel de combats, gains encaissés tout de
@@ -124,7 +130,12 @@ Modules natifs : toujours `npx expo install <pkg>`. Skia 2.6.2 (épinglé) **exi
   Le hors ligne ne quitte jamais une zone qui contient une cible (`zoneHasTarget` dans `idleFarmTarget`).
 - **Garder l'écran allumé** (réglage `keepAwake`, `expo-keep-awake`, module natif : nouvel APK nécessaire) : composant
   `KeepAwake` monté dans `App.tsx` tant que le réglage est actif.
-- **Prestige** : voir `REGIONS.md`. Le `runner` ne consulte jamais `unlocked` : toute téléportation directe de
+- **Prestige** : voir `REGIONS.md`. Récap de fin de région (`PrestigeOffer`) affiché **une fois** quand `canPrestige`
+  (combat en pause) : « Nouveau départ » ou « Plus tard » (`postponePrestige` → `GameState.prestigeOffered`, remis à
+  `false` par `startPrestige`) ; reporté, il se lance depuis la bannière « 🏆 Nouveau départ à X » en haut de la Carte
+  (avec confirmation). Champion battu mais Pokédex incomplet : plus de pause du combat. Les raccourcis boss/arène sous le
+  combat (`HudBottom`) ont été retirés (doublons de la Carte) : badge sur l'onglet Carte (`challengesReady`).
+  Le `runner` ne consulte jamais `unlocked` : toute téléportation directe de
   `s.biome/zone/stage` (hors `selectStage`) doit débloquer la zone visée.
 - **Pokédex** : n'affiche que les espèces ≤ `dexMax` de la région ; toucher une espèce vue ouvre « où la trouver »
   (`whereToFind`, y compris la route par évolution).

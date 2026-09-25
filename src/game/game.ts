@@ -88,6 +88,8 @@ export interface GameState {
   prestige: number;
   /** Horodatage (ms) du tout début de la partie — sert au récap affiché avant le prestige. */
   startedAt: number;
+  /** Récap de fin de région déjà montré et reporté (« Plus tard ») : le prestige se lance ensuite depuis la Carte. */
+  prestigeOffered: boolean;
   /** Version d'équilibrage des objets déjà convertie (2 = poids mesurés du 2026-09-24, voir `migrateSave`). */
   balanceVersion: number;
 }
@@ -105,7 +107,7 @@ export function newGame(): GameState {
     totals: { kills: 0, captures: 0, fusions: 0, stagesCleared: 0 },
     lastActive: Date.now(),
     prestige: 0,
-    startedAt: Date.now(),
+    startedAt: Date.now(), prestigeOffered: false,
     balanceVersion: 2,
   };
 }
@@ -139,7 +141,13 @@ export function startPrestige(s: GameState): boolean {
   s.unlocked[start][0] = Math.max(1, s.unlocked[start][0]); // sinon la 1re zone de la région reste verrouillée
   s.starterChosen = false;
   s.prestige++;
+  s.prestigeOffered = false; // le récap de la région suivante s'affichera à son tour
   return true;
+}
+
+/** « Plus tard » sur le récap de fin de région : on reste farmer, le prestige reste disponible depuis la Carte. */
+export function postponePrestige(s: GameState) {
+  s.prestigeOffered = true;
 }
 
 /**
@@ -192,9 +200,11 @@ export function migrateSave(raw: Record<string, unknown>): Record<string, unknow
     }
   }
   // Pokémon sauvegardés avant les talents « au choix » (palier 4/5) : pas encore de champ dédié.
+  // Avant le verrou 🔒 : les 4★ déjà possédés sont verrouillés une fois (`locked` absent = jamais décidé).
   if (raw.mons && typeof raw.mons === 'object') {
-    for (const mon of Object.values(raw.mons as Record<string, { talentTypeChoices?: unknown }>)) {
+    for (const mon of Object.values(raw.mons as Record<string, Mon>)) {
       if (!mon.talentTypeChoices) mon.talentTypeChoices = {};
+      if (mon.locked === undefined && mon.genes && monStars(mon) === 4) mon.locked = true;
     }
   }
   // Filet de sécurité : une équipe qui référence un Pokémon relâché/supprimé (uid fantôme, jamais
@@ -270,6 +280,7 @@ export function chooseStarter(s: GameState, speciesId: number, rng: Rng) {
 }
 
 export function addMon(s: GameState, mon: Mon) {
+  if (mon.locked === undefined && monStars(mon) === 4) mon.locked = true; // 4★ : verrouillé d'office
   s.mons[mon.uid] = mon;
   addUnique(s.dex.seen, mon.speciesId);
   addUnique(s.dex.caught, mon.speciesId);
@@ -403,7 +414,7 @@ export const RELEASE_CANDIES = 3;
 export function release(s: GameState, uid: string): boolean {
   if (s.team.length === 1 && s.team[0] === uid) return false;
   const mon = s.mons[uid];
-  if (!mon) return false;
+  if (!mon || mon.locked) return false;
   for (const slot of Object.keys(mon.items) as ItemSlot[]) delete mon.items[slot];
   const base = lineBase(mon.speciesId);
   s.candies[base] = (s.candies[base] ?? 0) + RELEASE_CANDIES;
@@ -446,10 +457,15 @@ export function remainingEvolutions(speciesId: number): number {
  * Mode « léger » (`keepEvolutionMaterial: false`) : ne garde que ce qui est déjà possédé, sans réserve —
  * dans le même exemple, garde 1 seul Bulbizarre et relâche les 13 autres.
  */
+/** Meilleur d'abord : étoiles (qualité génétique, définitive), puis PC (niveau). */
+function byQuality(a: Mon, b: Mon): number {
+  return monStars(b) - monStars(a) || combatPower(finalStats(b, emptyBonuses())) - combatPower(finalStats(a, emptyBonuses()));
+}
+
 export function excessMons(s: GameState, opts: { keepEvolutionMaterial?: boolean } = {}): Mon[] {
   const keepEvolutionMaterial = opts.keepEvolutionMaterial ?? true;
   const out: Mon[] = [];
-  const isProtected = (m: Mon) => s.pension.some((p) => p.uid === m.uid) || s.exploration.some((p) => p.uid === m.uid);
+  const isProtected = (m: Mon) => !!m.locked || s.pension.some((p) => p.uid === m.uid) || s.exploration.some((p) => p.uid === m.uid);
   const bases = new Set<number>();
   for (const m of Object.values(s.mons)) bases.add(lineBase(m.speciesId));
   for (const base of bases) {
@@ -460,19 +476,21 @@ export function excessMons(s: GameState, opts: { keepEvolutionMaterial?: boolean
       const cnt = new Map<number, number>();
       for (const m of all) cnt.set(m.speciesId, (cnt.get(m.speciesId) ?? 0) + 1);
       // 1 exemplaire protégé par étage déjà possédé : un porteur équipe/pension/exploration en priorité
-      // (de toute façon irrécupérable ici), sinon le plus fort de la boîte à cet étage.
+      // (de toute façon irrécupérable ici), sinon le meilleur de la boîte à cet étage (étoiles puis PC) ;
+      // et toujours, en plus, le meilleur en étoiles s'il fait mieux que ce porteur (un 4★ Nv.20 en boîte
+      // ne part jamais parce qu'un 2★ Nv.60 est en équipe).
       const protectedUids = new Set<string>();
       for (const stage of chain) {
         if (!(cnt.get(stage) ?? 0)) continue;
-        const atStage = all.filter((m) => m.speciesId === stage);
-        const held = atStage.find((m) => s.team.includes(m.uid) || s.pension.some((p) => p.uid === m.uid) || s.exploration.some((p) => p.uid === m.uid))
-          ?? [...atStage].sort((a, b) => combatPower(finalStats(b, emptyBonuses())) - combatPower(finalStats(a, emptyBonuses())))[0];
+        const atStage = [...all.filter((m) => m.speciesId === stage)].sort(byQuality);
+        const held = atStage.find((m) => s.team.includes(m.uid) || s.pension.some((p) => p.uid === m.uid) || s.exploration.some((p) => p.uid === m.uid));
         if (held) protectedUids.add(held.uid);
+        if (!held || monStars(atStage[0]) > monStars(held)) protectedUids.add(atStage[0].uid);
       }
       const missing = keepEvolutionMaterial ? chain.filter((stage) => !(cnt.get(stage) ?? 0)).length : 0;
       const freeSpares = all
         .filter((m) => !protectedUids.has(m.uid) && !s.team.includes(m.uid) && !isProtected(m))
-        .sort((a, b) => combatPower(finalStats(b, emptyBonuses())) - combatPower(finalStats(a, emptyBonuses())));
+        .sort(byQuality);
       if (freeSpares.length > missing) out.push(...freeSpares.slice(missing));
     }
   }
@@ -492,7 +510,7 @@ function boxMons(s: GameState): Mon[] {
 
 /** Pokémon de la boîte sous `minStars` étoiles (jamais l'équipe/pension/exploration). */
 export function monsBelowStars(s: GameState, minStars: number): Mon[] {
-  return boxMons(s).filter((m) => monStars(m) < minStars);
+  return boxMons(s).filter((m) => !m.locked && monStars(m) < minStars);
 }
 
 /** Relâche tous les Pokémon de la boîte sous `minStars` étoiles (ex. « ne garder que les 3★+ »). */
@@ -504,7 +522,7 @@ export function releaseBelowStars(s: GameState, minStars: number): { count: numb
 
 /** Pokémon normaux (non chromatiques) de la boîte (jamais l'équipe/pension/exploration). */
 export function monsNotShiny(s: GameState): Mon[] {
-  return boxMons(s).filter((m) => !m.shiny);
+  return boxMons(s).filter((m) => !m.locked && !m.shiny);
 }
 
 /** Relâche tous les Pokémon non chromatiques de la boîte (« ne garder que les chromatiques »). */
@@ -562,15 +580,16 @@ export function completeDex(s: GameState, dryRun = false, opts: { keepEvolutionM
       const protectedUids = new Set<string>();
       for (const stage of chain) {
         if (!keep || !(cnt.get(stage) ?? 0)) continue;
-        const held = all.find((m) => m.speciesId === stage
-          && (s.team.includes(m.uid) || s.pension.some((p) => p.uid === m.uid) || s.exploration.some((p) => p.uid === m.uid)))
-          ?? all.find((m) => m.speciesId === stage);
+        const atStage = [...all.filter((m) => m.speciesId === stage)].sort(byQuality);
+        const held = atStage.find((m) => s.team.includes(m.uid) || s.pension.some((p) => p.uid === m.uid) || s.exploration.some((p) => p.uid === m.uid));
         if (held) protectedUids.add(held.uid);
+        if (!held || monStars(atStage[0]) > monStars(held)) protectedUids.add(atStage[0].uid);
       }
+      // on fait évoluer en priorité les exemplaires les plus faibles (jamais un verrouillé 🔒)
       const freeSpares = all
-        .filter((m) => !protectedUids.has(m.uid) && !s.team.includes(m.uid)
+        .filter((m) => !m.locked && !protectedUids.has(m.uid) && !s.team.includes(m.uid)
           && !s.pension.some((p) => p.uid === m.uid) && !s.exploration.some((p) => p.uid === m.uid))
-        .sort((a, b) => chain.indexOf(a.speciesId) - chain.indexOf(b.speciesId));
+        .sort((a, b) => chain.indexOf(a.speciesId) - chain.indexOf(b.speciesId) || -byQuality(a, b));
       // mode collectionneur : un étage manque s'il n'est plus possédé ; mode léger : s'il n'est pas dans le Pokédex
       const seen = shiny ? s.dex.shiny : s.dex.caught;
       const missing = chain.filter((stage) => (keep ? !(cnt.get(stage) ?? 0) : !seen.includes(stage)));
@@ -625,7 +644,14 @@ export function applyMegaCandy(s: GameState, uid: string, gene: GeneKey): boolea
   if (have < 1 || mon.genes[gene] >= GENE_MAX) return false;
   s.megaCandies[base] = have - 1;
   mon.genes[gene]++;
+  if (monStars(mon) === 4) mon.locked = true; // devenu parfait : verrouillé d'office
   return true;
+}
+
+/** Verrouiller 🔒 / déverrouiller un Pokémon (voir `Mon.locked`). */
+export function toggleLock(s: GameState, uid: string) {
+  const mon = s.mons[uid];
+  if (mon) mon.locked = !mon.locked;
 }
 
 export function setTeam(s: GameState, uids: string[]) {
@@ -1175,6 +1201,13 @@ export function idleFarmTarget(s: GameState): { biome: number; zone: number } {
   return { biome, zone };
 }
 
+/** Défis disponibles et pas encore relevés dans le biome en cours (boss de zone + arène) : badge de l'onglet Carte. */
+export function challengesReady(s: GameState): number {
+  const b = s.biome;
+  const bosses = BIOMES[b].zones.filter((_, z) => bossAvailable(s, b, z) && !s.bossesBeaten[b][z]).length;
+  return bosses + (arenaAvailable(s, b) && !s.arenaBeaten[b] ? 1 : 0);
+}
+
 export function arenaAvailable(s: GameState, biome = s.biome) {
   return s.bossesBeaten[biome].every(Boolean);
 }
@@ -1283,8 +1316,8 @@ export function autoCaptureBall(s: GameState, best: boolean): BallKind | null {
 }
 
 /**
- * Plancher de gènes garanti par badge (`s.badges` ne redescend jamais, même en repartant farmer un
- * biome antérieur) : dès 4 badges, capture au moins 2★ (qualité ≥ 50 %, gènes ≥ 8/15 chacun, jusqu'à
+ * Plancher de gènes garanti par badge (`s.badges` ne redescend pas en repartant farmer un biome antérieur
+ * de la région, mais repart à 0 à chaque prestige : le plancher se regagne dans chaque région) : dès 4 badges, capture au moins 2★ (qualité ≥ 50 %, gènes ≥ 8/15 chacun, jusqu'à
  * 4★ toujours possible par chance) ; dès 8 badges, au moins 3★ (gènes ≥ 12/15 chacun). Récompense la
  * progression sans jamais retirer la rareté du 4★ parfait (15/15/15/15 reste un coup de chance, pas
  * un plancher).
@@ -1330,7 +1363,7 @@ export function zoneHasTarget(s: GameState, biome: number, zone: number): boolea
  * en étoiles que le meilleur exemplaire déjà possédé de l'espèce (`bestBefore`, 0 = jamais possédée).
  */
 export function keepTargetCapture(mon: Mon, bestBefore: number): boolean {
-  return mon.shiny || monStars(mon) > bestBefore;
+  return mon.shiny || monStars(mon) === 4 || monStars(mon) > bestBefore;
 }
 
 export interface TargetCaptureResult { mon: Mon | null; kept: boolean; candies: number }

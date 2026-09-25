@@ -1,6 +1,6 @@
 import { Modal, StyleSheet, Text, View } from 'react-native';
 import { REGIONS, regionOf } from '../game/content';
-import { GameState, startPrestige } from '../game/game';
+import { GameState, postponePrestige, startPrestige } from '../game/game';
 import { useGame } from '../store/game';
 import { runner } from './battle/runner';
 import { Button } from './components/Button';
@@ -16,9 +16,9 @@ function formatDuration(ms: number): string {
 }
 
 /**
- * Récap de fin de région, affiché à la place du combat dès le badge du Champion obtenu (le runner se
- * met en pause, voir runner.ts). Pas de bouton « continuer » : un vrai palier de fin, la seule sortie est
- * d'accepter le nouveau départ vers la région suivante.
+ * Récap de fin de région, affiché une fois dès que le prestige est possible (Champion battu + Pokédex complet ;
+ * le combat est en pause, voir runner.ts). « Plus tard » laisse farmer la région : le nouveau départ se lance
+ * ensuite depuis la bannière de la Carte (`PrestigeBanner`).
  */
 export function PrestigeOffer({ onClose }: { onClose: () => void }) {
   const s = useGame((g) => g.s) as GameState | null;
@@ -52,6 +52,12 @@ export function PrestigeOffer({ onClose }: { onClose: () => void }) {
             feedback('evolve');
             onClose();
           }} />
+          <Button label="Plus tard" onPress={() => {
+            act((g) => postponePrestige(g));
+            runner.paused = false;
+            onClose();
+          }} />
+          <Text style={styles.sub}>Tu pourras lancer le nouveau départ quand tu veux depuis la Carte.</Text>
         </View>
       </View>
     </Modal>

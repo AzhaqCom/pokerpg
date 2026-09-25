@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { BIOMES, BiomeDef, REGION_START, STAGES_PER_ZONE, ZoneDef } from '../../game/content';
+import { BIOMES, BiomeDef, REGIONS, REGION_START, STAGES_PER_ZONE, ZoneDef } from '../../game/content';
 import { species } from '../../game/data';
-import { GameState, arenaAvailable, biomeAvailable, bossAvailable, selectStage, zoneHasTarget } from '../../game/game';
+import { GameState, arenaAvailable, biomeAvailable, bossAvailable, canPrestige, selectStage, startPrestige, zoneHasTarget } from '../../game/game';
 import { useGame } from '../../store/game';
 import { Button } from '../components/Button';
+import { Dialog, DialogSpec } from '../components/Dialog';
 import { MonThumb } from '../components/MonThumb';
 import { feedback } from '../components/feedback';
 import { runner } from '../battle/runner';
@@ -16,6 +17,8 @@ export function MapPanel() {
   useGame((g) => g.rev);
   const act = useGame((g) => g.act);
   const [openZone, setOpenZone] = useState<ZoneDef | null>(null);
+  const [dialog, setDialog] = useState<DialogSpec | null>(null);
+  const next = REGIONS[s.prestige + 1];
   const [sel, setSel] = useState(s.biome);
   // la Carte ne montre que les biomes de la région courante : les biomes des régions précédentes
   // (Kanto une fois en Johto) n'ont plus leur place, ceux des régions futures restent une surprise.
@@ -24,6 +27,16 @@ export function MapPanel() {
   const bi = sel >= regionStart && sel < regionEnd ? sel : s.biome;
   return (
     <View style={{ gap: 12 }}>
+      {/* prestige reporté (« Plus tard » sur le récap) : se lance d'ici, quand le joueur le souhaite */}
+      {next && s.prestigeOffered && canPrestige(s) && (
+        <Button label={`🏆 Nouveau départ à ${next.name}`} color="#ffb300" onPress={() => setDialog({
+          title: `Partir pour ${next.name} ?`,
+          message: 'Équipe, boîte, objets, badges et Pokédex repartent à zéro. Seuls tes bonbons et méga bonbons restent acquis.',
+          primary: { label: 'Nouveau départ', onPress: () => { act((g) => startPrestige(g)); runner.paused = false; feedback('evolve'); } },
+          secondary: { label: 'Annuler', onPress: () => {} },
+        })} />
+      )}
+      <Dialog spec={dialog} onClose={() => setDialog(null)} />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
         {BIOMES.slice(regionStart, regionEnd).map((biome, localI) => {
           const i = regionStart + localI;

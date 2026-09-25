@@ -5,7 +5,7 @@ import {
   lineChain, autoTalents, canCompleteDex, whereToFind, canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
   harvestExploration, harvestPension, holder, isRareInZone, makeMon, addMon, makeWaves, migrateSave, monsBelowStars, monsNotShiny, newGame, pickSpecies, rankUpTalent, recycle, release, releaseBelowStars, SHARDS_PER_MIN,
   releaseExcess, releaseNotShiny, remainingEvolutions, removePension, selectStage, setAutoAdvance, START_BALLS, startPrestige,
-  CAPTURE_PITY, RELEASE_CANDIES, autoMoves, captureTarget, idleFarmTarget, isTargeted, toggleTarget, zoneHasTarget, teamMaxLevel, tryCapture, unequipBox, xpGapMult,
+  CAPTURE_PITY, RELEASE_CANDIES, applyMegaCandy as applyMega, autoMoves, captureTarget, setTeam, toggleLock, challengesReady, postponePrestige, idleFarmTarget, isTargeted, toggleTarget, zoneHasTarget, teamMaxLevel, tryCapture, unequipBox, xpGapMult,
 } from '../game';
 import { SETS, TEMPLATES, makeItem } from '../items';
 import { emptyBonuses } from '../model';
@@ -140,6 +140,101 @@ test('capacités « Équiper le meilleur » : même kit qu’une capture au mêm
   expect(s.mons[uid].moves).toEqual(expected);
   expect(s.mons[uid].moves.length).toBe(4);
   expect(autoMoves(s, uid)).toBe(false); // déjà au mieux
+});
+
+test('prestige reporté (« Plus tard ») : reste disponible, et le récap de la région suivante s’affichera à nouveau', () => {
+  const s = newGame();
+  chooseStarter(s, 4, seededRng(1));
+  s.arenaBeaten[regionLastBiome(0)] = true;
+  for (let id = 1; id <= 151; id++) s.dex.seen.push(id);
+  expect(s.prestigeOffered).toBe(false);
+  postponePrestige(s);
+  expect(s.prestigeOffered).toBe(true);
+  expect(canPrestige(s)).toBe(true); // toujours lançable, depuis la Carte
+  expect(startPrestige(s)).toBe(true);
+  expect(s.prestige).toBe(1);
+  expect(s.prestigeOffered).toBe(false);
+});
+
+test('badge de la Carte : boss de zone disponibles non battus + arène disponible non battue', () => {
+  const s = newGame();
+  expect(challengesReady(s)).toBe(0);
+  s.unlocked[0][0] = STAGES_PER_ZONE; // étape 5 atteinte : boss de la zone 1 disponible
+  expect(challengesReady(s)).toBe(1);
+  s.bossesBeaten[0] = [true, true, true]; // 3 boss battus : l'arène devient disponible
+  expect(challengesReady(s)).toBe(1);
+  s.arenaBeaten[0] = true;
+  expect(challengesReady(s)).toBe(0);
+});
+
+describe('verrou 🔒 et nettoyage des doublons par étoiles', () => {
+  const genes = (v: number) => ({ hp: v, atk: v, def: v, spe: v });
+  function teamOf3() {
+    const s = newGame();
+    chooseStarter(s, 4, seededRng(1));
+    addMon(s, makeMon(1, 5, seededRng(50)));
+    addMon(s, makeMon(7, 5, seededRng(51)));
+    return s;
+  }
+
+  test('nettoyer les doublons ne relâche jamais un 4★ Nv.20 parce qu’un 2★ Nv.60 de la même espèce est en équipe', () => {
+    const s = teamOf3();
+    const teamMon = { ...makeMon(46, 60, seededRng(2)), genes: genes(8) }; // 2★, gros niveau
+    addMon(s, teamMon);
+    setTeam(s, [s.team[0], s.team[1], teamMon.uid]);
+    const perfect = { ...makeMon(46, 20, seededRng(3)), genes: genes(15), locked: false }; // 4★ déverrouillé à la main
+    const mid = { ...makeMon(46, 40, seededRng(4)), genes: genes(10) }; // 2★, plus de PC que le 4★
+    addMon(s, perfect); addMon(s, mid);
+    releaseExcess(s, { keepEvolutionMaterial: false });
+    expect(s.mons[perfect.uid]).toBeDefined(); // gardé pour ses étoiles, même sans verrou
+    expect(s.mons[mid.uid]).toBeUndefined();
+  });
+
+  test('un 4★ est verrouillé d’office à la capture ; un 3★ non', () => {
+    const s = teamOf3();
+    const perfect = { ...makeMon(46, 10, seededRng(5)), genes: genes(15) };
+    const good = { ...makeMon(46, 10, seededRng(6)), genes: genes(13) };
+    addMon(s, perfect); addMon(s, good);
+    expect(s.mons[perfect.uid].locked).toBe(true);
+    expect(s.mons[good.uid].locked).toBeUndefined();
+  });
+
+  test('un Pokémon verrouillé n’est jamais relâché ni touché par les nettoyages ou « Compléter le Pokédex »', () => {
+    const s = teamOf3();
+    const a = { ...makeMon(46, 10, seededRng(7)), genes: genes(3) };
+    const b = { ...makeMon(46, 10, seededRng(8)), genes: genes(3) };
+    const c = { ...makeMon(46, 10, seededRng(9)), genes: genes(3) };
+    addMon(s, a); addMon(s, b); addMon(s, c);
+    for (const m of [a, b, c]) toggleLock(s, m.uid);
+    expect(release(s, a.uid)).toBe(false);
+    expect(excessMons(s, { keepEvolutionMaterial: false })).toEqual([]);
+    expect(monsBelowStars(s, 4).some((m) => [a.uid, b.uid, c.uid].includes(m.uid))).toBe(false);
+    expect(monsNotShiny(s).some((m) => [a.uid, b.uid, c.uid].includes(m.uid))).toBe(false);
+    completeDex(s); // Parasect manquant : aucun Paras verrouillé ne doit évoluer
+    for (const m of [a, b, c]) expect(s.mons[m.uid].speciesId).toBe(46);
+    toggleLock(s, a.uid);
+    expect(s.mons[a.uid].locked).toBe(false);
+    expect(release(s, a.uid)).toBe(true);
+  });
+
+  test('un méga bonbon qui rend un Pokémon parfait (4★) le verrouille', () => {
+    const s = teamOf3();
+    const m = { ...makeMon(46, 10, seededRng(10)), genes: { hp: 15, atk: 15, def: 15, spe: 14 } };
+    addMon(s, m);
+    expect(s.mons[m.uid].locked).toBeUndefined();
+    s.megaCandies[46] = 1;
+    expect(applyMega(s, m.uid, 'spe')).toBe(true);
+    expect(s.mons[m.uid].locked).toBe(true);
+  });
+
+  test('anciennes sauvegardes : les 4★ déjà possédés sont verrouillés au chargement, un choix déjà fait est respecté', () => {
+    const perfect = { ...makeMon(46, 10, seededRng(11)), genes: genes(15) };
+    const unlocked = { ...makeMon(46, 10, seededRng(12)), genes: genes(15), locked: false };
+    const raw = { ...newGame(), mons: { [perfect.uid]: perfect, [unlocked.uid]: unlocked } } as unknown as Record<string, unknown>;
+    const out = migrateSave(raw) as unknown as GameState;
+    expect(out.mons[perfect.uid].locked).toBe(true);
+    expect(out.mons[unlocked.uid].locked).toBe(false);
+  });
 });
 
 describe('cibles (🎯 farm de bonbons)', () => {
@@ -502,9 +597,9 @@ test('excessMons / releaseExcess : garde 1 exemplaire par étage possédé + 1 d
   const cp = (m: (typeof excess)[number]) => combatPower(finalStats(m, emptyBonuses()));
   const normalKept = Object.values(s.mons).filter((m) => m.speciesId === 46 && !m.shiny && !excess.includes(m));
   expect(normalKept.length).toBe(2);
-  const minKeptCp = Math.min(...normalKept.map(cp));
-  const maxExcessCp = Math.max(...excess.filter((m) => !m.shiny).map(cp));
-  expect(minKeptCp).toBeGreaterThanOrEqual(maxExcessCp); // les plus forts sont gardés
+  // les meilleurs sont gardés : étoiles d'abord, puis PC
+  const q = (m: (typeof excess)[number]) => monStars(m) * 1e6 + cp(m);
+  expect(Math.min(...normalKept.map(q))).toBeGreaterThanOrEqual(Math.max(...excess.filter((m) => !m.shiny).map(q)));
   const r = releaseExcess(s);
   expect(r.count).toBe(excess.length);
   expect(r.candies).toBe(excess.length * 3);
@@ -665,7 +760,7 @@ test('releaseBelowStars / releaseNotShiny : ne gardent que le critère demandé 
   addMon(s, makeMon(1, 5, seededRng(50)));
   addMon(s, makeMon(7, 5, seededRng(51)));
   const weak = { ...makeMon(46, 10, seededRng(1), false), genes: { hp: 0, atk: 0, def: 0, spe: 0 } }; // 1★
-  const strong = { ...makeMon(46, 10, seededRng(2), false), genes: { hp: 15, atk: 15, def: 15, spe: 15 } }; // 4★
+  const strong = { ...makeMon(46, 10, seededRng(2), false), genes: { hp: 13, atk: 13, def: 13, spe: 13 } }; // 3★ (un 4★ serait verrouillé d'office)
   const shiny = { ...makeMon(48, 10, seededRng(3), true), genes: { hp: 15, atk: 15, def: 15, spe: 15 } }; // 4★, pour isoler le critère chromatique du critère étoiles
   addMon(s, weak); addMon(s, strong); addMon(s, shiny);
 

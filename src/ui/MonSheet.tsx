@@ -4,7 +4,7 @@ import { cdFactor } from '../game/battle';
 import { Move, learnedMoves, move, evolutionTargets, species } from '../game/data';
 import { regionOf } from '../game/content';
 import {
-  CANDY_XP, GENE_MAX, GeneKey, MEGA_CANDY_COST, TEAM_SIZE, applyMegaCandy, autoEquipBest, canEvolve, craftMegaCandy, equip, isTargeted, toggleTarget,
+  CANDY_XP, GENE_MAX, GeneKey, MEGA_CANDY_COST, TEAM_SIZE, applyMegaCandy, autoEquipBest, canEvolve, craftMegaCandy, equip, isTargeted, toggleLock, toggleTarget,
   evolve, feedCandy, heldItems, holder, lineBase, rankUpTalent, autoTalents, autoMoves, equipGain, release, resetTalents, setMoves, setTeam, unequip,
 } from '../game/game';
 import { itemScore, slotOf, template } from '../game/items';
@@ -116,7 +116,17 @@ export function MonSheet() {
           <View style={styles.head}>
             <View style={styles.stage}><AnimatedSprite species={mon.speciesId} shiny={mon.shiny} action="idle" width={130} height={110} /></View>
             <View style={{ flex: 1, gap: 4 }}>
-              <Text style={styles.name}>{monName(mon)}{mon.shiny ? ' ✨' : ''}</Text>
+              <View style={styles.row}>
+                <Text style={styles.name}>{monName(mon)}{mon.shiny ? ' ✨' : ''}</Text>
+                <Pressable hitSlop={10} onPress={() => {
+                  const willLock = !mon.locked;
+                  feedback();
+                  act((g) => toggleLock(g, mon.uid));
+                  toast(willLock ? '🔒 Verrouillé : jamais relâché ni nettoyé' : 'Déverrouillé');
+                }}>
+                  <Text style={[styles.lock, !mon.locked && { opacity: 0.35 }]}>{mon.locked ? '🔒' : '🔓'}</Text>
+                </Pressable>
+              </View>
               <View style={styles.row}>{sp.types.map((t) => <TypeBadge key={t} type={t} />)}</View>
               <View style={styles.row}>
                 <Text style={styles.sub}>Niveau {mon.level}</Text>
@@ -323,7 +333,7 @@ export function MonSheet() {
                   else setSwapPicker(true);
                 }} style={{ flex: 1 }} />
             )}
-            <Button label="Relâcher" color="#5a2020" disabled={inTeam && s.team.length <= 1} onPress={() => setDialog({
+            <Button label={mon.locked ? '🔒 Verrouillé' : 'Relâcher'} color="#5a2020" disabled={!!mon.locked || (inTeam && s.team.length <= 1)} onPress={() => setDialog({
               title: `Relâcher ${sp.name} ?`, message: 'Tu recevras 3 bonbons de sa lignée. Ses objets retournent dans le sac.',
               primary: { label: 'Relâcher', onPress: () => { act((g) => release(g, mon.uid)); close(); changed(); } },
               secondary: { label: 'Annuler', onPress: () => {} },
@@ -464,6 +474,7 @@ const styles = StyleSheet.create({
   evoTypes: { fontSize: 11, fontWeight: '700', opacity: 0.85 },
   root: { flex: 1, backgroundColor: C.bg, paddingTop: 40 },
   top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 8 },
+  lock: { fontSize: 18 },
   targetBtn: { backgroundColor: C.panel2, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
   targetBtnOn: { backgroundColor: '#2e7d32' },
   targetTxt: { color: C.text, fontSize: 12, fontWeight: '700' },

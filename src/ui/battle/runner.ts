@@ -9,7 +9,7 @@ import { BIOMES, REGION_START } from '../../game/content';
 import { species } from '../../game/data';
 import {
   BETWEEN_WAVES_MS, CaptureOffer, StageKind, StageRun, WaveRewards, arenaAvailable, autoCaptureBall, bestStarsOf, bossAvailable,
-  captureTarget, isTargeted, touchLastActive, tryCapture,
+  canPrestige, captureTarget, isTargeted, touchLastActive, tryCapture,
 } from '../../game/game';
 import { RARITIES, RARITY_COLOR } from '../../game/model';
 import { template } from '../../game/items';
@@ -122,9 +122,9 @@ class Runner {
         if (run.kind === 'boss') { sfx('medal'); toast(`${species(BIOMES[run.biome].zones[run.zone].boss.speciesId).name} vaincu !`, '#ffb300'); }
         else if (run.kind === 'arena') {
           sfx('evolve');
-          // Champion d'une région : on coupe l'enchaînement automatique vers la suivante — le joueur doit
-          // d'abord voir le récap et choisir explicitement le nouveau départ (voir App.tsx/PrestigeOffer).
-          if (REGION_START.includes(run.biome + 1)) this.paused = true;
+          // Champion d'une région, Pokédex complet : pause le temps du récap (voir App.tsx/PrestigeOffer), le
+          // joueur choisit « Nouveau départ » ou « Plus tard ». Pokédex incomplet : pas de récap, on continue.
+          if (REGION_START.includes(run.biome + 1)) { if (canPrestige(s) && !s.prestigeOffered) this.paused = true; }
           else if (s.badges === 1) {
             // 1er vrai badge de la partie : la vitesse ×2 n'a de sens qu'ici, on l'active d'office plutôt
             // que de laisser le joueur découvrir un bouton caché dans le HUD.

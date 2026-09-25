@@ -5,7 +5,7 @@ import { AppState, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimen
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { initMusic, setMusicEnabled } from './src/audio/music';
 import { initSfx, setSfxEnabled } from './src/audio/sfx';
-import { canEvolve, canPrestige, explorationReady, fusionBadgeCount, pensionXpReady, touchLastActive } from './src/game/game';
+import { challengesReady, canEvolve, canPrestige, explorationReady, fusionBadgeCount, pensionXpReady, touchLastActive } from './src/game/game';
 import { IdleGains, applyIdleGains, computeIdleGains } from './src/game/idle';
 import { rng, useGame } from './src/store/game';
 import { useSettings } from './src/store/settings';
@@ -14,7 +14,7 @@ import { CrashView, ErrorBoundary, useCrash, reportError } from './src/ui/CrashS
 import { IdleSummary } from './src/ui/IdleSummary';
 import { PrestigeOffer } from './src/ui/PrestigeOffer';
 import { BattleView } from './src/ui/battle/BattleView';
-import { HudBottom, HudTop } from './src/ui/battle/Hud';
+import { HudTop } from './src/ui/battle/Hud';
 import { runner } from './src/ui/battle/runner';
 import { MonSheet } from './src/ui/MonSheet';
 import { StarterScreen } from './src/ui/StarterScreen';
@@ -104,6 +104,7 @@ function Main() {
     bag: fusionBadgeCount(s),
     pension: pensionXpReady(s) > 0 ? 1 : 0,
     exploration: explorationReady(s) > 0 ? 1 : 0,
+    map: challengesReady(s),
   };
   return (
     <View style={{ flex: 1 }}>
@@ -111,7 +112,6 @@ function Main() {
       <HudTop />
       <BattleView width={width} />
       <View style={{ height: 6 }} />
-      <HudBottom />
       {tab === 'bag' || tab === 'team' || tab === 'dex' ? (
         // listes virtualisées (FlatList) : ne doivent jamais être imbriquées dans le ScrollView ci-dessous
         <View style={{ flex: 1 }}>{tab === 'bag' ? <BagPanel /> : tab === 'dex' ? <DexPanel /> : <TeamPanel />}</View>
@@ -142,11 +142,11 @@ function Root() {
   const insets = useSafeAreaInsets();
   const s = useGame((g) => g.s);
   useGame((g) => g.rev);
-  // condition remplie -> jeu réellement coupé, quel que soit le chemin qui y a mené (combat normal ou
-  // debug) ; pas seulement au moment précis de la victoire (le runner est un singleton, sa pause doit
-  // suivre l'état du jeu, pas un événement ponctuel qu'un Fast Refresh pourrait manquer). Aucun moyen de
-  // fermer l'écran sans accepter le nouveau départ : un vrai palier de fin, pas une simple bannière.
-  const offerPrestige = !!s && s.starterChosen && canPrestige(s);
+  // condition remplie -> récap de fin de région, combat en pause, quel que soit le chemin qui y a mené
+  // (combat normal ou debug) ; pas seulement au moment précis de la victoire (le runner est un singleton,
+  // sa pause doit suivre l'état du jeu). Affiché une fois : « Plus tard » laisse farmer la région, le
+  // nouveau départ se lance ensuite depuis la bannière de la Carte.
+  const offerPrestige = !!s && s.starterChosen && canPrestige(s) && !s.prestigeOffered;
   useEffect(() => { if (offerPrestige) runner.paused = true; }, [offerPrestige]);
   return (
     <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>

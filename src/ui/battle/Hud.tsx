@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { BIOMES, STAGES_PER_ZONE, regionLastBiome, regionOf } from '../../game/content';
 import { species } from '../../game/data';
-import { addMon, arenaAvailable, bossAvailable, equip, makeMon, setAutoAdvance, setTeam, toggleTarget } from '../../game/game';
+import { addMon, equip, makeMon, setAutoAdvance, setTeam, toggleTarget } from '../../game/game';
 import { makeItem } from '../../game/items';
 import { RARITIES, RARITY_COLOR } from '../../game/model';
 import { rng, useGame } from '../../store/game';
@@ -39,27 +39,6 @@ export function HudTop() {
       )}
       <Pressable onPress={() => setOpen(true)} hitSlop={10}><Text style={styles.gear}>⚙</Text></Pressable>
       <SettingsModal open={open} onClose={() => setOpen(false)} />
-    </View>
-  );
-}
-
-/** Sous le combat : raccourci boss/arène (la capture est en overlay sur le combat, voir BattleView). */
-export function HudBottom() {
-  useFrameClock(4);
-  const s = useGame((g) => g.s)!;
-  const run = runner.run;
-  const canBoss = bossAvailable(s) && !s.bossesBeaten[s.biome][s.zone] && run?.kind !== 'boss';
-  const canArena = arenaAvailable(s) && !s.arenaBeaten[s.biome] && run?.kind !== 'arena';
-  return (
-    <View style={{ gap: 6 }}>
-      {(canBoss || canArena) && (
-        <View style={styles.row}>
-          {canBoss && <Button small label={`⚔ Défier le boss : ${species(BIOMES[s.biome].zones[s.zone].boss.speciesId).name}`} color="#c62828" style={{ flex: 1 }}
-            onPress={() => { feedback('tap', true); runner.request('boss'); }} />}
-          {canArena && <Button small label={`🏟 Défier ${BIOMES[s.biome].arena.leader}`} color="#ef6c00" style={{ flex: 1 }}
-            onPress={() => { feedback('tap', true); runner.request('arena'); }} />}
-        </View>
-      )}
     </View>
   );
 }
@@ -220,7 +199,6 @@ const styles = StyleSheet.create({
   speedOn: { backgroundColor: '#ef6c00' },
   speedTxt: { color: '#fff', fontWeight: '900' },
   gear: { color: C.sub, fontSize: 22 },
-  row: { flexDirection: 'row', gap: 8, paddingHorizontal: 10 },
   backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)' },
   centerWrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', padding: 24 },
   box: { backgroundColor: C.panel, borderRadius: 18, padding: 18, gap: 12, maxHeight: '85%' },

@@ -18,6 +18,9 @@ export interface Mon {
   talentTypeChoices: Record<string, PType>;
   /** objets tenus : emplacement → uid d'objet */
   items: Partial<Record<ItemSlot, string>>;
+  /** verrouillé 🔒 : jamais relâché ni utilisé par les nettoyages de boîte / « Compléter le Pokédex ».
+   *  Posé d'office sur un 4★ (capture, méga bonbon, anciennes sauvegardes) ; absent = jamais décidé. */
+  locked?: boolean;
 }
 
 // ---------------------------------------------------------------- objets
