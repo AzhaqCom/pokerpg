@@ -6,7 +6,7 @@ import { Battle, FighterInit } from './battle';
 import {
   BADGE_BONUS, BIOMES, REGIONS, REGION_START, STAGES_PER_ZONE, WAVES_PER_STAGE, ZoneDef, regionLastBiome, regionOf,
 } from './content';
-import { ALL_SPECIES, PType, learnedMoves, evolutionTargets, move, movesAtLevel, species } from './data';
+import { ALL_SPECIES, EVOLUTION_CHOICES, PType, learnedMoves, evolutionTargets, move, movesAtLevel, preEvolution, species } from './data';
 import { SETS, addItemBonuses, berryScore, combatValue, setOfBiome, TEMPLATES, berryHeal, fuse, canFuse, itemScore, makeItem, newUid, recycleValue, rerollCost, rerollSub, rollLoot, rollRarity, slotOf, template, upgrade, upgradeCost } from './items';
 import { BattleBonuses, Item, ItemSlot, MAX_RARITY, Mon, emptyBonuses } from './model';
 import { Rng } from './rng';
@@ -226,6 +226,8 @@ export function migrateSave(raw: Record<string, unknown>): Record<string, unknow
       delete stock[id];
     }
   }
+  // même regroupement pour les cibles (2026-09-25 : les formes à choix rejoignent leur lignée, Voltali → Évoli)
+  if (Array.isArray(raw.targets)) raw.targets = [...new Set((raw.targets as number[]).map((id) => lineBase(id)))];
   // objets d'avant le recalage sur les poids mesurés (2026-09-24) : les sous-stats tirées gardaient l'ancienne échelle
   // (`SUB_BASE`) ; la stat principale, elle, est recalculée depuis le modèle d'objet et n'a rien à convertir.
   if ((raw.balanceVersion as number | undefined ?? 1) < 2 && raw.items && typeof raw.items === 'object') {
@@ -288,15 +290,38 @@ export function addMon(s: GameState, mon: Mon) {
   if (s.team.length < TEAM_SIZE && !s.team.includes(mon.uid)) s.team.push(mon.uid);
 }
 
-/** Base de la lignée (pour les bonbons). */
+/**
+ * Base de la lignée (bonbons, méga bonbons, cibles, doublons), **toutes branches comprises** : Voltali, Pyroli…
+ * ont la même base qu'Aquali (Évoli), Gallame la même que Gardevoir (Tarsal). Avant le 2026-09-25, seule la forme
+ * par défaut (`evolvesTo`) était suivie : les formes alternatives formaient des lignées à part.
+ */
 export function lineBase(speciesId: number): number {
   let base = speciesId;
-  for (let g = 0; g < 3; g++) {
-    const prev = ALL_SPECIES.find((sp) => sp.evolvesTo === base)?.id;
+  for (let g = 0; g < 5; g++) {
+    const prev = preEvolution(base);
     if (!prev) break;
     base = prev;
   }
   return base;
+}
+
+/** Toutes les formes d'une lignée depuis sa base (toutes branches), limitées au Pokédex de la région (`maxId`). */
+export function lineForms(base: number, maxId = Infinity): number[] {
+  const out: number[] = [];
+  const queue = [base];
+  for (let i = 0; i < queue.length && i < 20; i++) {
+    const id = queue[i];
+    if (id <= maxId) out.push(id);
+    const next = EVOLUTION_CHOICES[id] ?? (species(id).evolvesTo ? [species(id).evolvesTo] : []);
+    for (const t of next) if (!queue.includes(t)) queue.push(t);
+  }
+  return out;
+}
+
+/** `ancestor` est-il une pré-évolution (directe ou non) de `id` ? */
+export function isAncestor(ancestor: number, id: number): boolean {
+  for (let p = preEvolution(id), g = 0; p && g < 5; p = preEvolution(p), g++) if (p === ancestor) return true;
+  return false;
 }
 
 /** Ajoute de l'expérience ; retourne les nouvelles capacités apprises. */
@@ -474,7 +499,7 @@ export function excessMons(s: GameState, opts: { keepEvolutionMaterial?: boolean
   const bases = new Set<number>();
   for (const m of Object.values(s.mons)) bases.add(lineBase(m.speciesId));
   for (const base of bases) {
-    const chain = lineChain(base, regionOf(s.prestige).dexMax);
+    const chain = lineForms(base, regionOf(s.prestige).dexMax);
     for (const shiny of [false, true]) {
       const all = Object.values(s.mons).filter((m) => m.shiny === shiny && chain.includes(m.speciesId));
       if (!all.length) continue;
@@ -492,11 +517,19 @@ export function excessMons(s: GameState, opts: { keepEvolutionMaterial?: boolean
         if (held) protectedUids.add(held.uid);
         if (!held || geneTotal(atStage[0]) > geneTotal(held)) protectedUids.add(atStage[0].uid);
       }
-      const missing = keepEvolutionMaterial ? chain.filter((stage) => !(cnt.get(stage) ?? 0)).length : 0;
       const freeSpares = all
         .filter((m) => !protectedUids.has(m.uid) && !s.team.includes(m.uid) && !isProtected(m))
         .sort(byQuality);
-      if (freeSpares.length > missing) out.push(...freeSpares.slice(missing));
+      // mode collectionneur : 1 réserve par forme manquante, choisie parmi SES pré-évolutions (un Florizarre ne peut
+      // pas devenir Herbizarre ; un Évoli par évolution d'Évoli manquante), la meilleure en gènes
+      if (keepEvolutionMaterial) {
+        for (const stage of chain) {
+          if (cnt.get(stage) ?? 0) continue;
+          const i = freeSpares.findIndex((m) => isAncestor(m.speciesId, stage));
+          if (i >= 0) freeSpares.splice(i, 1);
+        }
+      }
+      out.push(...freeSpares);
     }
   }
   return out;
@@ -1309,9 +1342,13 @@ export function captureLevel(s: GameState, offer: CaptureOffer): number {
   return Math.min(offer.level, teamMaxLevel(s));
 }
 
-/** Meilleure qualité génétique (étoiles) déjà possédée pour une espèce (0 si jamais capturée). */
-export function bestStarsOf(s: GameState, speciesId: number): number {
-  return Object.values(s.mons).filter((m) => m.speciesId === speciesId).reduce((best, m) => Math.max(best, monStars(m)), 0);
+/**
+ * Meilleure qualité génétique (étoiles) déjà possédée pour une espèce, **de la même sorte** : normal avec normal,
+ * chromatique avec chromatique (0 si aucun). Un chromatique 3★ ne doit pas empêcher d'améliorer son Pokémon normal
+ * (capture auto « sous 3★ », « ne pas proposer un Pokémon déjà possédé », conversion des cibles).
+ */
+export function bestStarsOf(s: GameState, speciesId: number, shiny: boolean): number {
+  return Object.values(s.mons).filter((m) => m.speciesId === speciesId && m.shiny === shiny).reduce((best, m) => Math.max(best, monStars(m)), 0);
 }
 
 /** Ball à utiliser pour une capture automatique : la plus forte en stock, ou la moins chère si `cheapest`. */
@@ -1378,7 +1415,7 @@ export interface TargetCaptureResult { mon: Mon | null; kept: boolean; candies: 
  * qui n'améliore rien (voir `keepTargetCapture`) est relâché aussitôt en bonbons.
  */
 export function captureTarget(s: GameState, offer: CaptureOffer, ball: BallKind, rng: Rng, convert: boolean): TargetCaptureResult {
-  const bestBefore = bestStarsOf(s, offer.speciesId);
+  const bestBefore = bestStarsOf(s, offer.speciesId, offer.shiny);
   const mon = tryCapture(s, offer, ball, rng);
   if (!mon) return { mon: null, kept: false, candies: 0 };
   if (!convert || keepTargetCapture(mon, bestBefore) || !release(s, mon.uid)) return { mon, kept: true, candies: 0 };
@@ -1386,9 +1423,15 @@ export function captureTarget(s: GameState, offer: CaptureOffer, ball: BallKind,
 }
 
 export function buyBall(s: GameState, kind: BallKind): boolean {
-  if (s.shards < BALL_PRICE[kind]) return false;
-  s.shards -= BALL_PRICE[kind];
-  s.balls[kind]++;
+  return buyBalls(s, kind, 1);
+}
+
+/** Achat groupé (boîte « ×10 · ×100 » du Sac) : tout d'un coup, ou rien s'il manque des éclats. */
+export function buyBalls(s: GameState, kind: BallKind, n: number): boolean {
+  const cost = BALL_PRICE[kind] * n;
+  if (n < 1 || s.shards < cost) return false;
+  s.shards -= cost;
+  s.balls[kind] += n;
   return true;
 }
 

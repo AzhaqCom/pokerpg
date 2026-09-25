@@ -57,6 +57,11 @@ Modules natifs : toujours `npx expo install <pkg>`. Skia 2.6.2 (épinglé) **exi
   Les listes longues (`TeamPanel`, `BagPanel`, `DexPanel`) sont des `FlatList` rendues **hors** du `ScrollView` de `App.tsx`.
   PC colorés par palier (`CP_TIERS`/`cpColor` dans `ui/helpers.ts` : gris < 250, vert, bleu 600, violet 1 200, orange
   2 000, rouge 3 000, doré ≥ 4 000) sur la fiche, les cartes d'équipe et la liste d'échange.
+  Sac : Balls achetées au toucher (+1) ou en rafale (appui long) ; au relâchement d'une rafale, boîte « ×10 · ×100 »
+  sous les Balls pendant 3 s (`buyBalls`, tout ou rien).
+  Lisibilité du combat (2026-09-25) : zone de combat haute de 72 % de la largeur ; messages 1,6 s, 2 max à l'écran
+  (`TOAST_MS`/`TOAST_MAX`, `store/ui.ts`), un seul par événement (butin groupé par vague, capacités groupées par
+  Pokémon, « ✨ X chromatique capturé ! ») ; offre de capture `CaptureBar` sur une seule ligne compacte.
 - État : zustand + AsyncStorage (`src/store/game.ts`, clé `pokelootborn/save/v1`, `act(fn)` modifie + sauve).
   `load()` fusionne la sauvegarde avec `newGame()` → **un nouveau champ doit avoir une valeur par défaut dans `newGame()`** ;
   `migrateSave` complète les tableaux de biomes trop courts.
@@ -108,6 +113,10 @@ Modules natifs : toujours `npx expo install <pkg>`. Skia 2.6.2 (épinglé) **exi
   manquants ; décoché : un exemplaire unique peut évoluer si l'étage suivant manque au Pokédex). Choix de l'exemplaire gardé
   **par total des gènes puis PC** (`byQuality`) : le meilleur en gènes d'un étage est toujours gardé en plus du porteur en
   équipe/pension/exploration s'il fait mieux (bug du 2026-09-25 : un 4★ bas niveau partait, le tri se faisait aux PC).
+  Réserve d'évolution : 1 par forme manquante, choisie **parmi ses pré-évolutions** (`isAncestor`). **Lignées à
+  branches** (2026-09-25) : `lineBase` suit `preEvolution` (évolutions à choix comprises) et `lineForms` liste toutes
+  les formes — Voltali partage la base d'Évoli (bonbons, méga bonbons, cibles, doublons ; anciens stocks et cibles
+  regroupés par `migrateSave`). `completeDex` ne suit toujours que la forme par défaut (`lineChain`).
 - **Verrou 🔒** (`Mon.locked`, `toggleLock`) : un verrouillé n'est jamais relâché (`release` refuse), ni nettoyé
   (doublons, 3★+, chromatiques), ni utilisé par `completeDex`. Posé d'office sur tout 4★ (`addMon`, méga bonbon qui rend
   parfait, et 4★ des anciennes sauvegardes via `migrateSave` quand `locked` est absent). Cadenas à côté du nom dans la fiche,

@@ -46,6 +46,7 @@ export function TeamPanel() {
   const [cleanup, setCleanup] = useState<DialogSpec | null>(null);
   const [sort, setSort] = useState<SortMode>('dex');
   const [evolveOnly, setEvolveOnly] = useState(false);
+  const [shinyFilter, setShinyFilter] = useState<'all' | 'normal' | 'shiny'>('all');
   const [query, setQuery] = useState('');
   const q = query.trim().toLowerCase();
   const dexMax = regionOf(s.prestige).dexMax;
@@ -59,7 +60,8 @@ export function TeamPanel() {
   }, [boxAll.length, s.mons]);
   const activeType = typeFilter && boxTypes.includes(typeFilter) ? typeFilter : null;
   const box = boxAll
-    .filter((m) => (!activeType || species(m.speciesId).types.includes(activeType)) && (!evolveOnly || canEvolve(m, dexMax)) && (!q || monName(m).toLowerCase().startsWith(q)))
+    .filter((m) => (!activeType || species(m.speciesId).types.includes(activeType)) && (!evolveOnly || canEvolve(m, dexMax)) && (!q || monName(m).toLowerCase().startsWith(q))
+      && (shinyFilter === 'all' || m.shiny === (shinyFilter === 'shiny')))
     .sort(SORTERS[sort]);
   const pensionUids = new Set(s.pension.map((p) => p.uid));
   const explorationUids = new Set(s.exploration.map((p) => p.uid));
@@ -229,6 +231,13 @@ export function TeamPanel() {
               <Pressable onPress={() => setEvolveOnly((v) => !v)} style={[styles.chip, evolveOnly && styles.chipOn]}>
                 <Text style={styles.chipTxt}>Peut évoluer</Text>
               </Pressable>
+            </View>
+            <View style={styles.row}>
+              {([['all', 'Tous'], ['normal', 'Normaux'], ['shiny', '✨ Chromatiques']] as const).map(([key, label]) => (
+                <Pressable key={key} onPress={() => setShinyFilter(key)} style={[styles.chip, shinyFilter === key && styles.chipOn]}>
+                  <Text style={styles.chipTxt}>{label}</Text>
+                </Pressable>
+              ))}
             </View>
             {boxTypes.length > 0 && (
               

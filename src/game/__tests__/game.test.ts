@@ -5,7 +5,7 @@ import {
   lineChain, autoTalents, canCompleteDex, whereToFind, canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
   harvestExploration, harvestPension, holder, isRareInZone, makeMon, addMon, makeWaves, migrateSave, monsBelowStars, monsNotShiny, newGame, pickSpecies, rankUpTalent, recycle, release, releaseBelowStars, SHARDS_PER_MIN,
   releaseExcess, releaseNotShiny, remainingEvolutions, removePension, selectStage, setAutoAdvance, START_BALLS, startPrestige,
-  CAPTURE_PITY, RELEASE_CANDIES, applyMegaCandy as applyMega, autoMoves, captureTarget, setTeam, toggleLock, challengesReady, postponePrestige, idleFarmTarget, isTargeted, toggleTarget, zoneHasTarget, teamMaxLevel, tryCapture, unequipBox, xpGapMult,
+  CAPTURE_PITY, RELEASE_CANDIES, applyMegaCandy as applyMega, lineForms, BALL_PRICE, buyBalls, autoMoves, captureTarget, setTeam, toggleLock, challengesReady, postponePrestige, idleFarmTarget, isTargeted, toggleTarget, zoneHasTarget, teamMaxLevel, tryCapture, unequipBox, xpGapMult,
 } from '../game';
 import { SETS, TEMPLATES, makeItem } from '../items';
 import { emptyBonuses } from '../model';
@@ -156,6 +156,17 @@ test('prestige reporté (« Plus tard ») : reste disponible, et le récap de la
   expect(s.prestigeOffered).toBe(false);
 });
 
+test('achat groupé de Balls : tout d’un coup, ou rien s’il manque des éclats', () => {
+  const s = newGame();
+  s.shards = BALL_PRICE.hyper * 10;
+  expect(buyBalls(s, 'hyper', 100)).toBe(false); // pas assez pour 100 : rien n'est acheté
+  expect(s.balls.hyper).toBe(0);
+  expect(s.shards).toBe(BALL_PRICE.hyper * 10);
+  expect(buyBalls(s, 'hyper', 10)).toBe(true);
+  expect(s.balls.hyper).toBe(10);
+  expect(s.shards).toBe(0);
+});
+
 test('badge de la Carte : boss de zone disponibles non battus + arène disponible non battue', () => {
   const s = newGame();
   expect(challengesReady(s)).toBe(0);
@@ -198,6 +209,26 @@ describe('verrou 🔒 et nettoyage des doublons par étoiles', () => {
     releaseExcess(s, { keepEvolutionMaterial: false });
     expect(s.mons[lowLvGood.uid]).toBeDefined();
     expect(s.mons[highLvWorse.uid]).toBeUndefined();
+  });
+
+  test('réserve d’évolution choisie parmi les pré-évolutions : jamais un Florizarre pour un Herbizarre manquant', () => {
+    const s = teamOf3();
+    for (let i = 0; i < 5; i++) addMon(s, { ...makeMon(1, 10, seededRng(30 + i)), genes: genes(3 + i) }); // Bulbizarre, gènes faibles
+    for (let i = 0; i < 3; i++) addMon(s, { ...makeMon(3, 40, seededRng(40 + i)), genes: genes(12 + i) }); // Florizarre, bons gènes
+    releaseExcess(s); // mode collectionneur : Herbizarre manquant
+    const box = Object.values(s.mons).filter((m) => !s.team.includes(m.uid));
+    expect(box.filter((m) => m.speciesId === 1).length).toBe(2); // 1 gardé (étage possédé) + 1 réserve pour Herbizarre
+    expect(box.filter((m) => m.speciesId === 3).length).toBe(1); // aucun Florizarre gardé « en réserve »
+  });
+
+  test('évolutions à choix : un Évoli de réserve par forme manquante de la région', () => {
+    const s = teamOf3();
+    for (let i = 0; i < 6; i++) addMon(s, { ...makeMon(133, 10, seededRng(50 + i)), genes: genes(5) });
+    addMon(s, { ...makeMon(134, 30, seededRng(60)), genes: genes(5) }); // Aquali possédé
+    // Kanto : Voltali et Pyroli manquent (Mentali, Noctali… ne sont pas dans la région)
+    expect(lineForms(133, 151).sort((x, y) => x - y)).toEqual([133, 134, 135, 136]);
+    releaseExcess(s);
+    expect(Object.values(s.mons).filter((m) => m.speciesId === 133).length).toBe(3); // 1 gardé + 2 réserves
   });
 
   test('un 4★ est verrouillé d’office à la capture ; un 3★ non', () => {
@@ -819,13 +850,40 @@ test('canCompleteDex : ne modifie jamais s, reflète si completeDex aurait quelq
   expect(canCompleteDex(s)).toBe(false); // lignée désormais complète
 });
 
+test('lignée à branches : Voltali partage la base d’Évoli (bonbons, cibles), anciennes sauvegardes regroupées', () => {
+  expect(lineBase(135)).toBe(133);
+  expect(lineBase(475)).toBe(280); // Gallame → Tarsal
+  const s = newGame();
+  toggleTarget(s, 135);
+  expect(isTargeted(s, 133)).toBe(true); // cibler Voltali fait capturer les Évoli
+  const raw = { ...newGame(), candies: { 135: 30, 133: 6 }, targets: [135, 136] } as unknown as Record<string, unknown>;
+  const out = migrateSave(raw) as unknown as GameState;
+  expect(out.candies).toEqual({ 133: 36 });
+  expect(out.targets).toEqual([133]);
+});
+
 test('bestStarsOf : 0 si jamais capturé, sinon le meilleur exemplaire possédé', () => {
   const s = newGame();
-  expect(bestStarsOf(s, 46)).toBe(0);
+  expect(bestStarsOf(s, 46, false)).toBe(0);
   addMon(s, { ...makeMon(46, 10, seededRng(1)), genes: { hp: 0, atk: 0, def: 0, spe: 0 } }); // 1★
-  expect(bestStarsOf(s, 46)).toBe(1);
+  expect(bestStarsOf(s, 46, false)).toBe(1);
   addMon(s, { ...makeMon(46, 10, seededRng(2)), genes: { hp: 15, atk: 15, def: 15, spe: 15 } }); // 4★
-  expect(bestStarsOf(s, 46)).toBe(4);
+  expect(bestStarsOf(s, 46, false)).toBe(4);
+});
+
+test('bestStarsOf : normal et chromatique comptés à part (un chromatique 3★ n’empêche pas d’améliorer le normal 1★)', () => {
+  const s = newGame();
+  addMon(s, { ...makeMon(25, 10, seededRng(1), true), genes: { hp: 13, atk: 13, def: 13, spe: 13 } }); // Pikachu chromatique 3★
+  addMon(s, { ...makeMon(25, 10, seededRng(2), false), genes: { hp: 0, atk: 0, def: 0, spe: 0 } }); // Pikachu normal 1★
+  expect(bestStarsOf(s, 25, true)).toBe(3);
+  expect(bestStarsOf(s, 25, false)).toBe(1); // l'offre normale reste « sous 3★ » : capture auto d'amélioration active
+  // cible : un nouveau Pikachu normal 3★ (8 badges : gènes ≥ 12) bat le normal 1★ → gardé en boîte, pas converti,
+  // même si le chromatique est déjà 3★
+  s.badges = 8;
+  s.missStreak = CAPTURE_PITY;
+  const r = captureTarget(s, { speciesId: 25, level: 10, shiny: false, rare: false }, 'poke', seededRng(3), true);
+  expect(monStars(r.mon!)).toBeGreaterThanOrEqual(3);
+  expect(r.kept).toBe(true);
 });
 
 test('autoCaptureBall : la plus forte ou la moins chère selon le réglage, null si aucune Ball', () => {

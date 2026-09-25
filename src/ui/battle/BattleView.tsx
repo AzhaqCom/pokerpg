@@ -106,13 +106,15 @@ function FighterDraw({ f, image, meta, W, H, px }: {
 export function BattleView({ width }: { width: number }) {
   useRunnerFrame();
   const W = width;
-  const H = Math.round(width * 0.62);
+  const H = Math.round(width * 0.72);
   const run = runner.run;
   const biomeZones = BIOMES[run?.biome ?? 0].zones;
   const zone = run ? biomeZones[Math.min(run.zone, biomeZones.length - 1)] : biomeZones[0];
   const [top, bottom, ground] = SKIES[run?.kind === 'arena' ? 'cave' : zone.biome];
   const fighters = run?.battle.fighters ?? [];
-  const px = Math.max(3, Math.min(5, Math.round(H / 60)));
+  // zoom entier des sprites (pixel art net). Diviseur 70 depuis le canvas agrandi à 72 % (2026-09-25) : les sprites
+  // gardent leur taille d'avant (×4 sur un téléphone courant) et le canvas plus haut laisse de l'air entre les camps.
+  const px = Math.max(3, Math.min(5, Math.round(H / 70)));
 
   return (
     <View style={{ width: W, height: H }}>

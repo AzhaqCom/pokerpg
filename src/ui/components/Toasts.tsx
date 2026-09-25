@@ -23,7 +23,7 @@ export function Toasts() {
 }
 
 const styles = StyleSheet.create({
-  wrap: { position: 'absolute', left: 16, right: 16, gap: 6, alignItems: 'center' },
-  toast: { backgroundColor: 'rgba(20,24,34,0.95)', borderColor: C.gold, borderWidth: 1, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 14 },
-  text: { color: C.text, fontWeight: '700', fontSize: 14 },
+  wrap: { position: 'absolute', left: 16, right: 16, gap: 4, alignItems: 'center' },
+  toast: { backgroundColor: 'rgba(20,24,34,0.92)', borderColor: C.gold, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+  text: { color: C.text, fontWeight: '700', fontSize: 12 },
 });

@@ -25,9 +25,13 @@ export const useUi = create<UiStore>((set) => ({
   dismiss: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 }));
 
+/** Durée d'affichage d'un message, et nombre maximum à l'écran : courts et peu nombreux pour laisser voir le combat. */
+const TOAST_MS = 1600;
+const TOAST_MAX = 2;
+
 /** Petit message temporaire en haut de l'écran. */
 export function toast(text: string, color?: string, colored?: string) {
   const id = nextId++;
-  useUi.setState((s) => ({ toasts: [...s.toasts.slice(-3), { id, text, color, colored }] }));
-  setTimeout(() => useUi.getState().dismiss(id), 2800);
+  useUi.setState((s) => ({ toasts: [...s.toasts.slice(-(TOAST_MAX - 1)), { id, text, color, colored }] }));
+  setTimeout(() => useUi.getState().dismiss(id), TOAST_MS);
 }

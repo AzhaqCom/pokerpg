@@ -193,6 +193,11 @@ const PREV = new Map<number, number>();
 for (const sp of SPECIES) if (sp.evolvesTo) PREV.set(sp.evolvesTo, sp.id);
 for (const [from, targets] of Object.entries(EVOLUTION_CHOICES)) for (const t of targets) PREV.set(t, Number(from));
 
+/** Pré-évolution directe d'une espèce, toutes branches comprises (Voltali → Évoli), ou `undefined`. */
+export function preEvolution(id: number): number | undefined {
+  return PREV.get(id);
+}
+
 /**
  * Capacités apprises par niveau, pré-évolutions comprises (une forme évoluée peut réapprendre ce que savait sa
  * pré-évolution : Raichu garde l'accès aux attaques de Pikachu), triées par niveau, sans doublon.

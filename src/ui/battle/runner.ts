@@ -6,7 +6,7 @@
 import { sfx } from '../../audio/sfx';
 import { BattleEvent } from '../../game/battle';
 import { BIOMES, REGION_START } from '../../game/content';
-import { species } from '../../game/data';
+import { move, species } from '../../game/data';
 import {
   BETWEEN_WAVES_MS, CaptureOffer, StageKind, StageRun, WaveRewards, arenaAvailable, autoCaptureBall, bestStarsOf, bossAvailable,
   canPrestige, captureTarget, isTargeted, touchLastActive, tryCapture,
@@ -151,11 +151,15 @@ class Runner {
       const m = s.mons[lu.uid];
       sfx('level');
       this.float(lu.uid, `Niv. ${lu.level} !`, '#7CFC00', true);
-      for (const id of lu.newMoves) toast(`${species(m.speciesId).name} apprend une nouvelle capacité`);
+      // un seul message par Pokémon, toutes ses nouvelles capacités ensemble
+      if (lu.newMoves.length) toast(`${species(m.speciesId).name} apprend ${lu.newMoves.map((id) => move(id).name).join(', ')}`);
     }
-    for (const it of r.loot) {
-      const t = template(it.templateId);
-      toast(`+ ${t.name}`, RARITY_COLOR[it.rarity], t.name);
+    // butin : un seul message par vague, coloré à la rareté du meilleur objet
+    if (r.loot.length) {
+      const best = r.loot.reduce((a, b) => (b.rarity > a.rarity ? b : a));
+      const bestName = template(best.templateId).name;
+      const others = r.loot.filter((it) => it !== best).map((it) => template(it.templateId).name);
+      toast(`+ ${[bestName, ...others].join(', ')}`, RARITY_COLOR[best.rarity], bestName);
     }
     if (r.capture) {
       const capture = r.capture;
@@ -165,14 +169,18 @@ class Runner {
         if (capture.shiny && useSettings.getState().skipOwnedShiny && s.dex.shiny.includes(capture.speciesId)) {
           toast(`✨ ${species(capture.speciesId).name} chromatique déjà obtenu, ignoré`, '#9575cd');
         } else {
-          if (capture.shiny) toast('✨ Un Pokémon chromatique !', '#ff5ec4');
           const mon = useGame.getState().act((st) => tryCapture(st, capture, null, rng));
-          if (mon) { sfx('hatch'); toast(`${species(mon.speciesId).name} rejoint ta boîte !`, '#7CFC00'); }
+          // un seul message : « ✨ Doduo chromatique capturé ! » plutôt que « chromatique ! » + « rejoint ta boîte »
+          if (mon) {
+            sfx('hatch');
+            if (capture.shiny) toast(`✨ ${species(mon.speciesId).name} chromatique capturé !`, '#ff5ec4');
+            else toast(`${species(mon.speciesId).name} rejoint ta boîte !`, '#7CFC00');
+          }
         }
       } else {
         const known = s.dex.caught.includes(capture.speciesId);
         const settings = useSettings.getState();
-        const belowThreeStars = bestStarsOf(s, capture.speciesId) < 3;
+        const belowThreeStars = bestStarsOf(s, capture.speciesId, capture.shiny) < 3; // normal comparé aux normaux
         const targetBall = isTargeted(s, capture.speciesId) ? autoCaptureBall(s, settings.autoCaptureBestBall) : null;
         if (targetBall) {
           // lignée ciblée (🎯) : capture auto même déjà possédée, conversion en bonbons selon le réglage

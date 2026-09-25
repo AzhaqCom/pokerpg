@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { BALL_PRICE, BALLS, BallKind, buyBall, fuseItems, fusionCandidates, heldBy, recycle } from '../../game/game';
+import { BALL_PRICE, BALLS, BallKind, buyBall, buyBalls, fuseItems, fusionCandidates, heldBy, recycle } from '../../game/game';
 import { slotOf, template, itemScore } from '../../game/items';
 import { Item, ItemSlot, RARITIES, RARITY_COLOR } from '../../game/model';
 import { rng, useGame } from '../../store/game';
@@ -20,14 +20,15 @@ const FILTERS: { key: ItemSlot | 'all'; label: string }[] = [
 ];
 
 /** Icône de Ball = bouton d'achat direct : tap = +1, appui long = achat en rafale (fin de partie : des
- * milliers d'éclats à dépenser). Fusionne l'état actuel et l'achat en une seule ligne compacte. */
-function BuyBallIcon({ kind }: { kind: BallKind }) {
+ * milliers d'éclats à dépenser) ; au relâchement d'une rafale, `onBurstEnd` ouvre la boîte « ×10 · ×100 ». */
+function BuyBallIcon({ kind, onBurstEnd }: { kind: BallKind; onBurstEnd: (kind: BallKind) => void }) {
   const act = useGame((g) => g.act);
   const s = useGame((g) => g.s)!;
   useGame((g) => g.rev);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const stop = () => { if (timer.current) { clearInterval(timer.current); timer.current = null; } };
   useEffect(() => stop, []);
+  const endPress = () => { if (timer.current) onBurstEnd(kind); stop(); };
   const buyOne = () => { if (act((g) => buyBall(g, kind))) feedback(); };
   const start = () => {
     stop();
@@ -35,7 +36,7 @@ function BuyBallIcon({ kind }: { kind: BallKind }) {
   };
   const can = s.shards >= BALL_PRICE[kind];
   return (
-    <Pressable onPress={buyOne} onLongPress={start} onPressOut={stop} delayLongPress={350}
+    <Pressable onPress={buyOne} onLongPress={start} onPressOut={endPress} delayLongPress={350}
       style={[styles.ballBuy, !can && { opacity: 0.4 }]}>
       <BallIcon kind={kind} size={32} />
       <Text style={styles.resTxt}>{s.balls[kind]}</Text>
@@ -44,8 +45,21 @@ function BuyBallIcon({ kind }: { kind: BallKind }) {
   );
 }
 
+/** Durée d'affichage de la boîte d'achat groupé, relancée à chaque achat. */
+const BULK_BOX_MS = 3000;
+const BULK_AMOUNTS = [10, 100];
+
 export function BagPanel() {
   const s = useGame((g) => g.s)!;
+  // boîte « ×10 · ×100 » : ouverte au relâchement d'une rafale, une seule Ball à la fois, fermée après 3 s
+  const [bulk, setBulk] = useState<BallKind | null>(null);
+  const bulkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const openBulk = (kind: BallKind) => {
+    if (bulkTimer.current) clearTimeout(bulkTimer.current);
+    setBulk(kind);
+    bulkTimer.current = setTimeout(() => setBulk(null), BULK_BOX_MS);
+  };
+  useEffect(() => () => { if (bulkTimer.current) clearTimeout(bulkTimer.current); }, []);
   useGame((g) => g.rev);
   const act = useGame((g) => g.act);
   const recycleMaxRarity = useSettings((st) => st.recycleMaxRarity);
@@ -82,8 +96,25 @@ export function BagPanel() {
               <View style={styles.ballsCol}>
                 <Text style={styles.ballsHint}>Clique sur les Balls pour acheter</Text>
                 <View style={styles.ballsRow}>
-                  {(Object.keys(BALLS) as BallKind[]).map((b) => <BuyBallIcon key={b} kind={b} />)}
+                  {(Object.keys(BALLS) as BallKind[]).map((b) => <BuyBallIcon key={b} kind={b} onBurstEnd={openBulk} />)}
                 </View>
+                {bulk && (
+                  <View style={styles.bulkRow}>
+                    <BallIcon kind={bulk} size={18} />
+                    {BULK_AMOUNTS.map((n) => {
+                      const cost = BALL_PRICE[bulk] * n;
+                      const can = s.shards >= cost;
+                      return (
+                        <Pressable key={n} disabled={!can} style={[styles.bulkBtn, !can && { opacity: 0.35 }]} onPress={() => {
+                          if (act((g) => buyBalls(g, bulk, n))) { feedback(); toast(`+${n} ${BALLS[bulk].name}s`); openBulk(bulk); }
+                        }}>
+                          <Text style={styles.bulkTxt}>×{n}</Text>
+                          <Text style={styles.ballPrice}>{cost}💎</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                )}
               </View>
             </View>
             <View style={styles.row}>
@@ -123,6 +154,9 @@ const styles = StyleSheet.create({
   ballsRow: { flexDirection: 'row', gap: 6 },
   ballBuy: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2, backgroundColor: C.panel2, borderRadius: 12, paddingVertical: 8 },
   ballPrice: { color: C.dim, fontSize: 10, fontWeight: '600' },
+  bulkRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
+  bulkBtn: { flex: 1, alignItems: 'center', backgroundColor: C.accent, borderRadius: 10, paddingVertical: 4 },
+  bulkTxt: { color: C.text, fontSize: 13, fontWeight: '900' },
   row: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   hint: { color: C.dim, fontSize: 12 },
   chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: C.panel },

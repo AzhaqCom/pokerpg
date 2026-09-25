@@ -289,7 +289,7 @@ function idleTargetCaptures(
       out.missStreak = 0;
       const mon = makeMon(speciesId, Math.min(offer.level, levelCap), rng, false, genesMin);
       out.targetCaught[speciesId] = (out.targetCaught[speciesId] ?? 0) + 1;
-      const bestBefore = best[speciesId] ?? bestStarsOf(s, speciesId);
+      const bestBefore = best[speciesId] ?? bestStarsOf(s, speciesId, false); // captures ciblées : jamais chromatiques
       if (!convert || keepTargetCapture(mon, bestBefore)) {
         out.targetMons.push(mon);
         best[speciesId] = Math.max(bestBefore, monStars(mon));
