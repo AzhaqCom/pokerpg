@@ -17,6 +17,7 @@ import { Bar } from './components/Bar';
 import { Button } from './components/Button';
 import { Dialog, DialogSpec } from './components/Dialog';
 import { ItemCard } from './components/ItemCard';
+import { BallIcon } from './components/BallIcon';
 import { MonThumb } from './components/MonThumb';
 import { Stars } from './components/Stars';
 import { feedback } from './components/feedback';
@@ -152,7 +153,11 @@ export function MonSheet() {
             );
           })()}
           {evolvePick && (
-            <EvolvePicker speciesId={mon.speciesId} dexMax={regionOf(s.prestige).dexMax} onClose={() => setEvolvePick(false)}
+            <EvolvePicker speciesId={mon.speciesId} dexMax={regionOf(s.prestige).dexMax} shiny={mon.shiny}
+              // chromatique : Pokédex chromatique ; normal : exemplaires normaux possédés en ce moment (le Pokédex
+              // « capturés » compte aussi les chromatiques, il ne dit pas si on a la forme en normal)
+              owned={mon.shiny ? s.dex.shiny : Object.values(s.mons).filter((m) => !m.shiny).map((m) => m.speciesId)}
+              onClose={() => setEvolvePick(false)}
               onPick={(target) => {
                 feedback('evolve', true);
                 act((g) => evolve(g, mon.uid, target));
@@ -402,7 +407,10 @@ function ItemPicker({ slot, monUid, onClose, onChanged }: { slot: ItemSlot; monU
 }
 
 /** Choix de la forme d'évolution : un bouton par forme, à la couleur de son type principal. */
-function EvolvePicker({ speciesId, dexMax, onClose, onPick }: { speciesId: number; dexMax: number; onClose: () => void; onPick: (target: number) => void }) {
+/** Choix d'évolution ; une Poké Ball marque les formes déjà possédées dans la même version (normale/chromatique). */
+function EvolvePicker({ speciesId, dexMax, shiny, owned, onClose, onPick }: {
+  speciesId: number; dexMax: number; shiny: boolean; owned: number[]; onClose: () => void; onPick: (target: number) => void;
+}) {
   const targets = evolutionTargets(speciesId, dexMax);
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
@@ -416,11 +424,12 @@ function EvolvePicker({ speciesId, dexMax, onClose, onPick }: { speciesId: numbe
             const fg = textOn(bg);
             return (
               <Pressable key={t} onPress={() => onPick(t)} style={[styles.evoBtn, { backgroundColor: bg }]}>
-                <MonThumb speciesId={t} size={40} />
+                <MonThumb speciesId={t} shiny={shiny} size={40} />
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.evoName, { color: fg }]}>{sp.name}</Text>
                   <Text style={[styles.evoTypes, { color: fg }]}>{sp.types.map(typeLabel).join(' / ')}</Text>
                 </View>
+                {owned.includes(t) && <BallIcon kind="poke" size={20} />}
               </Pressable>
             );
           })}

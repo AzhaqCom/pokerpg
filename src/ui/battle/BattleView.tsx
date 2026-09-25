@@ -5,6 +5,7 @@ import { Fighter } from '../../game/battle';
 import { BIOMES } from '../../game/content';
 import { ActionKey, attackFrameLimit, getSprite, resolveAction } from '../../sprites/manifest';
 import { PmdSprite, totalMs } from '../../sprites/PmdSprite';
+import { BackdropBack, BackdropFront, BackdropKind } from './Backdrop';
 import { CaptureBar } from './CaptureBar';
 import { STATUS_COLOR, STATUS_LABEL, runner } from './runner';
 
@@ -16,12 +17,16 @@ const SKIES: Record<string, [string, string, string]> = {
   meadow: ['#8fd3ff', '#d7f3ff', '#7cc16a'],
   forest: ['#5fae8b', '#b9e6c9', '#4e8f4a'],
   cave: ['#2b2f3a', '#4a5064', '#5b5350'],
-  water: ['#4fc3f7', '#b3e5fc', '#0288d1'],
+  water: ['#4fc3f7', '#b3e5fc', '#dcc389'], // sol = plage de sable, l'eau est dessinée en bande derrière (Backdrop)
   electric: ['#4a3f7a', '#d8c9ff', '#3a3547'],
   swamp: ['#3d4a2f', '#8fae5c', '#2e3b1f'],
   temple: ['#5b4b8a', '#cdb8f0', '#3d3160'],
   volcano: ['#7a2e12', '#ffb066', '#2b1208'],
   desert: ['#d9a24a', '#f5dfb0', '#8a5a2b'],
+  league: ['#3a1f2b', '#8c5a4a', '#6b5230'],
+  dojo: ['#5a3d24', '#c9a27a', '#b08a5a'],
+  haunted: ['#1d1430', '#4a3a6b', '#2a2233'],
+  arena: ['#3b3f58', '#8a8fb5', '#5d6072'],
 };
 
 /** Position minimale (px) de la barre de vie / du label niveau, par emplacement (avant / arrière-haut /
@@ -110,7 +115,8 @@ export function BattleView({ width }: { width: number }) {
   const run = runner.run;
   const biomeZones = BIOMES[run?.biome ?? 0].zones;
   const zone = run ? biomeZones[Math.min(run.zone, biomeZones.length - 1)] : biomeZones[0];
-  const [top, bottom, ground] = SKIES[run?.kind === 'arena' ? 'cave' : zone.biome];
+  const scene: BackdropKind = run?.kind === 'arena' ? 'arena' : zone.biome;
+  const [top, bottom, ground] = SKIES[scene];
   const fighters = run?.battle.fighters ?? [];
   // zoom entier des sprites (pixel art net). Diviseur 70 depuis le canvas agrandi à 72 % (2026-09-25) : les sprites
   // gardent leur taille d'avant (×4 sur un téléphone courant) et le canvas plus haut laisse de l'air entre les camps.
@@ -122,8 +128,10 @@ export function BattleView({ width }: { width: number }) {
         <Rect x={0} y={0} width={W} height={H}>
           <LinearGradient start={vec(0, 0)} end={vec(0, H * 0.5)} colors={[top, bottom]} />
         </Rect>
+        <BackdropBack kind={scene} W={W} H={H} />
         <Rect x={0} y={H * 0.45} width={W} height={H * 0.55} color={ground} />
         <Oval x={-W * 0.1} y={H * 0.4} width={W * 1.2} height={H * 0.14} color={ground} />
+        <BackdropFront kind={scene} W={W} H={H} />
         {fighters.map((f) => (
           <FighterSprite key={f.id} f={f} W={W} H={H} px={f.boss ? px : px} />
         ))}

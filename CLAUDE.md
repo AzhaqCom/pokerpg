@@ -22,7 +22,8 @@ npx jest --testPathIgnorePatterns=balance.test.ts   # tests rapides (~140, ~20 s
 npx jest balance.test.ts                            # simulations de bout en bout (plusieurs minutes)
 eas build -p android --profile preview              # APK
 ```
-Modules natifs : toujours `npx expo install <pkg>`. Skia 2.6.2 (épinglé) **exige** `react-native-reanimated` 4.5.1 +
+Modules natifs : toujours `npx expo install <pkg>`. Plugin local `plugins/withNoForceDark.js` (`android:forceDarkAllowed=false` :
+le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. Électrik brun ; natif, APK seulement). Skia 2.6.2 (épinglé) **exige** `react-native-reanimated` 4.5.1 +
 `react-native-worklets` 0.10.1 (sinon crash au lancement).
 
 ## Architecture
@@ -62,6 +63,10 @@ Modules natifs : toujours `npx expo install <pkg>`. Skia 2.6.2 (épinglé) **exi
   Lisibilité du combat (2026-09-25) : zone de combat haute de 72 % de la largeur ; messages 1,6 s, 2 max à l'écran
   (`TOAST_MS`/`TOAST_MAX`, `store/ui.ts`), un seul par événement (butin groupé par vague, capacités groupées par
   Pokémon, « ✨ X chromatique capturé ! ») ; offre de capture `CaptureBar` sur une seule ligne compacte.
+  Décors abstraits fixes par type de zone et pour les arènes (`battle/Backdrop.tsx` : `BackdropBack` derrière le sol,
+  `BackdropFront` sur le sol, sous les sprites), palette `SKIES` dans `BattleView.tsx`. Types de zone (`ZoneDef.biome`,
+  purement visuel) : prairie, forêt, grotte, eau, électrique, marais, temple, volcan, désert, **ligue** (salles de Ligue
+  et du Champion), **dojo**, **hanté** (Tour Hantée, Manoir) ; les arènes ont leur propre décor.
 - État : zustand + AsyncStorage (`src/store/game.ts`, clé `pokelootborn/save/v1`, `act(fn)` modifie + sauve).
   `load()` fusionne la sauvegarde avec `newGame()` → **un nouveau champ doit avoir une valeur par défaut dans `newGame()`** ;
   `migrateSave` complète les tableaux de biomes trop courts.

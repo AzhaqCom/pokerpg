@@ -11,7 +11,8 @@ export interface ZoneDef {
    * bat qu'une fois. */
   boss: { speciesId: number; level: number; joinsPool?: boolean };
   /** fond de combat */
-  biome: 'forest' | 'meadow' | 'cave' | 'water' | 'electric' | 'swamp' | 'temple' | 'volcano' | 'desert';
+  /** décor du combat (purement visuel, voir `ui/battle/Backdrop.tsx`) */
+  biome: 'forest' | 'meadow' | 'cave' | 'water' | 'electric' | 'swamp' | 'temple' | 'volcano' | 'desert' | 'league' | 'dojo' | 'haunted';
 }
 
 export interface ArenaDef {
@@ -301,7 +302,7 @@ export const BIOMES: BiomeDef[] = [
     name: 'Ligue Pokémon',
     zones: [
       {
-        name: 'Antichambre du Plateau', minLv: 90, maxLv: 93, biome: 'temple',
+        name: 'Antichambre du Plateau', minLv: 90, maxLv: 93, biome: 'league',
         pool: [[132, 40], [137, 30], [149, 30], [85, 10], [36, 10], [18, 10]],
         boss: { speciesId: 146, level: 94, joinsPool: true },
       },
@@ -413,17 +414,17 @@ export const BIOMES: BiomeDef[] = [
     name: 'Tour Hantée',
     zones: [
       {
-        name: 'Rez-de-Tour', minLv: 35, maxLv: 37, biome: 'temple',
+        name: 'Rez-de-Tour', minLv: 35, maxLv: 37, biome: 'haunted',
         pool: [[92, 25], [200, 20], [185, 20], [201, 15], [93, 10], [63, 10]],
         boss: { speciesId: 93, level: 38 },
       },
       {
-        name: 'Étages Hantés', minLv: 37, maxLv: 39, biome: 'temple',
+        name: 'Étages Hantés', minLv: 37, maxLv: 39, biome: 'haunted',
         pool: [[93, 25], [200, 15], [201, 20], [185, 15], [94, 10], [202, 5], [96, 10]],
         boss: { speciesId: 93, level: 40 },
       },
       {
-        name: 'Sommet de la Tour', minLv: 39, maxLv: 42, biome: 'temple',
+        name: 'Sommet de la Tour', minLv: 39, maxLv: 42, biome: 'haunted',
         pool: [[93, 15], [94, 30], [200, 10], [201, 15], [185, 10], [122, 5]],
         boss: { speciesId: 94, level: 42 },
       },
@@ -439,17 +440,17 @@ export const BIOMES: BiomeDef[] = [
     name: 'Dojo d’Ébène',
     zones: [
       {
-        name: 'Cour d’Entraînement', minLv: 42, maxLv: 47, biome: 'temple',
+        name: 'Cour d’Entraînement', minLv: 42, maxLv: 47, biome: 'dojo',
         pool: [[236, 30], [66, 30], [56, 25], [67, 15], [27, 10], [50, 10]],
         boss: { speciesId: 57, level: 47 },
       },
       {
-        name: 'Salle des Katas', minLv: 47, maxLv: 52, biome: 'temple',
+        name: 'Salle des Katas', minLv: 47, maxLv: 52, biome: 'dojo',
         pool: [[237, 25], [106, 20], [62, 15], [68, 15], [74, 10], [95, 5]],
         boss: { speciesId: 68, level: 52 },
       },
       {
-        name: 'Antichambre du Maître', minLv: 52, maxLv: 58, biome: 'temple',
+        name: 'Antichambre du Maître', minLv: 52, maxLv: 58, biome: 'dojo',
         pool: [[214, 25], [57, 20], [68, 20], [62, 10], [237, 10], [104, 10], [111, 10]],
         boss: { speciesId: 62, level: 58 },
       },
@@ -584,12 +585,12 @@ export const BIOMES: BiomeDef[] = [
     name: 'Plateau Doré',
     zones: [
       {
-        name: 'Antichambre Dorée', minLv: 87, maxLv: 91, biome: 'temple',
+        name: 'Antichambre Dorée', minLv: 87, maxLv: 91, biome: 'league',
         pool: [[241, 25], [217, 25], [209, 15], [210, 15], [231, 10], [239, 10], [37, 10], [58, 10]],
         boss: { speciesId: 251, level: 92, joinsPool: true },
       },
       {
-        name: 'Galerie des Champions', minLv: 91, maxLv: 95, biome: 'temple',
+        name: 'Galerie des Champions', minLv: 91, maxLv: 95, biome: 'league',
         pool: [[224, 20], [211, 20], [171, 15], [186, 15], [226, 10], [218, 10], [240, 10], [77, 10], [126, 5]],
         boss: { speciesId: 151, level: 96, joinsPool: true },
       },
@@ -656,7 +657,7 @@ export const BIOMES: BiomeDef[] = [
       },
       {
         // Séviper, Tygnon, Kicklee, Nostenfer
-        name: 'Salle des Poings', minLv: 20, maxLv: 21, biome: 'temple',
+        name: 'Salle des Poings', minLv: 20, maxLv: 21, biome: 'dojo',
         pool: [[336, 20], [107, 20], [106, 8], [169, 8], [14, 10], [30, 10]],
         boss: { speciesId: 169, level: 22 },
       },
@@ -773,7 +774,7 @@ export const BIOMES: BiomeDef[] = [
       },
       {
         // Porygon, Insolourdo, Kecleon, Cerfrousse, Mangriff, Écrémeuh, Kangourex
-        name: 'Dojo de Norman', minLv: 46, maxLv: 47, biome: 'temple',
+        name: 'Dojo de Norman', minLv: 46, maxLv: 47, biome: 'dojo',
         pool: [[137, 20], [206, 20], [352, 20], [234, 20], [335, 20], [241, 8], [115, 8]],
         boss: { speciesId: 115, level: 48 },
       },
@@ -949,7 +950,7 @@ export const BIOMES: BiomeDef[] = [
       },
       {
         // Loupio, Krabby, Mysdibule, Airmure, Démanta, Mew, Ho-Oh
-        name: 'Salle du Champion', minLv: 96, maxLv: 99, biome: 'temple',
+        name: 'Salle du Champion', minLv: 96, maxLv: 99, biome: 'league',
         pool: [[170, 6], [171, 14], [98, 6], [99, 14], [303, 20], [227, 8], [226, 8], [151, 20], [250, 20]],
         boss: { speciesId: 226, level: 100 },
       },
@@ -1055,19 +1056,19 @@ export const BIOMES: BiomeDef[] = [
     zones: [
       {
         // Debugant, Tarsal, Okéoké, Makuhita, Méditikka, Kirlia
-        name: 'Rue des Boxeurs', minLv: 24, maxLv: 26, biome: 'temple',
+        name: 'Rue des Boxeurs', minLv: 24, maxLv: 26, biome: 'dojo',
         pool: [[236, 20], [280, 20], [360, 20], [296, 8], [307, 8], [281, 8], [390, 10]],
         boss: { speciesId: 308, level: 27 },
       },
       {
         // Korillon, Riolu, Soporifik, Zarbi, Natu, Kirlia
-        name: 'Salle d’Entraînement', minLv: 26, maxLv: 28, biome: 'temple',
+        name: 'Salle d’Entraînement', minLv: 26, maxLv: 28, biome: 'dojo',
         pool: [[433, 20], [447, 20], [96, 20], [201, 8], [177, 8], [281, 8]],
         boss: { speciesId: 178, level: 29 },
       },
       {
         // Machoc, Férosinge, Abra, Girafarig, Kirlia, Galifeu
-        name: 'Sommet du Dojo', minLv: 28, maxLv: 29, biome: 'temple',
+        name: 'Sommet du Dojo', minLv: 28, maxLv: 29, biome: 'dojo',
         pool: [[66, 20], [56, 20], [63, 8], [203, 8], [281, 8], [256, 8]],
         boss: { speciesId: 203, level: 30 },
       },
@@ -1143,19 +1144,19 @@ export const BIOMES: BiomeDef[] = [
     zones: [
       {
         // Skelénox, Polichombr, Mime Jr., Fantominus, Baudrive, Kirlia
-        name: 'Jardin Brumeux', minLv: 41, maxLv: 43, biome: 'temple',
+        name: 'Jardin Brumeux', minLv: 41, maxLv: 43, biome: 'haunted',
         pool: [[355, 20], [353, 20], [439, 20], [92, 8], [425, 8], [281, 8]],
         boss: { speciesId: 426, level: 44 },
       },
       {
         // Spoink, Qulbutoké, Feuforêve, Spiritomb, Éoko, Kirlia
-        name: 'Salons Abandonnés', minLv: 43, maxLv: 45, biome: 'temple',
+        name: 'Salons Abandonnés', minLv: 43, maxLv: 45, biome: 'haunted',
         pool: [[325, 20], [202, 20], [200, 20], [442, 8], [358, 8], [281, 8]],
         boss: { speciesId: 358, level: 46 },
       },
       {
         // M. Mime, Noctunoir, Magirêve, Kirlia, Charmina, Métang
-        name: 'Cave du Manoir', minLv: 45, maxLv: 46, biome: 'temple',
+        name: 'Cave du Manoir', minLv: 45, maxLv: 46, biome: 'haunted',
         pool: [[122, 20], [477, 20], [429, 20], [281, 8], [308, 8], [375, 8]],
         boss: { speciesId: 429, level: 47 },
       },
@@ -1391,7 +1392,7 @@ export const BIOMES: BiomeDef[] = [
       },
       {
         // Steelix, Rhinastoc, Carchacrok, Dracolosse, Drattak, Métalosse
-        name: 'Salle du Champion', minLv: 97, maxLv: 99, biome: 'temple',
+        name: 'Salle du Champion', minLv: 97, maxLv: 99, biome: 'league',
         pool: [[208, 20], [464, 20], [445, 8], [149, 8], [373, 8], [376, 8]],
         boss: { speciesId: 493, level: 100, joinsPool: true },
       },
