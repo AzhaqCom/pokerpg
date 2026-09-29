@@ -313,3 +313,12 @@ describe('hors ligne : capture des lignées ciblées', () => {
     expect(g.ballsUsed.poke).toBeGreaterThan(0);
   });
 });
+
+test('hors ligne : l\'objectif de collection capture ce qui manque (et rien sans objectif)', () => {
+  const mk = () => { const s = newGame(); chooseStarter(s, 4, seededRng(1)); s.balls.poke = 200; return s; };
+  const none = computeIdleGains(mk(), IDLE_CAP_MS, seededRng(5), { goal: 'off' })!;
+  expect(Object.keys(none.targetCaught)).toHaveLength(0);
+  const box = computeIdleGains(mk(), IDLE_CAP_MS, seededRng(5), { goal: 'box' })!;
+  expect(Object.keys(box.targetCaught).length).toBeGreaterThan(0);
+  expect(box.targetMons.length).toBe(Object.values(box.targetCaught).reduce((a, n) => a + n, 0)); // tout est gardé
+});

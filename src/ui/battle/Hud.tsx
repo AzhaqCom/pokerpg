@@ -6,6 +6,7 @@ import { addMon, equip, makeMon, setAutoAdvance, setTeam, toggleTarget } from '.
 import { makeItem } from '../../game/items';
 import { RARITIES, RARITY_COLOR } from '../../game/model';
 import { rng, useGame } from '../../store/game';
+import type { CollectionGoal } from '../../game/collection';
 import { useSettings } from '../../store/settings';
 import { Button } from '../components/Button';
 import { Dialog, DialogSpec } from '../components/Dialog';
@@ -16,6 +17,15 @@ import { useFrameClock } from '../useFrameClock';
 import { runner } from './runner';
 
 /** Bandeau au-dessus du combat : où l'on est, boss à lancer, vitesse, réglages. */
+
+/** Objectif de collection : pilote la capture auto, les doublons et « Compléter » (voir `game/collection.ts`). */
+const GOALS: [CollectionGoal, string][] = [['off', 'Aucune'], ['dex', 'Pokédex'], ['box', 'Boîte'], ['boxShiny', 'Boîte + ✨']];
+const GOAL_HINT: Record<CollectionGoal, string> = {
+  off: 'Aucune capture automatique (sauf chromatiques et cibles 🎯).',
+  dex: 'Capture chaque espèce jamais capturée, une fois.',
+  box: 'Capture ce qu’il faut pour finir avec 1 exemplaire de chaque espèce en boîte, évolutions comprises (3 Bulbizarre pour la lignée complète).',
+  boxShiny: 'Comme « Boîte », et garde aussi 1 chromatique de chaque espèce (les chromatiques en trop peuvent être ignorés).',
+};
 export function HudTop() {
   useFrameClock(4);
   const s = useGame((g) => g.s)!;
@@ -74,11 +84,22 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
             <Row label="Avancer dans les étapes" value={s.fixedStage === null} onChange={(v) => act((g) => setAutoAdvance(g, v))} />
 
             <Section title="⚪ Capture" />
-            <Row label="Capturer automatiquement les Pokémon manquants" value={st.autoCapture} onChange={(v) => st.set({ autoCapture: v })} />
-            {st.autoCapture && (
-              <Row sub label="Essayer d'améliorer les Pokémon sous 3★" value={st.autoCaptureUpgrade} onChange={(v) => st.set({ autoCaptureUpgrade: v })} />
+            <View style={{ gap: 6 }}>
+              <Text style={styles.setLabel}>Capture automatique : objectif</Text>
+              <View style={styles.chipsRow}>
+                {GOALS.map(([key, label]) => (
+                  <Pressable key={key} onPress={() => { feedback(); st.set({ collectionGoal: key }); }}
+                    style={[styles.chip, st.collectionGoal === key && styles.chipOn]}>
+                    <Text style={styles.chipTxt}>{label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <Text style={styles.hint}>{GOAL_HINT[st.collectionGoal]}</Text>
+            </View>
+            {st.collectionGoal !== 'off' && (
+              <Row sub label="Essayer aussi d'améliorer les Pokémon sous 3★" value={st.autoCaptureUpgrade} onChange={(v) => st.set({ autoCaptureUpgrade: v })} />
             )}
-            {(st.autoCapture || s.targets.length > 0) && (
+            {(st.collectionGoal !== 'off' || s.targets.length > 0) && (
               <Row label="Toujours utiliser la meilleure Ball" value={st.autoCaptureBestBall} onChange={(v) => st.set({ autoCaptureBestBall: v })} />
             )}
             <Row label="Ne pas proposer un Pokémon déjà possédé (3★+)" value={st.hideOwnedOffers} onChange={(v) => st.set({ hideOwnedOffers: v })} />
@@ -99,7 +120,9 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
             )}
 
             <Section title="📦 Boîte et objets" />
-            <Row label="Collectionneur hardcore" value={st.keepEvolutionMaterial} onChange={(v) => st.set({ keepEvolutionMaterial: v })} />
+            {st.collectionGoal !== 'box' && st.collectionGoal !== 'boxShiny' && (
+              <Row label="Collectionneur hardcore" value={st.keepEvolutionMaterial} onChange={(v) => st.set({ keepEvolutionMaterial: v })} />
+            )}
             <Row label="Masquer « Ne garder que les chromatiques »" value={st.hideShinyOnlyButton} onChange={(v) => st.set({ hideShinyOnlyButton: v })} />
             <View style={{ gap: 6 }}>
               <Text style={styles.setLabel}>Recycler : jusqu'à</Text>
@@ -211,6 +234,7 @@ const styles = StyleSheet.create({
   hint: { color: C.dim, fontSize: 12 },
   chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: { backgroundColor: C.panel2, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
+  chipOn: { backgroundColor: C.accent },
   chipTxt: { color: C.text, fontSize: 12, fontWeight: '700' },
   credits: { color: C.dim, fontSize: 11, lineHeight: 16 },
 });

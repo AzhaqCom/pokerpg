@@ -4,8 +4,9 @@ import { regionOf } from '../../game/content';
 import { PType, species } from '../../game/data';
 import {
   GameState, canCompleteDex, canEvolve, completeDex, excessMons, monsBelowStars, monsNotShiny, releaseBelowStars,
-  isTargeted, releaseExcess, releaseNotShiny, setTeam, unequipBox,
+  isTargeted, releaseExcess, releaseList, releaseNotShiny, setTeam, unequipBox,
 } from '../../game/game';
+import { boxExcess, boxProgress, completeBox, needsXp } from '../../game/collection';
 import { Mon } from '../../game/model';
 import { monStars } from '../../game/stats';
 import { useGame } from '../../store/game';
@@ -50,6 +51,10 @@ export function TeamPanel() {
   const [cleanup, setCleanup] = useState<DialogSpec | null>(null);
   const [sort, setSort] = useState<SortMode>('dex');
   const [evolveOnly, setEvolveOnly] = useState(false);
+  const [xpOnly, setXpOnly] = useState(false);
+  const goal = useSettings((st) => st.collectionGoal);
+  const boxGoal = goal === 'box' || goal === 'boxShiny';
+  const xpSet = needsXp(s, goal);
   const [shinyFilter, setShinyFilter] = useState<'all' | 'normal' | 'shiny'>('all');
   const [query, setQuery] = useState('');
   const q = query.trim().toLowerCase();
@@ -64,7 +69,7 @@ export function TeamPanel() {
   }, [boxAll.length, s.mons]);
   const activeType = typeFilter && boxTypes.includes(typeFilter) ? typeFilter : null;
   const box = boxAll
-    .filter((m) => (!activeType || species(m.speciesId).types.includes(activeType)) && (!evolveOnly || canEvolve(m, dexMax)) && (!q || monName(m).toLowerCase().startsWith(q))
+    .filter((m) => (!activeType || species(m.speciesId).types.includes(activeType)) && (!evolveOnly || canEvolve(m, dexMax)) && (!xpOnly || xpSet.has(m.uid)) && (!q || monName(m).toLowerCase().startsWith(q))
       && (shinyFilter === 'all' || m.shiny === (shinyFilter === 'shiny')))
     .sort(SORTERS[sort]);
   const pensionUids = new Set(s.pension.map((p) => p.uid));
@@ -73,10 +78,12 @@ export function TeamPanel() {
   const cellWidth = (width - SCREEN_PADDING - BOX_GAP * (BOX_COLS - 1)) / BOX_COLS;
   const keepEvolutionMaterial = useSettings((st) => st.keepEvolutionMaterial);
   const hideShinyOnlyButton = useSettings((st) => st.hideShinyOnlyButton);
-  const excess = excessMons(s, { keepEvolutionMaterial });
+  // objectif « boîte » : doublons et « Compléter » suivent le calcul de collection (matière d'évolution comprise)
+  const excess = boxGoal ? boxExcess(s, goal) : excessMons(s, { keepEvolutionMaterial });
   const belowStars = monsBelowStars(s, 3);
   const notShiny = monsNotShiny(s);
-  const dexCompletable = canCompleteDex(s, { keepEvolutionMaterial });
+  const dexCompletable = boxGoal ? completeBox(s, goal, true) > 0 : canCompleteDex(s, { keepEvolutionMaterial });
+  const progress = boxProgress(s);
   const boxEquippedCount = Object.values(s.mons)
     .filter((m) => !s.team.includes(m.uid))
     .reduce((a, m) => a + Object.keys(m.items).length, 0);
@@ -162,9 +169,9 @@ export function TeamPanel() {
                 </View>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.maintRow}>
                   {dexCompletable && (
-                <Button small label="Compléter le Pokédex" color="#2e7d32" onPress={() => {
-                  const n = act((g: GameState) => completeDex(g, false, { keepEvolutionMaterial }));
-                  if (n) { feedback('evolve'); toast(`${n} évolution${n > 1 ? 's' : ''} pour compléter le Pokédex`, '#69f0ae'); }
+                <Button small label={boxGoal ? 'Compléter la boîte' : 'Compléter le Pokédex'} color="#2e7d32" onPress={() => {
+                  const n = act((g: GameState) => (boxGoal ? completeBox(g, goal) : completeDex(g, false, { keepEvolutionMaterial })));
+                  if (n) { feedback('evolve'); toast(`${n} évolution${n > 1 ? 's' : ''} pour compléter ${boxGoal ? 'la boîte' : 'le Pokédex'}`, '#69f0ae'); }
                 }} />
               )}
               {excess.length > 0 && (
@@ -175,7 +182,7 @@ export function TeamPanel() {
                     message: `${excess.length} Pokémon en excès seront relâchés (le plus fort gardé par étage déjà possédé, chromatiques et normaux comptés à part${keepEvolutionMaterial ? ', avec de la matière en réserve pour les évolutions manquantes' : ''}). Tu gagneras ${candies} bonbons.`,
                     primary: {
                       label: 'Relâcher', color: '#8d6e63', onPress: () => {
-                        const r = act((g: GameState) => releaseExcess(g, { keepEvolutionMaterial }));
+                        const r = act((g: GameState) => (boxGoal ? releaseList(g, boxExcess(g, goal).map((m) => m.uid)) : releaseExcess(g, { keepEvolutionMaterial })));
                         if (r) { feedback('medal'); toast(`${r.count} Pokémon relâchés, +${r.candies} bonbons`, '#69f0ae'); }
                       },
                     },
@@ -236,6 +243,9 @@ export function TeamPanel() {
               <Pressable onPress={() => setEvolveOnly((v) => !v)} style={[styles.chip, evolveOnly && styles.chipOn]}>
                 <Text style={styles.chipTxt}>Peut évoluer</Text>
               </Pressable>
+              <Pressable onPress={() => setXpOnly((v) => !v)} style={[styles.chip, xpOnly && styles.chipOn]}>
+                <Text style={styles.chipTxt}>Besoin d'XP ({xpSet.size})</Text>
+              </Pressable>
             </View>
             <View style={styles.row}>
               {([['all', 'Tous'], ['normal', 'Normaux'], ['shiny', '✨ Chromatiques']] as const).map(([key, label]) => (
@@ -267,6 +277,7 @@ export function TeamPanel() {
             />
             <View style={styles.row}>
               <Text style={styles.title}>Boîte · {box.length}</Text>
+              <Text style={styles.hint}>Collection {progress.normal}/{progress.total} · ✨ {progress.shiny}/{progress.total}</Text>
             </View>
             {evolveOnly && !box.length && !q && <Text style={styles.hint}>Aucun Pokémon de la boîte n'est prêt à évoluer pour l'instant.</Text>}
             {!!q && !box.length && <Text style={styles.hint}>Aucun Pokémon de la boîte ne correspond à « {query.trim()} ».</Text>}

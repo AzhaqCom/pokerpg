@@ -46,9 +46,10 @@ function checkIdle(onGains: (g: IdleGains) => void) {
   const s = useGame.getState().s;
   if (!s || !s.starterChosen) return;
   const now = Date.now();
-  const { idleAutoRecycle, idleRecycleMaxRarity, skipOwnedShiny, autoCaptureBestBall, convertTargets } = useSettings.getState();
+  const { idleAutoRecycle, idleRecycleMaxRarity, skipOwnedShiny, autoCaptureBestBall, convertTargets, collectionGoal } = useSettings.getState();
   const gains = computeIdleGains(s, now - s.lastActive, rng, {
     autoRecycle: idleAutoRecycle, recycleMaxRarity: idleRecycleMaxRarity, skipOwnedShiny, bestBall: autoCaptureBestBall, convertTargets,
+    goal: collectionGoal,
   });
   useGame.getState().act((g) => {
     if (gains) applyIdleGains(g, gains);

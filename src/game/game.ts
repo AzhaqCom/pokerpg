@@ -435,6 +435,13 @@ export function resetTalents(s: GameState, uid: string): boolean {
 /** Bonbons de la lignée obtenus en relâchant un Pokémon. */
 export const RELEASE_CANDIES = 3;
 
+/** Relâche une liste de Pokémon (doublons de l'objectif « boîte ») : 3 bonbons chacun, jamais le dernier de l'équipe. */
+export function releaseList(s: GameState, uids: string[]): { count: number; candies: number } {
+  let count = 0;
+  for (const u of uids) if (release(s, u)) count++;
+  return { count, candies: count * RELEASE_CANDIES };
+}
+
 /** Relâcher : 3 bonbons de la lignée. Impossible pour le dernier Pokémon de l'équipe. */
 export function release(s: GameState, uid: string): boolean {
   if (s.team.length === 1 && s.team[0] === uid) return false;

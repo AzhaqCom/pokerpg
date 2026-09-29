@@ -18,6 +18,7 @@ import {
   keepTargetCapture, lineBase, makeMon, makeWaves, pickSpecies, teamMaxLevel, wildFighter, xpGapMult,
 } from './game';
 import { recycleValue, rollLoot } from './items';
+import { CollectionGoal, needTracker } from './collection';
 import { Item, Mon } from './model';
 import { monStars } from './stats';
 import { Rng } from './rng';
@@ -195,8 +196,9 @@ function emptyGains(s: GameState, absenceMs: number, durationMs: number): IdleGa
  */
 export function computeIdleGains(
   s: GameState, absenceMs: number, rng: Rng,
-  opts: { autoRecycle?: boolean; recycleMaxRarity?: number; skipOwnedShiny?: boolean; bestBall?: boolean; convertTargets?: boolean } = {},
+  opts: { autoRecycle?: boolean; recycleMaxRarity?: number; skipOwnedShiny?: boolean; bestBall?: boolean; convertTargets?: boolean; goal?: CollectionGoal } = {},
 ): IdleGains | null {
+  const goal = opts.goal ?? 'off';
   const autoRecycle = opts.autoRecycle ?? true;
   const recycleMaxRarity = opts.recycleMaxRarity ?? 1;
   const skipOwnedShiny = opts.skipOwnedShiny ?? false;
@@ -240,6 +242,7 @@ export function computeIdleGains(
   }
 
   // chromatiques : 1/256 par ennemi vaincu, dans le pool de la zone (jamais réduits)
+  const shinyNeed = needTracker(s, true);
   const shinies: Mon[] = [];
   const zone = BIOMES[farmBiome].zones[farmZone];
   const levelCap = teamMaxLevel(s);
@@ -247,13 +250,15 @@ export function computeIdleGains(
     if (rng.int(SHINY_ODDS) === 0) {
       // même tirage qu'en combat (`makeWaves`) : un légendaire `joinsPool` vaincu fait partie du pool
       const speciesId = pickSpecies(zone, rng, s.bossesBeaten[farmBiome][farmZone]);
-      if (skipOwnedShiny && s.dex.shiny.includes(speciesId)) continue;
+      // objectif « boîte + chromatiques » : un chromatique qui ne manque pas à la boîte est ignoré ; sinon déjà au Pokédex
+      if (skipOwnedShiny && (goal === 'boxShiny' ? !shinyNeed.wants(speciesId) : s.dex.shiny.includes(speciesId))) continue;
+      shinyNeed.add(speciesId);
       const level = Math.min(Math.max(2, zone.minLv - 1 + rng.int(2)), levelCap);
       shinies.push(makeMon(speciesId, level, rng, true, genesMinForBadges(s.badges)));
     }
   }
 
-  const t = idleTargetCaptures(s, run.wavesWon, farmBiome, farmZone, rng, opts.bestBall ?? false, opts.convertTargets ?? true);
+  const t = idleTargetCaptures(s, run.wavesWon, farmBiome, farmZone, rng, opts.bestBall ?? false, opts.convertTargets ?? true, goal);
   return { absenceMs, durationMs, wavesWon, kills, perMon, bagItems, shardsFromRecycle, shinies, farmBiome, farmZone, endStage: run.endStage, ...t };
 }
 
@@ -264,9 +269,14 @@ export function computeIdleGains(
  */
 function idleTargetCaptures(
   s: GameState, wavesWon: number[], farmBiome: number, farmZone: number, rng: Rng, bestBall: boolean, convert: boolean,
+  goal: CollectionGoal = 'off',
 ): Pick<IdleGains, 'targetCaught' | 'targetMons' | 'targetCandies' | 'ballsUsed' | 'missStreak'> {
   const out = { targetCaught: {} as Record<number, number>, targetMons: [] as Mon[], targetCandies: {} as Record<number, number>, ballsUsed: { poke: 0, super: 0, hyper: 0 }, missStreak: s.missStreak };
-  if (!s.targets.length) return out;
+  if (!s.targets.length && goal === 'off') return out;
+  // objectif de collection : capture ce qui manque (Pokédex, ou boîte selon l'objectif), gardé en boîte
+  const caught = new Set(s.dex.caught);
+  const boxNeed = needTracker(s, false);
+  const wanted = (id: number) => (goal === 'dex' ? !caught.has(id) : goal === 'box' || goal === 'boxShiny' ? boxNeed.wants(id) : false);
   const zone = BIOMES[farmBiome].zones[farmZone];
   const bossBeaten = s.bossesBeaten[farmBiome][farmZone];
   const balls = { ...s.balls };
@@ -279,7 +289,8 @@ function idleTargetCaptures(
     for (let w = 0; w < wavesWon[k]; w++) {
       if (rng.int(100) >= CAPTURE_OFFER_CHANCE) continue;
       const speciesId = pickSpecies(zone, rng, bossBeaten);
-      if (!isTargeted(s, speciesId)) continue;
+      const forGoal = wanted(speciesId);
+      if (!forGoal && !isTargeted(s, speciesId)) continue;
       const ball = order.find((b) => balls[b] > 0);
       if (!ball) return out; // plus de Balls : fin des captures ciblées
       balls[ball]--;
@@ -290,7 +301,9 @@ function idleTargetCaptures(
       const mon = makeMon(speciesId, Math.min(offer.level, levelCap), rng, false, genesMin);
       out.targetCaught[speciesId] = (out.targetCaught[speciesId] ?? 0) + 1;
       const bestBefore = best[speciesId] ?? bestStarsOf(s, speciesId, false); // captures ciblées : jamais chromatiques
-      if (!convert || keepTargetCapture(mon, bestBefore)) {
+      caught.add(speciesId);
+      if (forGoal) boxNeed.add(speciesId);
+      if (forGoal || !convert || keepTargetCapture(mon, bestBefore)) {
         out.targetMons.push(mon);
         best[speciesId] = Math.max(bestBefore, monStars(mon));
       } else {

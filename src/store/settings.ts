@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import type { CollectionGoal } from '../game/collection';
 
 const KEY = 'pokelootborn/settings/v1';
 
@@ -10,8 +11,12 @@ export interface Settings {
   haptics: boolean;
   /** vitesse de combat ×2 (débloquée au 1er badge) */
   fast: boolean;
-  /** capture automatiquement les offres non garanties pour une espèce jamais capturée */
+  /** ancien réglage (capture auto des espèces jamais capturées) : remplacé par `collectionGoal`, lu une fois pour migrer */
   autoCapture: boolean;
+  /** objectif de collection, qui pilote la capture automatique, le nettoyage des doublons et « Compléter » :
+   *  'off' rien d'automatique, 'dex' chaque espèce une fois au Pokédex, 'box' 1 exemplaire de chaque espèce en boîte,
+   *  'boxShiny' 1 normal + 1 chromatique de chaque espèce en boîte (voir `collection.ts`) */
+  collectionGoal: CollectionGoal;
   /** capture auto : Ball la plus forte en stock plutôt que la moins chère */
   autoCaptureBestBall: boolean;
   /** capture auto : se redéclenche aussi pour une espèce déjà possédée tant qu'elle est sous 3★ */
@@ -44,7 +49,7 @@ const DEFAULTS: Settings = {
   sound: true, music: true, haptics: true, fast: false,
   autoCapture: false, autoCaptureBestBall: false, autoCaptureUpgrade: false, hideOwnedOffers: false,
   recycleMaxRarity: 1, idleAutoRecycle: true, idleRecycleMaxRarity: 1, skipOwnedShiny: false,
-  keepEvolutionMaterial: true, convertTargets: true, keepAwake: false, hideShinyOnlyButton: false,
+  keepEvolutionMaterial: true, convertTargets: true, keepAwake: false, hideShinyOnlyButton: false, collectionGoal: 'off',
 };
 
 interface Store extends Settings {
@@ -57,7 +62,10 @@ export const useSettings = create<Store>((set, get) => ({
   load: async () => {
     try {
       const raw = await AsyncStorage.getItem(KEY);
-      set({ ...DEFAULTS, ...(raw ? JSON.parse(raw) : {}) });
+      const saved = raw ? JSON.parse(raw) : {};
+      // migration : l'ancienne capture auto des espèces manquantes devient l'objectif « Pokédex »
+      if (!saved.collectionGoal) saved.collectionGoal = saved.autoCapture ? 'dex' : 'off';
+      set({ ...DEFAULTS, ...saved });
     } catch { /* défauts */ }
   },
   set: (patch) => {
@@ -65,12 +73,12 @@ export const useSettings = create<Store>((set, get) => ({
     const {
       sound, music, haptics, fast, autoCapture, autoCaptureBestBall, autoCaptureUpgrade, hideOwnedOffers,
       recycleMaxRarity, idleAutoRecycle, idleRecycleMaxRarity, skipOwnedShiny, keepEvolutionMaterial, convertTargets, keepAwake,
-      hideShinyOnlyButton,
+      hideShinyOnlyButton, collectionGoal,
     } = { ...get(), ...patch };
     AsyncStorage.setItem(KEY, JSON.stringify({
       sound, music, haptics, fast, autoCapture, autoCaptureBestBall, autoCaptureUpgrade, hideOwnedOffers,
       recycleMaxRarity, idleAutoRecycle, idleRecycleMaxRarity, skipOwnedShiny, keepEvolutionMaterial, convertTargets, keepAwake,
-      hideShinyOnlyButton,
+      hideShinyOnlyButton, collectionGoal,
     })).catch(() => {});
   },
 }));

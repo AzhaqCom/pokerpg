@@ -8,12 +8,13 @@ import { BattleEvent } from '../../game/battle';
 import { BIOMES, REGION_START } from '../../game/content';
 import { move, species } from '../../game/data';
 import {
-  BETWEEN_WAVES_MS, CaptureOffer, StageKind, StageRun, WaveRewards, arenaAvailable, autoCaptureBall, bestStarsOf, bossAvailable,
+  BETWEEN_WAVES_MS, CaptureOffer, GameState, StageKind, StageRun, WaveRewards, arenaAvailable, autoCaptureBall, bestStarsOf, bossAvailable,
   canPrestige, captureTarget, isTargeted, touchLastActive, tryCapture,
 } from '../../game/game';
 import { RARITIES, RARITY_COLOR } from '../../game/model';
 import { template } from '../../game/items';
 import { rng, useGame } from '../../store/game';
+import { CollectionGoal, wantedForBox } from '../../game/collection';
 import { useSettings } from '../../store/settings';
 import { toast } from '../../store/ui';
 
@@ -28,6 +29,13 @@ export interface FighterAnim {
 export interface Floater { id: number; fighter: string; text: string; color: string; t0: number; big?: boolean }
 
 const AFTER_STAGE_MS = 1600;
+
+/** Une offre de capture fait-elle avancer l'objectif de collection (Pokédex ou boîte) ? */
+function wantedByGoal(s: GameState, speciesId: number, goal: CollectionGoal): boolean {
+  if (goal === 'dex') return !s.dex.caught.includes(speciesId);
+  if (goal === 'box' || goal === 'boxShiny') return wantedForBox(s, speciesId, false);
+  return false;
+}
 
 class Runner {
   run: StageRun | null = null;
@@ -166,7 +174,9 @@ class Runner {
       if (capture.guaranteed) {
         // capture garantie (boss, ou chromatique en vague normale) : directe, sauf réglage explicite
         // pour ne pas s'encombrer d'un chromatique dont l'espèce est déjà chromatique dans le Pokédex.
-        if (capture.shiny && useSettings.getState().skipOwnedShiny && s.dex.shiny.includes(capture.speciesId)) {
+        const st0 = useSettings.getState();
+        const shinyOwned = st0.collectionGoal === 'boxShiny' ? !wantedForBox(s, capture.speciesId, true) : s.dex.shiny.includes(capture.speciesId);
+        if (capture.shiny && st0.skipOwnedShiny && shinyOwned) {
           toast(`✨ ${species(capture.speciesId).name} chromatique déjà obtenu, ignoré`, '#9575cd');
         } else {
           const mon = useGame.getState().act((st) => tryCapture(st, capture, null, rng));
@@ -191,7 +201,7 @@ class Runner {
           else toast(`🎯 ${name} capturé → +${r.candies} bonbons`, '#7CFC00');
         } else if (settings.hideOwnedOffers && known && !belowThreeStars) {
           // espèce déjà possédée en bonne qualité : offre ignorée, pas d'affichage
-        } else if (settings.autoCapture && (!known || (settings.autoCaptureUpgrade && belowThreeStars))) {
+        } else if (settings.collectionGoal !== 'off' && (wantedByGoal(s, capture.speciesId, settings.collectionGoal) || (settings.autoCaptureUpgrade && belowThreeStars))) {
           const ball = autoCaptureBall(s, settings.autoCaptureBestBall);
           if (ball) {
             const mon = useGame.getState().act((st) => tryCapture(st, capture, ball, rng));

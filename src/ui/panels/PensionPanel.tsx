@@ -3,8 +3,10 @@ import { FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, Vi
 import { PType, species } from '../../game/data';
 import { PENSION_CAP_MS, PENSION_XP_SHARE, assignPension, harvestPension, pensionSlots, pensionXpReady, removePension } from '../../game/game';
 import { teamXpPerHour } from '../../game/idle';
+import { needsXp } from '../../game/collection';
 import { monStars } from '../../game/stats';
 import { rng, useGame } from '../../store/game';
+import { useSettings } from '../../store/settings';
 import { toast } from '../../store/ui';
 import { Button } from '../components/Button';
 import { MonThumb } from '../components/MonThumb';
@@ -28,6 +30,9 @@ export function PensionPanel() {
   const [minStars, setMinStars] = useState(0);
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<PType | null>(null);
+  const [xpOnly, setXpOnly] = useState(false);
+  const goal = useSettings((st) => st.collectionGoal);
+  const xpSet = needsXp(s, goal);
   // tri de la liste : Pokédex → niveau croissant → niveau décroissant → Pokédex
   const [levelSort, setLevelSort] = useState<'dex' | 'asc' | 'desc'>('dex');
   const nextLevelSort = () => setLevelSort((v) => (v === 'dex' ? 'asc' : v === 'asc' ? 'desc' : 'dex'));
@@ -42,7 +47,7 @@ export function PensionPanel() {
   }, [candidates.length, s.mons]);
   const activeType = typeFilter && candTypes.includes(typeFilter) ? typeFilter : null;
   const free = candidates
-    .filter((m) => monStars(m) >= minStars && (!activeType || species(m.speciesId).types.includes(activeType))
+    .filter((m) => monStars(m) >= minStars && (!xpOnly || xpSet.has(m.uid)) && (!activeType || species(m.speciesId).types.includes(activeType))
       && (!query.trim() || monName(m).toLowerCase().startsWith(query.trim().toLowerCase())))
     .sort((a, b) => (levelSort === 'asc' ? a.level - b.level : levelSort === 'desc' ? b.level - a.level : 0) || a.speciesId - b.speciesId);
   // les postes en cours suivent le même ordre : meilleur potentiel d'abord
@@ -116,6 +121,9 @@ export function PensionPanel() {
                   <Text style={styles.chipTxt}>{n === 0 ? 'Tous' : `${n}★+`}</Text>
                 </Pressable>
               ))}
+              <Pressable onPress={() => setXpOnly((v) => !v)} style={[styles.chip, xpOnly && styles.chipOn]}>
+                <Text style={styles.chipTxt}>Besoin d'XP</Text>
+              </Pressable>
               <Pressable onPress={nextLevelSort} style={[styles.chip, levelSort !== 'dex' && styles.chipOn]}>
                 <Text style={styles.chipTxt}>{levelSort === 'dex' ? 'Trier par niveau' : levelSort === 'asc' ? 'Niveau ▲' : 'Niveau ▼'}</Text>
               </Pressable>

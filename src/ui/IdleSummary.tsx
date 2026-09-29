@@ -83,14 +83,14 @@ export function IdleSummary({ gains, onClose }: { gains: IdleGains | null; onClo
                 {gains.shardsFromRecycle > 0 && <Text style={styles.line}>💎 +{gains.shardsFromRecycle} éclats (recyclage auto)</Text>}
                 {Object.entries(gains.targetCaught).map(([id, n]) => (
                   <Text key={`t${id}`} style={[styles.line, { color: '#7CFC00' }]}>
-                    🎯 {species(Number(id)).name} ×{n} capturé{n > 1 ? 's' : ''}
+                    ⚪ {species(Number(id)).name} ×{n} capturé{n > 1 ? 's' : ''}
                   </Text>
                 ))}
                 {Object.entries(gains.targetCandies).map(([base, n]) => (
                   <Text key={`c${base}`} style={styles.line}>🍬 +{n} bonbons {species(Number(base)).name}</Text>
                 ))}
                 {gains.targetMons.length > 0 && (
-                  <Text style={styles.line}>📦 {gains.targetMons.length} gardé{gains.targetMons.length > 1 ? 's' : ''} en boîte (meilleur que ton meilleur exemplaire)</Text>
+                  <Text style={styles.line}>📦 {gains.targetMons.length} gardé{gains.targetMons.length > 1 ? 's' : ''} en boîte</Text>
                 )}
                 {ballsLine(gains.ballsUsed) && <Text style={styles.line}>⚪ Balls utilisées : {ballsLine(gains.ballsUsed)}</Text>}
                 {groupShinies(gains.shinies).map((g) => (
