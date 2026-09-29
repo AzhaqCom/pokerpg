@@ -22,8 +22,9 @@ Quatre régions sont codées : Kanto (biomes 0-9), Johto (10-19), Hoenn (20-31),
 - **Poids** (`pool`) : fréquence d'apparition. Un poids < 10 rend l'espèce « rare » : capture ÷ 2 (`isRareInZone`).
   Valeurs usuelles : 20 normal, 8-10 forme évoluée ajoutée pour compléter une zone, 10 starter, 20 légendaire
   (`BOSS_POOL_WEIGHT` pour un boss vaincu, et anciens légendaires semés dans les régions suivantes).
-- **Starters** : chacun est un sauvage (poids 10) dans un biome de son type (Plante/Feu/Eau) de sa région, hors 1er biome
-  et 3 derniers. Ceux des régions précédentes y sont aussi ; ceux d'une région future jamais (`id ≤ dexMax`).
+- **Starters** : chacun est un sauvage (poids 10). Kanto : dans un biome de son type. Johto/Hoenn/Sinnoh : répartis dans
+  les biomes de début de région (zones jusqu'au Nv.35), de leur type si possible. Ceux des régions précédentes y sont
+  aussi ; ceux d'une région future jamais (`id ≤ dexMax`).
 - **Légendaires** : ceux de la région sont des boss `joinsPool` sur les derniers biomes ; les anciens sont semés dans les
   3 derniers biomes.
 - **Évolutions à choix** : `EVOLUTION_CHOICES` (`data.ts`), filtrées par `dexMax`. Les formes alternatives n'ont pas à
