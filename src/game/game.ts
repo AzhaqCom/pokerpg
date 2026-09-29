@@ -1278,7 +1278,7 @@ export function setAutoAdvance(s: GameState, on: boolean) {
 }
 
 // ---------------------------------------------------------------- où trouver une espèce (Pokédex)
-export interface Habitat { biome: number; biomeName: string; zones: string[]; rare: boolean; boss: boolean }
+export interface Habitat { biome: number; biomeName: string; zones: string[]; zoneIdx: number[]; rare: boolean; boss: boolean }
 export interface WhereToFind {
   /** espèce réellement rencontrée en sauvage (l'espèce demandée, ou son ancêtre) ; null = introuvable dans la région */
   source: number | null;
@@ -1296,14 +1296,15 @@ function wildHabitats(id: number, region: number): Habitat[] {
   const out: Habitat[] = [];
   for (let b = start; b < end; b++) {
     const zones: string[] = [];
+    const zoneIdx: number[] = [];
     let rare = true;
     let boss = false;
-    for (const z of BIOMES[b].zones) {
+    BIOMES[b].zones.forEach((z, zi) => {
       const w = z.pool.find(([sid]) => sid === id)?.[1];
-      if (w !== undefined) { zones.push(z.name); if (w >= 10) rare = false; }
-      else if (z.boss.speciesId === id) { zones.push(z.name); boss = true; }
-    }
-    if (zones.length) out.push({ biome: b, biomeName: BIOMES[b].name, zones, rare, boss });
+      if (w !== undefined) { zones.push(z.name); zoneIdx.push(zi); if (w >= 10) rare = false; }
+      else if (z.boss.speciesId === id) { zones.push(z.name); zoneIdx.push(zi); boss = true; }
+    });
+    if (zones.length) out.push({ biome: b, biomeName: BIOMES[b].name, zones, zoneIdx, rare, boss });
   }
   return out;
 }

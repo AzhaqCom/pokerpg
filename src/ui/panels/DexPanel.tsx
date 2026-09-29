@@ -2,8 +2,11 @@ import { memo, useCallback, useState } from 'react';
 import { FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { regionOf } from '../../game/content';
 import { ALL_SPECIES, species as speciesOf } from '../../game/data';
-import { Habitat, isTargeted, toggleTarget, whereToFind } from '../../game/game';
+import { Habitat, biomeAvailable, isTargeted, selectStage, toggleTarget, whereToFind } from '../../game/game';
 import { useGame } from '../../store/game';
+import { toast } from '../../store/ui';
+import { runner } from '../battle/runner';
+import { feedback } from '../components/feedback';
 import { Button } from '../components/Button';
 import { MonThumb } from '../components/MonThumb';
 import { TypeBadge } from '../components/TypeBadge';
@@ -79,13 +82,28 @@ export function DexPanel() {
   );
 }
 
-function HabitatList({ habitats }: { habitats: Habitat[] }) {
+/** Lieux d'obtention : un bouton « Y aller » par zone (grisé si la zone n'est pas encore débloquée). */
+function HabitatList({ habitats, onGo }: { habitats: Habitat[]; onGo: (biome: number, zone: number, name: string) => void }) {
+  const s = useGame((g) => g.s)!;
   return (
     <>
       {habitats.map((h) => (
-        <Text key={h.biome} style={styles.line}>
-          • {h.biomeName} <Text style={styles.dim}>({h.zones.join(', ')}{h.boss ? ' · boss' : ''}{h.rare ? ' · rare' : ''})</Text>
-        </Text>
+        <View key={h.biome} style={{ gap: 4, marginBottom: 6 }}>
+          <Text style={styles.line}>
+            • {h.biomeName} <Text style={styles.dim}>{h.boss ? '(boss' : '('}{h.rare ? `${h.boss ? ' · ' : ''}rare` : ''}{h.boss || h.rare ? ')' : ''}</Text>
+          </Text>
+          {h.zoneIdx.map((zi, k) => {
+            const open = biomeAvailable(s, h.biome) && (s.unlocked[h.biome]?.[zi] ?? 0) >= 1;
+            return (
+              <View key={zi} style={styles.goRow}>
+                <Text style={[styles.dim, { flex: 1 }]}>{h.zones[k]}</Text>
+                <Pressable disabled={!open} onPress={() => onGo(h.biome, zi, h.zones[k])} style={[styles.goBtn, !open && { opacity: 0.4 }]}>
+                  <Text style={styles.goTxt}>{open ? 'Y aller' : '🔒'}</Text>
+                </Pressable>
+              </View>
+            );
+          })}
+        </View>
       ))}
     </>
   );
@@ -96,8 +114,16 @@ function WhereModal({ id, prestige, onClose }: { id: number; prestige: number; o
   const w = whereToFind(id, prestige);
   const evolved = w.path.length > 1;
   const s = useGame((g) => g.s)!;
-  useGame((g) => g.rev);
   const act = useGame((g) => g.act);
+  // « Y aller » : le combat part dans cette zone, à sa plus haute étape débloquée
+  const goTo = (biome: number, zone: number, name: string) => {
+    act((g) => selectStage(g, biome, zone, g.unlocked[biome][zone]));
+    runner.restart();
+    feedback();
+    toast(`Direction ${name}`, '#69f0ae');
+    onClose();
+  };
+  useGame((g) => g.rev);
   const targeted = isTargeted(s, id);
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
@@ -122,7 +148,7 @@ function WhereModal({ id, prestige, onClose }: { id: number; prestige: number; o
                   </Text>
                 )}
                 <Text style={styles.section}>{evolved ? `${speciesOf(w.source).name} se trouve ici :` : 'Se trouve ici :'}</Text>
-                <HabitatList habitats={w.habitats} />
+                <HabitatList habitats={w.habitats} onGo={goTo} />
                 {w.viaEvolution && (
                   <>
                     <Text style={[styles.msg, { marginTop: 8 }]}>
@@ -130,7 +156,7 @@ function WhereModal({ id, prestige, onClose }: { id: number; prestige: number; o
                       {' '}(Nv.{speciesOf(w.viaEvolution.path[w.viaEvolution.path.length - 2]).evolveLevel})
                     </Text>
                     <Text style={styles.section}>{speciesOf(w.viaEvolution.source!).name} se trouve ici :</Text>
-                    <HabitatList habitats={w.viaEvolution.habitats} />
+                    <HabitatList habitats={w.viaEvolution.habitats} onGo={goTo} />
                   </>
                 )}
               </>
@@ -166,5 +192,8 @@ const styles = StyleSheet.create({
   title: { color: C.text, fontSize: 18, fontWeight: '800' },
   msg: { color: C.sub, fontSize: 14, marginBottom: 8 },
   section: { color: C.text, fontSize: 13, fontWeight: '800', marginBottom: 4 },
+  goRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingLeft: 12 },
+  goBtn: { backgroundColor: C.accent, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 },
+  goTxt: { color: C.text, fontSize: 12, fontWeight: '800' },
   line: { color: C.text, fontSize: 13, fontWeight: '600', marginBottom: 4 },
 });
