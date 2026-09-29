@@ -7,7 +7,7 @@ import {
   BADGE_BONUS, BIOMES, REGIONS, REGION_START, STAGES_PER_ZONE, WAVES_PER_STAGE, ZoneDef, regionLastBiome, regionOf,
 } from './content';
 import { ALL_SPECIES, EVOLUTION_CHOICES, PType, learnedMoves, evolutionTargets, move, movesAtLevel, preEvolution, species } from './data';
-import { SETS, addItemBonuses, berryScore, combatValue, setOfBiome, TEMPLATES, berryHeal, fuse, canFuse, itemScore, makeItem, newUid, recycleValue, rerollCost, rerollSub, rollLoot, rollRarity, slotOf, template, upgrade, upgradeCost } from './items';
+import { MAX_ITEM_LEVEL, SETS, addItemBonuses, berryScore, combatValue, setOfBiome, TEMPLATES, berryHeal, fuse, canFuse, itemScore, makeItem, newUid, recycleValue, rerollCost, rerollSub, rollLoot, rollRarity, slotOf, template, upgrade, upgradeCost } from './items';
 import { BattleBonuses, Item, ItemSlot, MAX_RARITY, Mon, emptyBonuses } from './model';
 import { Rng } from './rng';
 import { MAX_LEVEL, auraBonuses, combatPower, finalStats, levelFromXp, monBonuses, monStars, sumBonuses, xpForLevel } from './stats';
@@ -833,6 +833,7 @@ export function recycle(s: GameState, itemUids: string[]): number {
 
 export function upgradeItem(s: GameState, uid: string): boolean {
   const it = s.items[uid];
+  if (!it || it.level >= MAX_ITEM_LEVEL) return false;
   const cost = upgradeCost(it);
   if (s.shards < cost) return false;
   s.shards -= cost;

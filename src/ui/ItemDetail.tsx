@@ -1,7 +1,7 @@
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { GameState, fuseItems, heldBy, holder, recycle, rerollItemSub, upgradeItem } from '../game/game';
 import { MAX_RARITY, RARITY_COLOR } from '../game/model';
-import { STAT_LABEL, recycleValue, rerollCost, template, upgradeCost } from '../game/items';
+import { MAX_ITEM_LEVEL, STAT_LABEL, recycleValue, rerollCost, template, upgradeCost } from '../game/items';
 import { Item } from '../game/model';
 import { rng, useGame } from '../store/game';
 import { toast } from '../store/ui';
@@ -33,7 +33,8 @@ export function ItemDetail({ item, onClose, onSelect }: { item: Item | null; onC
           <ScrollView contentContainerStyle={{ gap: 10 }}>
           <ItemCard item={item} wornBy={w ? monName(w) : undefined} />
           <Text style={styles.shards}>💎 {s.shards} éclats</Text>
-          <Button label={`Améliorer (${upgradeCost(item)} 💎)`} disabled={s.shards < upgradeCost(item)}
+          <Button label={item.level >= MAX_ITEM_LEVEL ? 'Niveau maximum (100)' : `Améliorer (${upgradeCost(item)} 💎)`}
+            disabled={item.level >= MAX_ITEM_LEVEL || s.shards < upgradeCost(item)}
             onPress={() => { if (act((g) => upgradeItem(g, item.uid))) { feedback('level'); runner.restart(); } }} />
           {item.subs.length > 0 && (
             <View style={{ gap: 6 }}>

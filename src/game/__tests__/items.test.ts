@@ -1,6 +1,7 @@
 import { BIOME_SET, CRIT_BY_RARITY, SETS, bonusCritValue, combatValue, TEMPLATES, addItemBonuses, canFuse, fuse, itemScore, makeItem, mainValue, recycleValue, rollLoot, setOfBiome, template, upgrade } from '../items';
 import { critOverflow, emptyBonuses } from '../model';
 import { seededRng } from '../rng';
+import { newGame, upgradeItem } from '../game';
 
 const rng = seededRng(7);
 
@@ -143,4 +144,15 @@ describe('Critique : objets mixtes et surplus converti en Dégâts critiques', (
     expect(combatValue(over)).toBeGreaterThan(combatValue(capped));
     expect(combatValue(over)).toBeCloseTo(combatValue(sameAsDmg), 6);
   });
+});
+
+test('amélioration plafonnée au niveau 100', () => {
+  const s = newGame();
+  s.shards = 1e9;
+  const it = makeItem('griffe-sylve', 2, 99, seededRng(1));
+  s.items[it.uid] = it;
+  expect(upgradeItem(s, it.uid)).toBe(true);
+  expect(s.items[it.uid].level).toBe(100);
+  expect(upgradeItem(s, it.uid)).toBe(false);
+  expect(s.items[it.uid].level).toBe(100);
 });

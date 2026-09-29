@@ -367,6 +367,9 @@ export function upgradeCost(item: Item): number {
   return 5 * item.level * (item.rarity + 1);
 }
 
+/** Niveau maximum d'un objet (comme les Pokémon) : au-delà, l'amélioration est bloquée. */
+export const MAX_ITEM_LEVEL = 100;
+
 export function upgrade(item: Item): Item {
   const scale = lvlMult(item.level + 1) / lvlMult(item.level);
   return { ...item, level: item.level + 1, subs: item.subs.map((s) => ({ ...s, value: round1(s.value * scale) })) };
