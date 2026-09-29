@@ -119,10 +119,11 @@ function BiomeSection({ biome, bi, s, act, onOpenZone }: {
                 {s.bossesBeaten[bi][zi] && <Text style={styles.done}>✔ boss</Text>}
               </View>
             </Pressable>
-            <View style={styles.row}>
+            {/* toucher les Pokémon de la zone ouvre le même récapitulatif que le nom de la zone */}
+            <Pressable disabled={locked} onPress={() => onOpenZone(z)} style={styles.row}>
               {z.pool.map(([id]) => <ZoneMon key={id} id={id} s={s} col={col} />)}
               {z.boss.joinsPool && s.bossesBeaten[bi][zi] && <ZoneMon key={z.boss.speciesId} id={z.boss.speciesId} s={s} col={col} />}
-            </View>
+            </Pressable>
             <View style={styles.row}>
               {Array.from({ length: STAGES_PER_ZONE }, (_, i) => i + 1).map((st) => {
                 const cur = s.biome === bi && s.zone === zi && s.stage === st;
