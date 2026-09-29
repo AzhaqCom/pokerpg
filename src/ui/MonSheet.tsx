@@ -17,6 +17,7 @@ import { Bar } from './components/Bar';
 import { Button } from './components/Button';
 import { Dialog, DialogSpec } from './components/Dialog';
 import { ItemCard } from './components/ItemCard';
+import { ItemDetail } from './ItemDetail';
 import { BallIcon } from './components/BallIcon';
 import { MonThumb } from './components/MonThumb';
 import { Stars } from './components/Stars';
@@ -70,13 +71,15 @@ export function MonSheet() {
   const [affinityPick, setAffinityPick] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogSpec | null>(null);
   const [showSubs, setShowSubs] = useState(false);
+  /** objet porté ouvert dans la popup de gestion (améliorer, changer une sous-stat, fusionner…) */
+  const [managed, setManaged] = useState<string | null>(null);
   const mon = uid && s ? s.mons[uid] : null;
 
   // MonSheet est une instance unique et persistante (pas remontée à chaque Pokémon ouvert) : sans ça,
   // les popups internes (objet, échange d'équipe, talent au choix, dialogue) restent ouvertes en
   // mémoire d'un Pokémon à l'autre — ex. le sélecteur « Qui remplacer ? » resté armé après un premier
   // échange se redéclenchait silencieusement sur le Pokémon suivant, sans jamais s'afficher.
-  const close = () => { setPicker(null); setSwapPicker(false); setAffinityPick(null); setDialog(null); open(null); };
+  const close = () => { setPicker(null); setSwapPicker(false); setAffinityPick(null); setDialog(null); setManaged(null); open(null); };
   if (!s || !mon) return <Modal visible={false} transparent />;
 
   const sp = species(mon.speciesId);
@@ -268,6 +271,11 @@ export function MonSheet() {
                 <Pressable key={slot} onPress={() => setPicker(slot)} style={styles.slotRow}>
                   <Text style={styles.slotLabel}>{label}</Text>
                   <View style={{ flex: 1 }}>{it ? <ItemCard item={it} onPress={() => setPicker(slot)} /> : <Text style={styles.empty}>Vide — toucher pour équiper</Text>}</View>
+                  {it && (
+                    <Pressable hitSlop={8} onPress={() => setManaged(it.uid)} style={styles.manageBtn}>
+                      <Text style={styles.manageTxt}>⚙</Text>
+                    </Pressable>
+                  )}
                 </Pressable>
               );
             })}
@@ -366,6 +374,7 @@ export function MonSheet() {
           </View>
         </ScrollView>
 
+        <ItemDetail item={managed ? s.items[managed] ?? null : null} onClose={() => setManaged(null)} onSelect={setManaged} />
         {picker && (
           <ItemPicker slot={picker} monUid={mon.uid} onClose={() => setPicker(null)} onChanged={changed} />
         )}
@@ -502,6 +511,8 @@ const styles = StyleSheet.create({
   evoName: { fontSize: 15, fontWeight: '800' },
   evoTypes: { fontSize: 11, fontWeight: '700', opacity: 0.85 },
   root: { flex: 1, backgroundColor: C.bg, paddingTop: 40 },
+  manageBtn: { backgroundColor: C.panel2, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, alignSelf: 'center' },
+  manageTxt: { color: C.text, fontSize: 16 },
   navRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 18, paddingBottom: 6 },
   navBtn: { backgroundColor: C.panel2, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 4 },
   navTxt: { color: C.text, fontSize: 18, fontWeight: '800' },

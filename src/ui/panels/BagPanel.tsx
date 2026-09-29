@@ -78,9 +78,11 @@ export function BagPanel() {
       <FlatList
         data={items}
         keyExtractor={(it) => it.uid}
+        numColumns={2}
+        columnWrapperStyle={{ gap: 8 }}
         renderItem={({ item: it }: { item: Item }) => {
           const w = held.get(it.uid);
-          return <ItemCard item={it} wornBy={w ? monName(w) : undefined} onPress={() => setSel(it.uid)} />;
+          return <View style={{ flex: 1 / 2 }}><ItemCard item={it} wornBy={w ? monName(w) : undefined} onPress={() => setSel(it.uid)} /></View>;
         }}
         ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
         style={{ flex: 1 }}
@@ -140,7 +142,7 @@ export function BagPanel() {
         }
         ListEmptyComponent={<Text style={styles.hint}>Ton sac est vide : les objets tombent en combat (et les boss en donnent 3).</Text>}
       />
-      <ItemDetail item={selected} onClose={() => setSel(null)} />
+      <ItemDetail item={selected} onClose={() => setSel(null)} onSelect={setSel} />
     </>
   );
 }
