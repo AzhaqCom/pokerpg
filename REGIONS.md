@@ -32,6 +32,16 @@ Quatre régions sont codées : Kanto (biomes 0-9), Johto (10-19), Hoenn (20-31),
   `biomeTier()` recale la puissance sur la région (1er biome = Kanto 1, dernier ≈ +60 %).
 - **Difficulté** : `DIFFICULTY.end[région]` (`game.ts`), voir `CLAUDE.md`.
 
+## Répartition des sauvages (Johto, Hoenn, Sinnoh — 2026-09-29)
+Kanto est fait à la main. Les pools des 3 autres régions sont générés par `tools/regen_pools_official.ts` à partir des
+**données de rencontre des jeux officiels** (CSV PokéAPI `encounters`, `encounter_slots`) : chaque espèce est placée au
+moment de l'aventure où on la croise dans son jeu d'origine (Or HG/Argent SS pour Kanto/Johto, Émeraude pour Hoenn,
+Platine pour Sinnoh ; difficulté du 1er lieu de rencontre, herbes/grottes seulement). Roucool/Chenipan en début de région,
+Minidraco/Embrylex/Terhal en fin. Le type du biome n'est qu'une légère préférence (les biomes sont surtout un décor).
+Bébés en début, fossiles au milieu, starters dans les biomes de début de leur type, formes évoluées officiellement
+sauvages ajoutées à leur moment. Anciens légendaires gardés en fin de région, et l'un d'eux devient le boss d'une zone
+dont le boss était un Pokémon ordinaire (lot 4). Relancer : `npx tsx tools/regen_pools_official.ts <csv> --write`.
+
 ## Ajouter une région (recette suivie pour Hoenn et Sinnoh)
 1. Données : `tools/gen_data_gen34.py` (ou équivalent) étend `species.json`/`moves.json` ; ne **jamais** réécrire
    l'`evolvesTo` d'une espèce déjà figée. Sprites : `tools/fetch-sprites.ts` puis `tools/make_thumbs.py`.
