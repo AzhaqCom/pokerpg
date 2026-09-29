@@ -450,12 +450,12 @@ export const STAT_WEIGHT: Record<NumericBonusStat, number> = {
 export function combatValue(b: BattleBonuses): number {
   const crit = Math.min(1, (6 + b.critPct) / 100);
   const critDmg = b.critDmgPct + critOverflow(6 + b.critPct); // surplus au-delà de 100 % converti, comme en combat
-  const dodge = Math.min(0.6, b.dodgePct / 100);
+  const dodge = Math.min(0.5, b.dodgePct / 100); // plafonds du combat (`DODGE_CAP`, `LIFESTEAL_CAP`)
   const f = (1 + b.atkPct / 100) * (1 + b.hpPct / 100) * (1 + b.defPct / 100)
     * ((1 + crit * (0.5 + critDmg / 100)) / 1.03)
     * (1 + (0.64 * b.typeDmgPct) / 100)
     * Math.pow(1 / (1 - dodge), 1.1)
-    * (1 + (0.73 * b.lifestealPct) / 100)
+    * (1 + (0.73 * Math.min(50, b.lifestealPct)) / 100)
     * (1 + (0.3 * Math.min(40, b.cdrPct)) / 100)
     // Vitesse à rendement décroissant (mesuré : +20 % ≈ 2,8, +100 % ≈ 10,5, +300 % ≈ 20 « % d'Attaque »)
     * (1 + (13 * Math.log(1 + Math.max(0, b.spePct) / 80)) / 100);

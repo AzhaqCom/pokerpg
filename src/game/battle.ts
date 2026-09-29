@@ -11,6 +11,9 @@ export const ACTION_LOCK = 0.7; // s : durée d'une animation d'action
 export const MAX_BATTLE_TIME = 120; // s : au-delà, défaite (évite les combats infinis)
 /** Les PV sont multipliés en combat : des vagues d'environ 8–10 s au lieu de 2. */
 export const HP_SCALE = 4;
+/** Plafonds : au-delà, l'esquive (Pokémon quasi intouchable) et le vol de vie (quasi immortel) cassent le combat. */
+export const DODGE_CAP = 50;
+export const LIFESTEAL_CAP = 50;
 const STATUS_TIME: Record<Ailment, number> = { burn: 5, poison: 6, paralysis: 5, sleep: 3, freeze: 3 };
 const BUFF_TIME = 6;
 
@@ -243,14 +246,14 @@ export class Battle {
         this.tryAilment(f, tg, m.ailment, m.chance);
         return;
       case 'damage': {
-        if (tg.bonuses.dodgePct > 0 && this.rng.int(1000) < tg.bonuses.dodgePct * 10) {
+        if (tg.bonuses.dodgePct > 0 && this.rng.int(1000) < Math.min(DODGE_CAP, tg.bonuses.dodgePct) * 10) {
           this.emit({ t, kind: 'miss', target: tg.id });
           return;
         }
         const { amount, eff, crit } = this.damage(f, m, tg);
         tg.hp = Math.max(0, tg.hp - amount);
         this.emit({ t, kind: 'damage', target: tg.id, amount, eff, crit, hpLeft: tg.hp });
-        const steal = (f.bonuses.lifestealPct + (m.drain ?? 0)) / 100;
+        const steal = (Math.min(LIFESTEAL_CAP, f.bonuses.lifestealPct) + (m.drain ?? 0)) / 100;
         if (steal > 0 && f.alive) this.heal(f, Math.round(amount * steal), true);
         if (tg.hp <= 0) { this.faint(tg); return; }
         if (m.ailment && m.chance) this.tryAilment(f, tg, m.ailment, m.chance);

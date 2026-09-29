@@ -111,7 +111,8 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   « au choix » (type figé au 1er rang) ; paliers 6-9 = Spécialité II, saveur du 2e type (valeur par rang ÷ 2), Fureur,
   Précision mortelle. Les deux Affinités peuvent viser le même type. **Spécialités rééquilibrées** : chaque type vaut à
   peu près autant au rang max (84-88 % de victoires en 3 contre 3 contre 60 % sans, voir `AUDIT_EQUILIBRAGE.md`) ;
-  Réflexes donne de l'Esquive.
+  Réflexes donne de l'Esquive. Recalage du 2026-09-29 : arbre complet ≥ 440 « % d'Attaque » pour tous (441-529, les types
+  à Critique un cran au-dessus). **Esquive et vol de vie plafonnés à 50 %** en combat (`DODGE_CAP`, `LIFESTEAL_CAP`).
 - **Auras** : chaque membre de l'équipe donne l'aura de son type à toute l'équipe (pleine en équipe, moitié en
   pension/exploration) ; un Pokémon bi-type donne ses deux auras, chacune divisée par 2.
 - **Évolutions à choix** : `EVOLUTION_CHOICES` (11 espèces, dont Évoli ×7), filtrées par `dexMax` ; la fiche Pokémon a un bouton

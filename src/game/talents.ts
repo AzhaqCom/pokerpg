@@ -34,48 +34,49 @@ const pct = (label: string) => (v: number) => `${label} +${v} %`;
 export interface Specialty { name: string; stat: NumericBonusStat; perRank: number; describe: (v: number) => string }
 
 /**
- * Spécialités : chaque type vise la même valeur au rang max (≈ +20 % d'Attaque en efficacité, mesurée en combats
+ * Spécialités (recalées le 2026-09-29 : arbre complet au rang max ≥ 440 « % d'Attaque équivalent » pour tous les types,
+ * les types à Critique restant un cran au-dessus ; esquive et vol de vie plafonnés à 50 % en combat). Chaque type vise la même valeur au rang max (≈ +20 % d'Attaque en efficacité, mesurée en combats
  * 3 contre 3 le 2026-09-24 : Esquive 1,3 · PV/Défense/Attaque 1 · Vol de vie 0,7 · Dégâts du type 0,6 · Critique 0,5 ;
  * Dégâts critiques ≈ 0,3-0,5 seulement avec beaucoup de Critique, d'où leur place au palier 6 des types à Critique).
  */
 export const SPECIALTY: Record<PType, Specialty> = {
-  fire: { name: 'Brasier', stat: 'atkPct', perRank: 4, describe: (v) => `Attaque +${v} %` },
-  poison: { name: 'Venin', stat: 'lifestealPct', perRank: 5, describe: (v) => `Vol de vie ${v} %` },
+  fire: { name: 'Brasier', stat: 'atkPct', perRank: 5.2, describe: (v) => `Attaque +${v} %` },
+  poison: { name: 'Venin', stat: 'lifestealPct', perRank: 6, describe: (v) => `Vol de vie ${v} %` },
   electric: { name: 'Surtension', stat: 'critPct', perRank: 7, describe: (v) => `Critique +${v} %` },
-  ice: { name: 'Blizzard', stat: 'dodgePct', perRank: 3, describe: (v) => `${v} % d'esquive` },
-  grass: { name: 'Sève', stat: 'lifestealPct', perRank: 5, describe: (v) => `Vol de vie ${v} %` },
-  water: { name: 'Carapace', stat: 'defPct', perRank: 4, describe: (v) => `Défense +${v} %` },
-  normal: { name: 'Endurance', stat: 'hpPct', perRank: 4, describe: (v) => `PV +${v} %` },
+  ice: { name: 'Blizzard', stat: 'dodgePct', perRank: 3.2, describe: (v) => `${v} % d'esquive` },
+  grass: { name: 'Sève', stat: 'lifestealPct', perRank: 7, describe: (v) => `Vol de vie ${v} %` },
+  water: { name: 'Carapace', stat: 'defPct', perRank: 5.6, describe: (v) => `Défense +${v} %` },
+  normal: { name: 'Endurance', stat: 'hpPct', perRank: 5, describe: (v) => `PV +${v} %` },
   fighting: { name: 'Frappe sèche', stat: 'critPct', perRank: 7, describe: (v) => `Critique +${v} %` },
   flying: { name: 'Esquive aérienne', stat: 'dodgePct', perRank: 3, describe: (v) => `${v} % d'esquive` },
-  ground: { name: 'Terre ferme', stat: 'defPct', perRank: 4, describe: (v) => `Défense +${v} %` },
-  rock: { name: 'Roc', stat: 'defPct', perRank: 4, describe: (v) => `Défense +${v} %` },
+  ground: { name: 'Terre ferme', stat: 'defPct', perRank: 5.2, describe: (v) => `Défense +${v} %` },
+  rock: { name: 'Roc', stat: 'defPct', perRank: 5.2, describe: (v) => `Défense +${v} %` },
   bug: { name: 'Essaim', stat: 'critPct', perRank: 7, describe: (v) => `Critique +${v} %` },
   ghost: { name: 'Intangible', stat: 'dodgePct', perRank: 3, describe: (v) => `${v} % d'esquive` },
-  psychic: { name: 'Prescience', stat: 'typeDmgPct', perRank: 6, describe: (v) => `Dégâts de son type +${v} %` },
-  dragon: { name: 'Sang draconique', stat: 'atkPct', perRank: 4, describe: (v) => `Attaque +${v} %` },
-  steel: { name: 'Blindage', stat: 'defPct', perRank: 4, describe: (v) => `Défense +${v} %` },
+  psychic: { name: 'Prescience', stat: 'typeDmgPct', perRank: 7.5, describe: (v) => `Dégâts de son type +${v} %` },
+  dragon: { name: 'Sang draconique', stat: 'atkPct', perRank: 4.6, describe: (v) => `Attaque +${v} %` },
+  steel: { name: 'Blindage', stat: 'defPct', perRank: 4.8, describe: (v) => `Défense +${v} %` },
   dark: { name: 'Coup bas', stat: 'critPct', perRank: 7, describe: (v) => `Critique +${v} %` },
 };
 
 /** Palier 6 : une 2e saveur par type, différente de celle du palier 3 (`SPECIALTY`), même valeur visée sur 10 rangs. */
 export const SPECIALTY2: Record<PType, Specialty> = {
-  fire: { name: 'Fournaise', stat: 'critPct', perRank: 3.5, describe: (v) => `Critique +${v} %` },
-  water: { name: 'Courant vital', stat: 'lifestealPct', perRank: 2.5, describe: (v) => `Vol de vie ${v} %` },
-  grass: { name: 'Spores', stat: 'hpPct', perRank: 2, describe: (v) => `PV +${v} %` },
+  fire: { name: 'Fournaise', stat: 'critPct', perRank: 4.6, describe: (v) => `Critique +${v} %` },
+  water: { name: 'Courant vital', stat: 'lifestealPct', perRank: 3.5, describe: (v) => `Vol de vie ${v} %` },
+  grass: { name: 'Spores', stat: 'hpPct', perRank: 2.8, describe: (v) => `PV +${v} %` },
   electric: { name: 'Surcharge', stat: 'critDmgPct', perRank: 6, describe: (v) => `Dégâts critiques +${v} %` },
-  ice: { name: 'Banquise', stat: 'defPct', perRank: 2, describe: (v) => `Défense +${v} %` },
-  normal: { name: 'Ruée', stat: 'atkPct', perRank: 2, describe: (v) => `Attaque +${v} %` },
+  ice: { name: 'Banquise', stat: 'defPct', perRank: 2.1, describe: (v) => `Défense +${v} %` },
+  normal: { name: 'Ruée', stat: 'atkPct', perRank: 2.5, describe: (v) => `Attaque +${v} %` },
   fighting: { name: 'Coup fatal', stat: 'critDmgPct', perRank: 6, describe: (v) => `Dégâts critiques +${v} %` },
   flying: { name: 'Vent arrière', stat: 'critPct', perRank: 3.5, describe: (v) => `Critique +${v} %` },
-  ground: { name: 'Terre battue', stat: 'hpPct', perRank: 2, describe: (v) => `PV +${v} %` },
-  rock: { name: 'Éboulement', stat: 'atkPct', perRank: 2, describe: (v) => `Attaque +${v} %` },
+  ground: { name: 'Terre battue', stat: 'hpPct', perRank: 2.6, describe: (v) => `PV +${v} %` },
+  rock: { name: 'Éboulement', stat: 'atkPct', perRank: 2.6, describe: (v) => `Attaque +${v} %` },
   bug: { name: 'Piqûre', stat: 'critDmgPct', perRank: 6, describe: (v) => `Dégâts critiques +${v} %` },
   ghost: { name: 'Malédiction', stat: 'lifestealPct', perRank: 2.5, describe: (v) => `Vol de vie ${v} %` },
-  psychic: { name: 'Clairvoyance', stat: 'critPct', perRank: 3.5, describe: (v) => `Critique +${v} %` },
-  poison: { name: 'Infection', stat: 'atkPct', perRank: 2, describe: (v) => `Attaque +${v} %` },
-  dragon: { name: 'Rage draconique', stat: 'critPct', perRank: 3.5, describe: (v) => `Critique +${v} %` },
-  steel: { name: 'Alliage renforcé', stat: 'hpPct', perRank: 2, describe: (v) => `PV +${v} %` },
+  psychic: { name: 'Clairvoyance', stat: 'critPct', perRank: 4.4, describe: (v) => `Critique +${v} %` },
+  poison: { name: 'Infection', stat: 'atkPct', perRank: 2.4, describe: (v) => `Attaque +${v} %` },
+  dragon: { name: 'Rage draconique', stat: 'critPct', perRank: 4.1, describe: (v) => `Critique +${v} %` },
+  steel: { name: 'Alliage renforcé', stat: 'hpPct', perRank: 2.4, describe: (v) => `PV +${v} %` },
   dark: { name: 'Lame de l’ombre', stat: 'critDmgPct', perRank: 6, describe: (v) => `Dégâts critiques +${v} %` },
 };
 

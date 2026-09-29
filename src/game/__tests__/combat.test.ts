@@ -118,10 +118,11 @@ describe('combat automatique', () => {
       const a = { ...fighter('a', 0, 4, 30, 7), bonuses: { ...emptyBonuses(), lifestealPct: steal } };
       const bb = fighter('b', 1, 12, 30, 8);
       const battle = new Battle([a, bb], seededRng(3));
-      battle.step(15);
+      battle.step(6);
       return battle.fighters[0].hp;
     };
-    expect(run(150)).toBeGreaterThan(run(0)); // le vol de vie maintient l'attaquant bien plus en vie à combat égal
+    expect(run(50)).toBeGreaterThan(run(0)); // le vol de vie (plafonné à 50 %) maintient l'attaquant plus en vie
+    expect(run(150)).toBe(run(50)); // au-delà du plafond, aucun effet de plus
   });
 
   test('pas de combat infini', () => {
@@ -140,4 +141,13 @@ test('kit de départ : les 4 meilleures capacités, types variés (plus les 4 de
   expect(kit.map((m) => m.slug)).not.toContain('rage'); // plus de Frénésie
   const dmgTypes = kit.filter((m) => m.kind === 'damage').map((m) => m.type);
   expect(new Set(dmgTypes).size).toBe(dmgTypes.length); // un type différent par attaque
+});
+
+test('esquive et vol de vie plafonnés à 50 % en combat', () => {
+  const a = { ...fighter('a', 0, 94, 50), bonuses: { ...emptyBonuses(), lifestealPct: 90 } };
+  const b = { ...fighter('b', 1, 94, 50), bonuses: { ...emptyBonuses(), dodgePct: 100 } };
+  const bt = new Battle([a, b], seededRng(3));
+  bt.step(30);
+  const ev = bt.drain();
+  expect(ev.some((e) => e.kind === 'damage' && e.target === 'b')).toBe(true); // 100 % d'esquive ne rend plus intouchable
 });
