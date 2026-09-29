@@ -12,6 +12,7 @@ import { Button } from '../components/Button';
 import { Dialog, DialogSpec } from '../components/Dialog';
 import { feedback } from '../components/feedback';
 import { HelpScreen } from '../HelpScreen';
+import { DevPools } from '../DevPools';
 import { C } from '../theme';
 import { useFrameClock } from '../useFrameClock';
 import { runner } from './runner';
@@ -61,6 +62,7 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
   const act = useGame((g) => g.act);
   const [dialog, setDialog] = useState<DialogSpec | null>(null);
   const [help, setHelp] = useState(false);
+  const [pools, setPools] = useState(false);
   return (
     <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
       {/* Fond et boîte en calques superposés (pas un Pressable imbriqué dans un autre) : un tap sur le
@@ -149,6 +151,10 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
                 </View>
               </View>
             )}
+            {__DEV__ && (
+              <Button label="🔧 Dev : voir les pools des sauvages (toutes régions)" color="#37474f" onPress={() => setPools(true)} />
+            )}
+            {__DEV__ && <DevPools open={pools} onClose={() => setPools(false)} initialRegion={Math.min(s.prestige, 3)} />}
             {__DEV__ && (
               <Button label="🐛 Debug : Pokédex complet, plus que le Champion à battre (test écran de fin)" color="#37474f" onPress={() => {
                 act((g) => {
