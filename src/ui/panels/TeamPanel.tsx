@@ -50,6 +50,9 @@ export function TeamPanel() {
   const openMon = useUi((u) => u.openMon);
   const [cleanup, setCleanup] = useState<DialogSpec | null>(null);
   const [sort, setSort] = useState<SortMode>('dex');
+  // 2e appui sur le tri actif : ordre inversé (ex. Pokédex décroissant, Niveau croissant)
+  const [reversed, setReversed] = useState(false);
+  const pickSort = (k: SortMode) => { if (k === sort) setReversed((r) => !r); else { setSort(k); setReversed(false); } };
   const [evolveOnly, setEvolveOnly] = useState(false);
   const [xpOnly, setXpOnly] = useState(false);
   const goal = useSettings((st) => st.collectionGoal);
@@ -71,7 +74,7 @@ export function TeamPanel() {
   const box = boxAll
     .filter((m) => (!activeType || species(m.speciesId).types.includes(activeType)) && (!evolveOnly || canEvolve(m, dexMax)) && (!xpOnly || xpSet.has(m.uid)) && (!q || monName(m).toLowerCase().startsWith(q))
       && (shinyFilter === 'all' || m.shiny === (shinyFilter === 'shiny')))
-    .sort(SORTERS[sort]);
+    .sort((a, b) => (reversed ? -1 : 1) * SORTERS[sort](a, b));
   const pensionUids = new Set(s.pension.map((p) => p.uid));
   const explorationUids = new Set(s.exploration.map((p) => p.uid));
   const { width } = useWindowDimensions();
@@ -236,8 +239,8 @@ export function TeamPanel() {
             </View>
             <View style={styles.row}>
               {SORTS.map((so) => (
-                <Pressable key={so.key} onPress={() => setSort(so.key)} style={[styles.chip, sort === so.key && styles.chipOn]}>
-                  <Text style={styles.chipTxt}>{so.label}</Text>
+                <Pressable key={so.key} onPress={() => pickSort(so.key)} style={[styles.chip, sort === so.key && styles.chipOn]}>
+                  <Text style={styles.chipTxt}>{so.label}{sort === so.key ? (reversed ? ' ▲' : ' ▼') : ''}</Text>
                 </Pressable>
               ))}
               <Pressable onPress={() => setEvolveOnly((v) => !v)} style={[styles.chip, evolveOnly && styles.chipOn]}>
