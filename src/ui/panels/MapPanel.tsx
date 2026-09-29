@@ -7,6 +7,8 @@ import { useGame } from '../../store/game';
 import { Button } from '../components/Button';
 import { Dialog, DialogSpec } from '../components/Dialog';
 import { MonThumb } from '../components/MonThumb';
+import { BallIcon } from '../components/BallIcon';
+import { collectionNeeds } from '../../game/collection';
 import { feedback } from '../components/feedback';
 import { runner } from '../battle/runner';
 import { C } from '../theme';
@@ -71,18 +73,43 @@ export function MapPanel() {
   );
 }
 
+/**
+ * État de collection d'une espèce, pour les pastilles de la Carte. Normal : Poké Ball grisée = vu mais pas possédé,
+ * Poké Ball = possédé au moins une fois, Hyper Ball = tout ce qu'il faut (Pokédex et boîte, matière des évolutions
+ * comprise, voir `collectionNeeds`). Chromatique : ☆ gris = aucun, ★ doré = au moins un, ✨ = complet.
+ */
+function collectionState(s: GameState) {
+  const owned = new Set<number>();
+  const ownedShiny = new Set<number>();
+  for (const m of Object.values(s.mons)) (m.shiny ? ownedShiny : owned).add(m.speciesId);
+  return { owned, ownedShiny, need: collectionNeeds(s, false), needShiny: collectionNeeds(s, true) };
+}
+
+function ZoneMon({ id, s, col }: { id: number; s: GameState; col: ReturnType<typeof collectionState> }) {
+  const seen = s.dex.seen.includes(id);
+  const has = col.owned.has(id);
+  const done = has && s.dex.caught.includes(id) && (col.need.get(id) ?? 0) === 0;
+  const hasShiny = col.ownedShiny.has(id);
+  const shinyDone = hasShiny && (col.needShiny.get(id) ?? 0) === 0;
+  return (
+    <View style={styles.zoneMon}>
+      <MonThumb speciesId={id} size={30} silhouette={!seen} />
+      {seen && <View style={styles.ball}><BallIcon kind={done ? 'hyper' : 'poke'} size={12} grey={!has} /></View>}
+      {seen && <Text style={[styles.star, { color: hasShiny ? C.gold : C.dim }]}>{shinyDone ? '✨' : hasShiny ? '★' : '☆'}</Text>}
+    </View>
+  );
+}
+
 function BiomeSection({ biome, bi, s, act, onOpenZone }: {
   biome: BiomeDef; bi: number; s: GameState; act: <T>(fn: (g: GameState) => T) => T | undefined;
   onOpenZone: (z: ZoneDef) => void;
 }) {
+  const col = collectionState(s);
   return (
     <View style={{ gap: 10 }}>
       {biome.zones.map((z, zi) => {
         const zoneUnlocked = s.unlocked[bi][zi] ?? 0;
         const locked = zoneUnlocked < 1;
-        const ids = zoneSpecies(z);
-        const dexPct = ids.length ? ids.filter((id) => s.dex.caught.includes(id)).length / ids.length : 0;
-        const shinyPct = ids.length ? ids.filter((id) => s.dex.shiny.includes(id)).length / ids.length : 0;
         return (
           <View key={z.name} style={[styles.zone, locked && { opacity: 0.45 }]}>
             <Pressable disabled={locked} onPress={() => onOpenZone(z)}>
@@ -91,26 +118,10 @@ function BiomeSection({ biome, bi, s, act, onOpenZone }: {
                 <Text style={styles.sub}>Niv. {z.minLv}–{z.maxLv}</Text>
                 {s.bossesBeaten[bi][zi] && <Text style={styles.done}>✔ boss</Text>}
               </View>
-              {!locked && (
-                <View style={{ gap: 3, marginTop: 2 }}>
-                  <View style={styles.progRow}>
-                    <Text style={styles.progLabel}>Pokédex {Math.round(dexPct * 100)}%</Text>
-                    <View style={styles.progTrack}><View style={[styles.progFill, { width: `${dexPct * 100}%` }]} /></View>
-                  </View>
-                  <View style={styles.progRow}>
-                    <Text style={styles.progLabel}>✨ {Math.round(shinyPct * 100)}%</Text>
-                    <View style={styles.progTrack}><View style={[styles.progFill, styles.progFillGold, { width: `${shinyPct * 100}%` }]} /></View>
-                  </View>
-                </View>
-              )}
             </Pressable>
             <View style={styles.row}>
-              {z.pool.map(([id]) => (
-                <MonThumb key={id} speciesId={id} size={30} silhouette={!s.dex.seen.includes(id)} />
-              ))}
-              {z.boss.joinsPool && s.bossesBeaten[bi][zi] && (
-                <MonThumb key={z.boss.speciesId} speciesId={z.boss.speciesId} size={30} silhouette={!s.dex.seen.includes(z.boss.speciesId)} />
-              )}
+              {z.pool.map(([id]) => <ZoneMon key={id} id={id} s={s} col={col} />)}
+              {z.boss.joinsPool && s.bossesBeaten[bi][zi] && <ZoneMon key={z.boss.speciesId} id={z.boss.speciesId} s={s} col={col} />}
             </View>
             <View style={styles.row}>
               {Array.from({ length: STAGES_PER_ZONE }, (_, i) => i + 1).map((st) => {
@@ -171,6 +182,9 @@ const styles = StyleSheet.create({
   stageOk: { opacity: 1 },
   stageCur: { backgroundColor: C.accent },
   stageTxt: { color: C.text, fontWeight: '800' },
+  zoneMon: { width: 32, height: 32 },
+  ball: { position: 'absolute', right: -2, bottom: -2 },
+  star: { position: 'absolute', left: -2, bottom: -3, fontSize: 10, fontWeight: '900' },
   progRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   progLabel: { color: C.sub, fontSize: 10, fontWeight: '700', width: 76 },
   progTrack: { flex: 1, height: 5, backgroundColor: C.panel2, borderRadius: 3, overflow: 'hidden' },
