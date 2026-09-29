@@ -1,3 +1,4 @@
+import { spriteScale } from '../../data/spriteScale';
 import { Canvas, Group, LinearGradient, Oval, Rect, RoundedRect, SkImage, useImage, vec } from '@shopify/react-native-skia';
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -89,7 +90,8 @@ function FighterDraw({ f, image, meta, W, H, px }: {
   const lunge = clock < anim.lungeUntil ? (side === 0 ? 1 : -1) * 14 * Math.sin(((anim.lungeUntil - clock) / 220) * Math.PI) : 0;
   const fade = anim.faintAt !== null ? Math.max(0, 1 - (clock - anim.faintAt) / 500) : 1;
   if (fade <= 0) return null;
-  const s = f.boss ? px + 1 : px;
+  // les sprites géants sont réduits (compression douce, voir tools/sprite_scale.py) : ils restent les plus grands
+  const s = (f.boss ? px + 1 : px) * spriteScale(f.speciesId);
   const x = pos.x * W + lunge;
   const y = pos.y * H + (anim.faintAt !== null ? (1 - fade) * 10 : 0);
   const idle = meta.actions.idle!;
@@ -144,7 +146,7 @@ export function BattleView({ width }: { width: number }) {
         const slot = fighters.filter((x) => x.side === side).indexOf(f);
         const pos = (side === 0 ? ALLY_POS : ENEMY_POS)[slot];
         const sprite = getSprite(f.speciesId, !!f.shiny)!;
-        const s = f.boss ? px + 1 : px;
+        const s = (f.boss ? px + 1 : px) * spriteScale(f.speciesId);
         const topY = Math.max((HUD_MIN_TOP_BY_SLOT[slot] ?? 22) - 18, pos.y * H - sprite.meta.actions.idle!.fh * s - 26);
         return (
           <View key={`lbl-${f.id}`} pointerEvents="none" style={[styles.label, { left: pos.x * W - 40, top: topY }]}>
