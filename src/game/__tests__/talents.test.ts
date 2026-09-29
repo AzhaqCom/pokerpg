@@ -26,10 +26,10 @@ test('talentTree : paliers 4/5 (Affinité), rang max 15, débloqués à 20/40 po
   expect(tree.find((t) => t.id === 'power')!.maxRank).toBe(MAX_RANK);
 });
 
-test('eligibleAffinityTypes : types du movepool complet, hors des types propres du Pokémon', () => {
+test('eligibleAffinityTypes : ses propres types et ceux de son movepool', () => {
   // Dracaufeu (Feu/Vol), capacités de Platine : Normal, Dragon (Draco-Griffe) et Spectre (Griffe Ombre)
   expect(eligibleAffinityTypes(6)).toEqual(expect.arrayContaining(['normal', 'dragon', 'ghost']));
-  expect(eligibleAffinityTypes(6)).not.toContain('fire');
+  expect(eligibleAffinityTypes(6)).toEqual(expect.arrayContaining(['fire', 'flying'])); // ses propres types aussi
 });
 
 test('eligibleAffinityTypes : plusieurs options, les deux Affinités peuvent reprendre le même type', () => {
@@ -45,9 +45,9 @@ test('eligibleAffinityTypes : ignore les types qui ne viennent que d’une capac
 test('eligibleAffinityTypes : se replie sur son/ses propre(s) type(s) si aucune attaque offensive hors-type', () => {
   // Alakazam (Psy pur) n'a aucune capacité offensive hors Psy : mieux vaut booster son vrai type que de
   // bloquer l'emplacement.
-  expect(eligibleAffinityTypes(65)).toEqual(['psychic']);
+  expect(eligibleAffinityTypes(65)).toContain('psychic');
   // Aspicot (Insecte/Poison), même cas mais bi-type : les deux types propres sont proposés.
-  expect(eligibleAffinityTypes(13)).toEqual(['bug', 'poison']);
+  expect(eligibleAffinityTypes(13)).toEqual(expect.arrayContaining(['bug', 'poison']));
 });
 
 test('eligibleAffinityTypes : jamais aucune option, pour aucune des 493 espèces', () => {
@@ -99,4 +99,11 @@ test('addTalentBonuses : un talent « au choix » entamé mais sans type mémori
   const b = emptyBonuses();
   addTalentBonuses(b, ['fire', 'flying'], { affinity1: 4 }, {});
   expect(b.affinities).toEqual([]);
+});
+
+test('palier 7 d un mono-type à Critique : Dégâts critiques au lieu d une 2e Critique', () => {
+  const psy = talentTree(['psychic']).find((t) => t.id === 'spec3')!;
+  expect(psy.stat).toBe('critDmgPct');
+  const water = talentTree(['water']).find((t) => t.id === 'spec3')!;
+  expect(water.stat).toBe(talentTree(['water']).find((t) => t.id === 'spec2')!.stat); // les autres doublent toujours
 });

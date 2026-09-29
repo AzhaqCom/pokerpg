@@ -1022,8 +1022,8 @@ test('rankUpTalent : palier 4 (talent « au choix ») exige un type éligible au
   expect(spentPoints(m.talents)).toBe(20);
 
   expect(rankUpTalent(s, uid, 'affinity1')).toBe(false); // aucun type fourni
-  expect(rankUpTalent(s, uid, 'affinity1', 'fire')).toBe(false); // type propre au Pokémon, pas éligible
-  expect(rankUpTalent(s, uid, 'affinity1', 'normal')).toBe(true); // seul type éligible pour Dracaufeu
+  expect(rankUpTalent(s, uid, 'affinity1', 'electric')).toBe(false); // ni son type ni dans son movepool
+  expect(rankUpTalent(s, uid, 'affinity1', 'normal')).toBe(true); // type de son movepool (son propre type l'est aussi)
   expect(m.talentTypeChoices.affinity1).toBe('normal');
   expect(m.talents.affinity1).toBe(1);
 

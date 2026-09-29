@@ -94,7 +94,10 @@ export function talentTree(types: PType[]): TalentDef[] {
   // palier 7 : bi-type → saveur classique du type secondaire (identité jamais exploitée sinon) ;
   // mono-type → pas de 2e type à exploiter, la 2e saveur (palier 6) est reprise pour doubler son rang. La saveur du
   // type secondaire est prévue pour 5 rangs : sur les 10 rangs du palier 7, sa valeur par rang est divisée par 2.
-  const sp3 = secondary ? SPECIALTY[secondary] : sp2;
+  // mono-type dont la Spécialité II est du Critique (Feu, Psy, Dragon…) : doubler la Critique la ferait déborder
+  // au-delà de 100 % ; le palier 7 donne à la place des Dégâts critiques, qui vont avec
+  const sp3: Specialty = secondary ? SPECIALTY[secondary]
+    : sp2.stat === 'critPct' ? { name: 'Frappe précise', stat: 'critDmgPct', perRank: 6, describe: (v) => `Dégâts critiques +${v} %` } : sp2;
   const typeLabel = types.map((t) => TYPE_NAME[t]).join(' et ');
   return [
     { id: 'power', name: `Puissance ${TYPE_NAME[primary]}`, tier: 0, stat: 'typeDmgPct', perRank: 6, maxRank: MAX_RANK, describe: pct(`Dégâts ${typeLabel}`) },
@@ -127,13 +130,13 @@ export function talentTree(types: PType[]): TalentDef[] {
 /** Types proposés pour une Affinité. Les deux Affinités peuvent viser le même type (cumul voulu par Arno). */
 export function eligibleAffinityTypes(speciesId: number): PType[] {
   const sp = species(speciesId);
-  const own = new Set(sp.types);
-  const types = new Set<PType>();
+  // ses propres types d'abord (spécialisation « tout Feu »), puis ceux de ses attaques hors de ses types (couverture)
+  const types = new Set<PType>(sp.types);
   for (const moveId of learnedMoves(sp, 100)) {
     const m = move(moveId);
-    if (m.kind === 'damage' && !own.has(m.type)) types.add(m.type);
+    if (m.kind === 'damage') types.add(m.type);
   }
-  return types.size ? [...types] : [...own];
+  return [...types];
 }
 
 export function talentPoints(level: number): number {

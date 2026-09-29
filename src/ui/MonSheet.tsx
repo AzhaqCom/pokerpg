@@ -303,7 +303,7 @@ export function MonSheet() {
                         <View style={{ flex: 1 }}>
                           <Text style={styles.moveName}>{label} <Text style={styles.sub}>{r}/{t.maxRank}</Text></Text>
                           <Text style={styles.moveInfo}>
-                            {needsChoice ? 'Choisis un type à booster (hors des siens, présent dans son movepool)' : `${t.describe(Math.max(1, r) * t.perRank)}${r === 0 ? ' (rang 1)' : ''}`}
+                            {needsChoice ? 'Choisis un type à booster (le sien, ou un type de son movepool)' : `${t.describe(Math.max(1, r) * t.perRank)}${r === 0 ? ' (rang 1)' : ''}`}
                           </Text>
                         </View>
                         <TalentPlus can={can}
