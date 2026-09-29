@@ -60,6 +60,7 @@ const SUB_STAT_LABEL: [key: keyof BattleBonuses, label: string, fmt: (v: number)
 export function MonSheet() {
   const uid = useUi((u) => u.monSheet);
   const open = useUi((u) => u.openMon);
+  const list = useUi((u) => u.monList);
   const s = useGame((g) => g.s);
   useGame((g) => g.rev);
   const act = useGame((g) => g.act);
@@ -93,6 +94,15 @@ export function MonSheet() {
   const megaCandies = s.megaCandies[lineBase(mon.speciesId)] ?? 0;
   const changed = () => runner.restart(); // l'équipe change : la vague repart avec les nouvelles stats
 
+  // flèches ← → : Pokémon précédent/suivant de la liste d'où la fiche a été ouverte (Pokémon relâchés ignorés)
+  const nav = list.filter((u) => s.mons[u]);
+  const idx = nav.indexOf(mon.uid);
+  const go = (d: number) => {
+    if (idx < 0 || nav.length < 2) return;
+    setPicker(null); setSwapPicker(false); setAffinityPick(null); setDialog(null); setEvolvePick(false);
+    open(nav[(idx + d + nav.length) % nav.length], list);
+  };
+
   const moveUp = (i: number) => {
     if (i === 0) return;
     const m = mon.moves.slice(); [m[i - 1], m[i]] = [m[i], m[i - 1]];
@@ -113,6 +123,13 @@ export function MonSheet() {
           </Pressable>
           <Text style={[styles.cp, { color: cpColor(st.cp) }]}>PC {st.cp}</Text>
         </View>
+        {idx >= 0 && nav.length > 1 && (
+          <View style={styles.navRow}>
+            <Pressable hitSlop={10} onPress={() => go(-1)} style={styles.navBtn}><Text style={styles.navTxt}>←</Text></Pressable>
+            <Text style={styles.navCount}>{idx + 1} / {nav.length}</Text>
+            <Pressable hitSlop={10} onPress={() => go(1)} style={styles.navBtn}><Text style={styles.navTxt}>→</Text></Pressable>
+          </View>
+        )}
         <ScrollView contentContainerStyle={styles.body}>
           <View style={styles.head}>
             <View style={styles.stage}><AnimatedSprite species={mon.speciesId} shiny={mon.shiny} action="idle" width={130} height={110} /></View>
@@ -485,6 +502,10 @@ const styles = StyleSheet.create({
   evoName: { fontSize: 15, fontWeight: '800' },
   evoTypes: { fontSize: 11, fontWeight: '700', opacity: 0.85 },
   root: { flex: 1, backgroundColor: C.bg, paddingTop: 40 },
+  navRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 18, paddingBottom: 6 },
+  navBtn: { backgroundColor: C.panel2, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 4 },
+  navTxt: { color: C.text, fontSize: 18, fontWeight: '800' },
+  navCount: { color: C.sub, fontSize: 12, fontWeight: '700' },
   top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 8 },
   lock: { fontSize: 18 },
   targetBtn: { backgroundColor: C.panel2, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },

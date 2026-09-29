@@ -116,7 +116,7 @@ function Main() {
         // listes virtualisées (FlatList) : ne doivent jamais être imbriquées dans le ScrollView ci-dessous
         <View style={{ flex: 1 }}>{tab === 'bag' ? <BagPanel /> : tab === 'dex' ? <DexPanel /> : <TeamPanel />}</View>
       ) : (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.panel}>
+        <ScrollView key={tab} style={{ flex: 1 }} contentContainerStyle={styles.panel}>
           {tab === 'map' && <MapPanel />}
           {tab === 'pension' && <PensionPanel />}
           {tab === 'exploration' && <ExplorationPanel />}

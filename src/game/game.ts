@@ -270,7 +270,7 @@ function starterItems(s: GameState): string[] {
 }
 
 export function chooseStarter(s: GameState, speciesId: number, rng: Rng) {
-  const mon = makeMon(speciesId, 5, rng, false, 8);
+  const mon = makeMon(speciesId, 5, rng, false, 12); // gènes ≥ 12 : le starter est toujours au moins 3★
   addMon(s, mon);
   s.team = [mon.uid];
   s.starterChosen = true;

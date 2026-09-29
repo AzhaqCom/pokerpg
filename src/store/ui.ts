@@ -8,9 +8,11 @@ interface UiStore {
   tab: Tab;
   /** Pokémon ouvert dans la fiche (uid) */
   monSheet: string | null;
+  /** liste affichée d'où la fiche a été ouverte (même tri/filtres) : flèches ← → de la fiche */
+  monList: string[];
   toasts: Toast[];
   setTab: (t: Tab) => void;
-  openMon: (uid: string | null) => void;
+  openMon: (uid: string | null, list?: string[]) => void;
   dismiss: (id: number) => void;
 }
 
@@ -19,9 +21,10 @@ let nextId = 1;
 export const useUi = create<UiStore>((set) => ({
   tab: 'team',
   monSheet: null,
+  monList: [],
   toasts: [],
   setTab: (tab) => set({ tab }),
-  openMon: (monSheet) => set({ monSheet }),
+  openMon: (monSheet, list) => set({ monSheet, monList: list ?? [] }),
   dismiss: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 }));
 

@@ -100,6 +100,7 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
 
             <Section title="📦 Boîte et objets" />
             <Row label="Collectionneur hardcore" value={st.keepEvolutionMaterial} onChange={(v) => st.set({ keepEvolutionMaterial: v })} />
+            <Row label="Masquer « Ne garder que les chromatiques »" value={st.hideShinyOnlyButton} onChange={(v) => st.set({ hideShinyOnlyButton: v })} />
             <View style={{ gap: 6 }}>
               <Text style={styles.setLabel}>Recycler : jusqu'à</Text>
               <View style={styles.chipsRow}>

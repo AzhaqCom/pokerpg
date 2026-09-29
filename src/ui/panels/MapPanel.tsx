@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BIOMES, BiomeDef, REGIONS, REGION_START, STAGES_PER_ZONE, ZoneDef } from '../../game/content';
 import { species } from '../../game/data';
@@ -25,6 +25,15 @@ export function MapPanel() {
   const regionStart = REGION_START[s.prestige] ?? 0;
   const regionEnd = REGION_START[s.prestige + 1] ?? BIOMES.length;
   const bi = sel >= regionStart && sel < regionEnd ? sel : s.biome;
+  // suit le biome en cours : après une victoire d'arène, la Carte affiche directement le nouveau biome
+  useEffect(() => { setSel(s.biome); }, [s.biome]);
+  // la barre des biomes défile jusqu'à l'onglet affiché (sinon il peut être hors de l'écran, à droite)
+  const tabsRef = useRef<ScrollView>(null);
+  const tabX = useRef<Record<number, number>>({});
+  useEffect(() => {
+    const x = tabX.current[bi];
+    if (x !== undefined) tabsRef.current?.scrollTo({ x: Math.max(0, x - 24), animated: true });
+  }, [bi]);
   return (
     <View style={{ gap: 12 }}>
       {/* prestige reporté (« Plus tard » sur le récap) : se lance d'ici, quand le joueur le souhaite */}
@@ -37,13 +46,17 @@ export function MapPanel() {
         })} />
       )}
       <Dialog spec={dialog} onClose={() => setDialog(null)} />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
+      <ScrollView ref={tabsRef} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
         {BIOMES.slice(regionStart, regionEnd).map((biome, localI) => {
           const i = regionStart + localI;
           const unlocked = biomeAvailable(s, i);
           const done = s.arenaBeaten[i];
           return (
             <Pressable key={biome.name} disabled={!unlocked} onPress={() => setSel(i)}
+              onLayout={(e) => {
+                tabX.current[i] = e.nativeEvent.layout.x;
+                if (i === bi) tabsRef.current?.scrollTo({ x: Math.max(0, e.nativeEvent.layout.x - 24), animated: false });
+              }}
               style={[styles.tab, i === bi && styles.tabOn, !unlocked && styles.tabLocked]}>
               <Text style={[styles.tabTxt, i === bi && styles.tabTxtOn]} numberOfLines={1}>
                 {unlocked ? (done ? '✔ ' : '') : '🔒 '}{biome.name}

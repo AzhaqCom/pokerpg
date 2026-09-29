@@ -36,13 +36,15 @@ export interface Settings {
   convertTargets: boolean;
   /** empêche l'écran de se mettre en veille tant que le jeu est affiché (expo-keep-awake) */
   keepAwake: boolean;
+  /** masque le bouton « Ne garder que les chromatiques » de la boîte (évite un relâcher massif par erreur) */
+  hideShinyOnlyButton: boolean;
 }
 
 const DEFAULTS: Settings = {
   sound: true, music: true, haptics: true, fast: false,
   autoCapture: false, autoCaptureBestBall: false, autoCaptureUpgrade: false, hideOwnedOffers: false,
   recycleMaxRarity: 1, idleAutoRecycle: true, idleRecycleMaxRarity: 1, skipOwnedShiny: false,
-  keepEvolutionMaterial: true, convertTargets: true, keepAwake: false,
+  keepEvolutionMaterial: true, convertTargets: true, keepAwake: false, hideShinyOnlyButton: false,
 };
 
 interface Store extends Settings {
@@ -63,10 +65,12 @@ export const useSettings = create<Store>((set, get) => ({
     const {
       sound, music, haptics, fast, autoCapture, autoCaptureBestBall, autoCaptureUpgrade, hideOwnedOffers,
       recycleMaxRarity, idleAutoRecycle, idleRecycleMaxRarity, skipOwnedShiny, keepEvolutionMaterial, convertTargets, keepAwake,
+      hideShinyOnlyButton,
     } = { ...get(), ...patch };
     AsyncStorage.setItem(KEY, JSON.stringify({
       sound, music, haptics, fast, autoCapture, autoCaptureBestBall, autoCaptureUpgrade, hideOwnedOffers,
       recycleMaxRarity, idleAutoRecycle, idleRecycleMaxRarity, skipOwnedShiny, keepEvolutionMaterial, convertTargets, keepAwake,
+      hideShinyOnlyButton,
     })).catch(() => {});
   },
 }));

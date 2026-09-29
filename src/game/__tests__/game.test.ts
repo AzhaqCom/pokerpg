@@ -1327,3 +1327,12 @@ test('évolutions inter-générations : Magnéton évolue en Magnézone à Sinno
   expect(lineChain(lineBase(462), 151)).toEqual([81, 82]); // Kanto : la lignée s'arrête à Magnéton
   expect(whereToFind(208, 1).path.length).toBeGreaterThanOrEqual(1); // Steelix toujours obtenable à Johto
 });
+
+test('starter : toujours au moins 3★, dans toutes les régions', () => {
+  for (let seed = 1; seed <= 30; seed++) {
+    const s = newGame();
+    s.prestige = seed % 4;
+    chooseStarter(s, 152, seededRng(seed));
+    expect(monStars(Object.values(s.mons)[0])).toBeGreaterThanOrEqual(3);
+  }
+});

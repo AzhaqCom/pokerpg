@@ -27,15 +27,19 @@ const BOX_GAP = 8;
 const SCREEN_PADDING = 24;
 const TYPE_ORDER = Object.keys(TYPE_COLOR) as PType[];
 
-type SortMode = 'level' | 'dex' | 'stars';
+type SortMode = 'level' | 'dex' | 'stars' | 'date';
+/** Date de capture, lue dans l'identifiant du Pokémon (`m` + horodatage en base 36, voir `newUid`) : marche aussi
+ * pour les Pokémon capturés avant l'ajout de ce tri. */
+const capturedAt = (m: Mon) => parseInt(m.uid.slice(1, 9), 36) || 0;
 const SORTS: { key: SortMode; label: string }[] = [
   { key: 'dex', label: 'Ordre Pokédex' },
-  { key: 'level', label: 'Niveau' }, { key: 'stars', label: 'Rang' },
+  { key: 'level', label: 'Niveau' }, { key: 'stars', label: 'Rang' }, { key: 'date', label: 'Capture' },
 ];
 const SORTERS: Record<SortMode, (a: Mon, b: Mon) => number> = {
   level: (a, b) => b.level - a.level || monStars(b) - monStars(a),
   dex: (a, b) => a.speciesId - b.speciesId || b.level - a.level,
   stars: (a, b) => monStars(b) - monStars(a) || b.level - a.level,
+  date: (a, b) => capturedAt(b) - capturedAt(a),
 };
 
 export function TeamPanel() {
@@ -68,6 +72,7 @@ export function TeamPanel() {
   const { width } = useWindowDimensions();
   const cellWidth = (width - SCREEN_PADDING - BOX_GAP * (BOX_COLS - 1)) / BOX_COLS;
   const keepEvolutionMaterial = useSettings((st) => st.keepEvolutionMaterial);
+  const hideShinyOnlyButton = useSettings((st) => st.hideShinyOnlyButton);
   const excess = excessMons(s, { keepEvolutionMaterial });
   const belowStars = monsBelowStars(s, 3);
   const notShiny = monsNotShiny(s);
@@ -75,7 +80,7 @@ export function TeamPanel() {
   const boxEquippedCount = Object.values(s.mons)
     .filter((m) => !s.team.includes(m.uid))
     .reduce((a, m) => a + Object.keys(m.items).length, 0);
-  const hasActions = dexCompletable || excess.length > 0 || boxEquippedCount > 0 || belowStars.length > 0 || notShiny.length > 0;
+  const hasActions = dexCompletable || excess.length > 0 || boxEquippedCount > 0 || belowStars.length > 0 || (notShiny.length > 0 && !hideShinyOnlyButton);
 
   return (
     <>
@@ -91,7 +96,7 @@ export function TeamPanel() {
         windowSize={5}
         removeClippedSubviews
         renderItem={({ item: m }: { item: Mon }) => (
-          <Pressable onPress={() => openMon(m.uid)} style={[styles.boxCell, { width: cellWidth }]}>
+          <Pressable onPress={() => openMon(m.uid, box.map((x) => x.uid))} style={[styles.boxCell, { width: cellWidth }]}>
             <View>
               <MonThumb speciesId={m.speciesId} shiny={m.shiny} size={48} />
               {/* lignée ciblée (🎯) : en haut à gauche, à l'opposé du ✨ des chromatiques */}
@@ -120,7 +125,7 @@ export function TeamPanel() {
                 feedback();
               };
               return (
-                <Pressable key={uid} onPress={() => openMon(uid)} style={styles.card}>
+                <Pressable key={uid} onPress={() => openMon(uid, s.team.filter((u) => s.mons[u]))} style={styles.card}>
                   <View style={styles.reorder}>
                     <Pressable hitSlop={8} disabled={i === 0} onPress={() => move(-1)}>
                       <Text style={[styles.reorderArrow, i === 0 && styles.reorderArrowOff]}>▲</Text>
@@ -200,7 +205,7 @@ export function TeamPanel() {
                   });
                 }} />
               )}
-              {notShiny.length > 0 && (
+              {notShiny.length > 0 && !hideShinyOnlyButton && (
                 <Button small label={`Ne garder que les Shiney (−${notShiny.length})`} color="#6a1b9a" onPress={() => {
                   const candies = notShiny.length * 3;
                   setCleanup({
