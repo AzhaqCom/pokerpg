@@ -46,3 +46,6 @@ tools/.pmd_cache/
 
 # scripts de mesure locaux (simulations, calculs ponctuels)
 tools/scratch/
+
+# Clé de signature Android (EAS)
+credentials.json
