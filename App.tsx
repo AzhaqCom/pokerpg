@@ -1,11 +1,11 @@
 import { useKeepAwake } from 'expo-keep-awake';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AppState, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { initMusic, setMusicEnabled } from './src/audio/music';
 import { initSfx, setSfxEnabled } from './src/audio/sfx';
-import { challengesReady, canEvolve, canPrestige, explorationReady, fusionBadgeCount, pensionXpReady, touchLastActive } from './src/game/game';
+import { challengesReady, canEvolve, canPrestige, endingReady, hasShinyCharm, explorationReady, fusionBadgeCount, pensionXpReady, touchLastActive } from './src/game/game';
 import { IdleGains, applyIdleGains, computeIdleGains } from './src/game/idle';
 import { rng, useGame } from './src/store/game';
 import { useSettings } from './src/store/settings';
@@ -13,6 +13,8 @@ import { Tab, useUi } from './src/store/ui';
 import { CrashView, ErrorBoundary, useCrash, reportError } from './src/ui/CrashScreen';
 import { IdleSummary } from './src/ui/IdleSummary';
 import { PrestigeOffer } from './src/ui/PrestigeOffer';
+import { EndingScreen } from './src/ui/EndingScreen';
+import { toast } from './src/store/ui';
 import { BattleView } from './src/ui/battle/BattleView';
 import { HudTop } from './src/ui/battle/Hud';
 import { runner } from './src/ui/battle/runner';
@@ -149,6 +151,17 @@ function Root() {
   // nouveau départ se lance ensuite depuis la bannière de la Carte.
   const offerPrestige = !!s && s.starterChosen && canPrestige(s) && !s.prestigeOffered;
   useEffect(() => { if (offerPrestige) runner.paused = true; }, [offerPrestige]);
+  // fin de l'aventure (Champion de la dernière région) : écran « Maître Pokémon », combat en pause le temps de le lire
+  const ending = !!s && s.starterChosen && endingReady(s);
+  useEffect(() => { if (ending) runner.paused = true; }, [ending]);
+  // Charme Chroma : annoncé au moment où le Pokédex de la région est complété (pas au lancement s'il l'était déjà)
+  const charm = !!s && hasShinyCharm(s);
+  const hadCharm = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (!s) return;
+    if (hadCharm.current === false && charm) toast('✨ Charme Chroma obtenu : chromatiques 2 fois plus fréquents dans cette région !', C.gold);
+    hadCharm.current = charm;
+  }, [charm, !!s]);
   return (
     <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
@@ -156,6 +169,7 @@ function Root() {
       <Toasts />
       <IdleSummary gains={idleGains} onClose={() => setIdleGains(null)} />
       {offerPrestige && <PrestigeOffer onClose={() => {}} />}
+      {ending && <EndingScreen />}
     </View>
   );
 }

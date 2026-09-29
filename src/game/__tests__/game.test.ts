@@ -2,7 +2,7 @@ import { BIOMES, REGION_START, REGIONS, STAGES_PER_ZONE, regionLastBiome } from 
 import { ALL_SPECIES, EVOLUTION_CHOICES, evolutionTargets, species } from '../data';
 import {
   GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, applyMegaCandy, craftMegaCandy, lineBase, arenaAvailable, assignExploration, assignPension, autoCaptureBall, autoEquipBest, bestStarsOf, biomeAvailable, bossAvailable,
-  lineChain, autoTalents, canCompleteDex, whereToFind, canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
+  lineChain, hasShinyCharm, shinyOdds, endingReady, autoTalents, canCompleteDex, whereToFind, canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
   harvestExploration, harvestPension, holder, isRareInZone, makeMon, addMon, makeWaves, migrateSave, monsBelowStars, monsNotShiny, newGame, pickSpecies, rankUpTalent, recycle, release, releaseBelowStars, SHARDS_PER_MIN,
   releaseExcess, releaseNotShiny, remainingEvolutions, removePension, selectStage, setAutoAdvance, START_BALLS, startPrestige,
   CAPTURE_PITY, RELEASE_CANDIES, applyMegaCandy as applyMega, lineForms, BALL_PRICE, buyBalls, autoMoves, captureTarget, setTeam, toggleLock, challengesReady, postponePrestige, idleFarmTarget, isTargeted, toggleTarget, zoneHasTarget, teamMaxLevel, tryCapture, unequipBox, xpGapMult,
@@ -1335,4 +1335,25 @@ test('starter : toujours au moins 3★, dans toutes les régions', () => {
     chooseStarter(s, 152, seededRng(seed));
     expect(monStars(Object.values(s.mons)[0])).toBeGreaterThanOrEqual(3);
   }
+});
+
+test('Charme Chroma : Pokédex de la région complet → chromatiques 1/128, perdu au prestige', () => {
+  const s = newGame();
+  expect(hasShinyCharm(s)).toBe(false);
+  expect(shinyOdds(s)).toBe(256);
+  for (let id = 1; id <= 151; id++) s.dex.caught.push(id);
+  expect(hasShinyCharm(s)).toBe(true);
+  expect(shinyOdds(s)).toBe(128);
+  s.prestige = 1; // Johto : il faut maintenant les 251
+  expect(hasShinyCharm(s)).toBe(false);
+});
+
+test('fin de l\'aventure : écran de fin après le Champion de la dernière région, une seule fois', () => {
+  const s = newGame();
+  s.prestige = REGIONS.length - 1;
+  expect(endingReady(s)).toBe(false);
+  s.arenaBeaten[regionLastBiome(s.prestige)] = true;
+  expect(endingReady(s)).toBe(true);
+  s.endingSeen = true;
+  expect(endingReady(s)).toBe(false);
 });

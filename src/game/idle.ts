@@ -13,7 +13,7 @@
 import { Battle } from './battle';
 import { BIOMES, STAGES_PER_ZONE, WAVES_PER_STAGE } from './content';
 import {
-  BETWEEN_WAVES_MS, BallKind, CAPTURE_OFFER_CHANCE, GameState, LOOT_CHANCE, PENSION_CAP_MS, RELEASE_CANDIES, SHINY_ODDS,
+  BETWEEN_WAVES_MS, BallKind, CAPTURE_OFFER_CHANCE, GameState, LOOT_CHANCE, PENSION_CAP_MS, RELEASE_CANDIES, shinyOdds,
   addMon, allyFighter, bestStarsOf, captureChance, genesMinForBadges, giveXp, idleFarmTarget, isRareInZone, isTargeted,
   keepTargetCapture, lineBase, makeMon, makeWaves, pickSpecies, teamMaxLevel, wildFighter, xpGapMult,
 } from './game';
@@ -90,7 +90,7 @@ function sampleWaves(s: GameState, rng: Rng, target: number, biome = s.biome, zo
   for (const uid of s.team) xpShareSum[uid] = 0;
 
   while (sampled < target) {
-    const waves = makeWaves('stage', biome, zone, stage, rng, s.team.length, s.bossesBeaten[biome][zone]);
+    const waves = makeWaves('stage', biome, zone, stage, rng, s.team.length, s.bossesBeaten[biome][zone], shinyOdds(s));
     const hp: Record<string, number | undefined> = {};
     for (const wave of waves) {
       if (sampled >= target) break;
@@ -247,7 +247,7 @@ export function computeIdleGains(
   const zone = BIOMES[farmBiome].zones[farmZone];
   const levelCap = teamMaxLevel(s);
   for (let i = 0; i < kills; i++) {
-    if (rng.int(SHINY_ODDS) === 0) {
+    if (rng.int(shinyOdds(s)) === 0) {
       // même tirage qu'en combat (`makeWaves`) : un légendaire `joinsPool` vaincu fait partie du pool
       const speciesId = pickSpecies(zone, rng, s.bossesBeaten[farmBiome][farmZone]);
       // objectif « boîte + chromatiques » : un chromatique qui ne manque pas à la boîte est ignoré ; sinon déjà au Pokédex

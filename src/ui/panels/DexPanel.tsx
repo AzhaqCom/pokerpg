@@ -2,7 +2,7 @@ import { memo, useCallback, useState } from 'react';
 import { FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { regionOf } from '../../game/content';
 import { ALL_SPECIES, species as speciesOf } from '../../game/data';
-import { Habitat, biomeAvailable, isTargeted, selectStage, toggleTarget, whereToFind } from '../../game/game';
+import { Habitat, biomeAvailable, hasShinyCharm, isTargeted, selectStage, toggleTarget, whereToFind } from '../../game/game';
 import { useGame } from '../../store/game';
 import { toast } from '../../store/ui';
 import { runner } from '../battle/runner';
@@ -51,6 +51,10 @@ export function DexPanel() {
         <Text style={styles.count}>{s.dex.caught.length}<Text style={styles.dim}>/{maxId} capturés</Text></Text>
         <Text style={styles.dim}>{s.dex.seen.length} vus · ✨ {s.dex.shiny.length}</Text>
       </View>
+      <Text style={[styles.dim, hasShinyCharm(s) && { color: C.gold }]}>
+        {hasShinyCharm(s) ? '✨ Charme Chroma actif : chromatiques 2 fois plus fréquents dans cette région'
+          : `✨ Charme Chroma : capture les ${maxId} espèces de la région pour doubler les chances de chromatique`}
+      </Text>
       <View style={styles.row}>
         <Pressable onPress={() => setShiny(false)} style={[styles.chip, !shiny && styles.chipOn]}><Text style={styles.chipTxt}>Normaux</Text></Pressable>
         <Pressable onPress={() => setShiny(true)} style={[styles.chip, shiny && styles.chipGold]}><Text style={styles.chipTxt}>Chromatiques</Text></Pressable>

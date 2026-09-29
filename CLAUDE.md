@@ -86,6 +86,10 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   prestige), Poké Ball à 50 % tant que l'équipe a < 3 Pokémon, **pitié** (`CAPTURE_PITY` = 3 échecs de suite → capture
   garantie, `missStreak`). Niveau du capturé plafonné au meilleur de l'équipe. Réglages : capture auto des espèces
   manquantes, ne pas proposer une espèce déjà possédée à 3★+, ne pas capturer un chromatique déjà obtenu.
+- **Charme Chroma** (`hasShinyCharm`/`shinyOdds`) : Pokédex de la région complet (capturés) → chromatiques 1/128 au lieu
+  de 1/256, en combat et hors ligne ; perdu au prestige (le Pokédex repart à zéro), regagné dans la région suivante.
+- **Fin de l'aventure** (`endingReady`, `EndingScreen`) : Champion de la dernière région → écran « Maître Pokémon » avec le
+  récap de toute la partie (`adventureStart`), montré une fois (`endingSeen`), puis on continue dans la région.
 - **Poids des espèces** : voir `REGIONS.md`. Tous les légendaires sont à 20 (chasse aux chromatiques en hors ligne visée :
   ~5 h Kanto, 9 h Johto, 18 h Hoenn, 40 h Sinnoh).
 - **Butin** : 11 %/sauvage (`LOOT_CHANCE`), boss 3 objets ; niveau = `max(niveau ennemi, meilleur de l'équipe)`.

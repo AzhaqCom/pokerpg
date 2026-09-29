@@ -18,6 +18,27 @@ export const TEAM_SIZE = 3;
 export const LOOT_CHANCE = 11; // % par sauvage vaincu (~1 objet / 45 s)
 export const CAPTURE_OFFER_CHANCE = 35; // % après une vague gagnée
 export const SHINY_ODDS = 256;
+/** Charme Chroma : chromatiques 2 fois plus fréquents une fois le Pokédex de la région complet. */
+export const SHINY_ODDS_CHARM = 128;
+
+/**
+ * Charme Chroma : obtenu en capturant toutes les espèces du Pokédex de la région en cours. Le Pokédex repart à zéro au
+ * prestige, donc le charme se perd en changeant de région et se regagne en complétant le suivant (rien à stocker).
+ */
+/** Fin de l'aventure : Champion de la dernière région battu (plus de région suivante), écran de fin pas encore montré. */
+export function endingReady(s: GameState): boolean {
+  return s.prestige >= REGIONS.length - 1 && !!s.arenaBeaten[regionLastBiome(s.prestige)] && !s.endingSeen;
+}
+
+export function hasShinyCharm(s: GameState): boolean {
+  const dexMax = regionOf(s.prestige).dexMax;
+  return s.dex.caught.filter((id) => id <= dexMax).length >= dexMax;
+}
+
+/** Chance d'un chromatique (1 sur N) pour la partie en cours. */
+export function shinyOdds(s: GameState): number {
+  return hasShinyCharm(s) ? SHINY_ODDS_CHARM : SHINY_ODDS;
+}
 export const BALLS = {
   poke: { name: 'Poké Ball', chance: 30 },
   super: { name: 'Super Ball', chance: 55 },
@@ -90,6 +111,10 @@ export interface GameState {
   startedAt: number;
   /** Récap de fin de région déjà montré et reporté (« Plus tard ») : le prestige se lance ensuite depuis la Carte. */
   prestigeOffered: boolean;
+  /** Horodatage (ms) du tout premier départ (jamais remis à zéro au prestige) : temps total de l'aventure. */
+  adventureStart: number;
+  /** Écran de fin (« Maître Pokémon », Champion de la dernière région) déjà montré. */
+  endingSeen: boolean;
   /** Version d'équilibrage des objets déjà convertie (2 = poids mesurés du 2026-09-24, voir `migrateSave`). */
   balanceVersion: number;
 }
@@ -107,7 +132,7 @@ export function newGame(): GameState {
     totals: { kills: 0, captures: 0, fusions: 0, stagesCleared: 0 },
     lastActive: Date.now(),
     prestige: 0,
-    startedAt: Date.now(), prestigeOffered: false,
+    startedAt: Date.now(), prestigeOffered: false, adventureStart: Date.now(), endingSeen: false,
     balanceVersion: 2,
   };
 }
@@ -238,6 +263,8 @@ export function migrateSave(raw: Record<string, unknown>): Record<string, unknow
       for (const sub of it.subs ?? []) sub.value = Math.round(sub.value * (SCALE[sub.stat] ?? 1) * 10) / 10;
     }
   }
+  // début de l'aventure : les anciennes sauvegardes n'ont que le début de la région en cours
+  if (typeof raw.adventureStart !== 'number') raw.adventureStart = typeof raw.startedAt === 'number' ? raw.startedAt : Date.now();
   raw.balanceVersion = 2;
   return raw;
 }
@@ -1026,7 +1053,7 @@ export interface WaveEnemy {
 }
 
 /** Génère les vagues d'une étape. */
-export function makeWaves(kind: StageKind, biomeIndex: number, zoneIndex: number, stage: number, rng: Rng, teamSize = 3, bossBeaten = false): WaveEnemy[][] {
+export function makeWaves(kind: StageKind, biomeIndex: number, zoneIndex: number, stage: number, rng: Rng, teamSize = 3, bossBeaten = false, odds = SHINY_ODDS): WaveEnemy[][] {
   const biome = BIOMES[biomeIndex];
   if (kind === 'arena') {
     return biome.arena.team.map(([id, lv]) => [{ mon: makeMon(id, lv, rng, false, 12), hpMult: 2 * bossRamp(biomeIndex, 2, 5), boss: true }]);
@@ -1045,7 +1072,7 @@ export function makeWaves(kind: StageKind, biomeIndex: number, zoneIndex: number
     const n = Math.max(1, Math.min(byStage, teamSize + (stage >= 4 ? 1 : 0)));
     const wave: WaveEnemy[] = [];
     for (let i = 0; i < n; i++) {
-      const shiny = rng.int(SHINY_ODDS) === 0;
+      const shiny = rng.int(odds) === 0;
       wave.push({ mon: makeMon(pickSpecies(zone, rng, bossBeaten), Math.max(2, lv - 1 + rng.int(2)), rng, shiny), wild: true, wildMult: zoneWildMult(biomeIndex, zoneIndex, stage) });
     }
     waves.push(wave);
@@ -1082,7 +1109,7 @@ export class StageRun {
     this.biome = s.biome;
     this.zone = s.zone;
     this.stage = s.stage;
-    this.waves = makeWaves(kind, s.biome, s.zone, s.stage, rng, s.team.length, s.bossesBeaten[s.biome][s.zone]);
+    this.waves = makeWaves(kind, s.biome, s.zone, s.stage, rng, s.team.length, s.bossesBeaten[s.biome][s.zone], shinyOdds(s));
     this.battle = this.makeBattle();
   }
 
