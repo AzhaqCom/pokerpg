@@ -23,3 +23,9 @@ Ce qui reste à faire ou à envisager (le fait est archivé dans `HISTORIQUE.md`
 
 ## À faire de l'utilisateur
 - Tester le build APK (taille ~132 Mo, performances des listes).
+
+## Build APK : changer de compte Expo (limite de builds atteinte sur `azhaq95`)
+1. `eas whoami`, puis `eas logout`, puis `eas login` (second compte).
+2. `app.json` : remplacer `"owner": "azhaq95"` par le second compte et retirer le bloc `"eas": { "projectId": "…" }`
+   (projet rattaché au 1er compte, id `ae759981-177a-4ce6-b01f-6957e86e22f9` — le noter pour revenir en arrière).
+3. `eas init` (crée le projet sur le second compte et réécrit `projectId`), puis `eas build -p android --profile preview`.
