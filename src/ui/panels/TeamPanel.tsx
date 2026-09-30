@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { memo, useMemo, useRef, useState } from 'react';
+import { FlatList, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Text, TextInput } from '../components/Text';
 import { regionOf } from '../../game/content';
 import { PType, species } from '../../game/data';
 import {
@@ -27,6 +28,22 @@ const BOX_GAP = 8;
 /** Padding horizontal de la liste : 12 de chaque côté. */
 const SCREEN_PADDING = 24;
 const TYPE_ORDER = Object.keys(TYPE_COLOR) as PType[];
+
+/**
+ * Empreinte de la boîte : ne change que si sa composition change (captures, relâchés, évolutions, niveaux, gènes,
+ * verrous, équipe, pension, exploration, Pokédex). Les calculs de collection (doublons, « Compléter » simulé à blanc,
+ * besoin d'XP…) ne sont refaits que dans ce cas, pas à chaque fin de vague : sur une grosse boîte, ils figeaient le
+ * combat quelques dizaines de millisecondes à chaque `rev`.
+ */
+function boxSignature(s: GameState): string {
+  let h = 0;
+  for (const m of Object.values(s.mons)) {
+    const g = m.genes;
+    h = (h * 31 + m.speciesId * 7 + m.level * 13 + (g.hp + g.atk * 3 + g.def * 5 + g.spe * 7) + (m.shiny ? 101 : 0) + (m.locked ? 211 : 0)) | 0;
+  }
+  return [Object.keys(s.mons).length, h, s.team.join(), s.pension.map((p) => p.uid).join(), s.exploration.map((p) => p.uid).join(),
+    s.dex.caught.length, s.dex.shiny.length].join('|');
+}
 
 type SortMode = 'level' | 'dex' | 'stars' | 'date';
 /** Date de capture, lue dans l'identifiant du Pokémon (`m` + horodatage en base 36, voir `newUid`) : marche aussi
@@ -57,7 +74,6 @@ export function TeamPanel() {
   const [xpOnly, setXpOnly] = useState(false);
   const goal = useSettings((st) => st.collectionGoal);
   const boxGoal = goal === 'box' || goal === 'boxShiny';
-  const xpSet = needsXp(s, goal);
   const [shinyFilter, setShinyFilter] = useState<'all' | 'normal' | 'shiny'>('all');
   const [query, setQuery] = useState('');
   const q = query.trim().toLowerCase();
@@ -71,10 +87,6 @@ export function TeamPanel() {
     return TYPE_ORDER.filter((t) => present.has(t));
   }, [boxAll.length, s.mons]);
   const activeType = typeFilter && boxTypes.includes(typeFilter) ? typeFilter : null;
-  const box = boxAll
-    .filter((m) => (!activeType || species(m.speciesId).types.includes(activeType)) && (!evolveOnly || canEvolve(m, dexMax)) && (!xpOnly || xpSet.has(m.uid)) && (!q || monName(m).toLowerCase().startsWith(q))
-      && (shinyFilter === 'all' || m.shiny === (shinyFilter === 'shiny')))
-    .sort((a, b) => (reversed ? -1 : 1) * SORTERS[sort](a, b));
   const pensionUids = new Set(s.pension.map((p) => p.uid));
   const explorationUids = new Set(s.exploration.map((p) => p.uid));
   const { width } = useWindowDimensions();
@@ -82,11 +94,23 @@ export function TeamPanel() {
   const keepEvolutionMaterial = useSettings((st) => st.keepEvolutionMaterial);
   const hideShinyOnlyButton = useSettings((st) => st.hideShinyOnlyButton);
   // objectif « boîte » : doublons et « Compléter » suivent le calcul de collection (matière d'évolution comprise)
-  const excess = boxGoal ? boxExcess(s, goal) : excessMons(s, { keepEvolutionMaterial });
-  const belowStars = monsBelowStars(s, 3);
-  const notShiny = monsNotShiny(s);
-  const dexCompletable = boxGoal ? completeBox(s, goal, true) > 0 : canCompleteDex(s, { keepEvolutionMaterial });
-  const progress = boxProgress(s);
+  const sig = boxSignature(s);
+  const { xpSet, excess, belowStars, notShiny, dexCompletable, progress } = useMemo(() => ({
+    xpSet: needsXp(s, goal),
+    excess: boxGoal ? boxExcess(s, goal) : excessMons(s, { keepEvolutionMaterial }),
+    belowStars: monsBelowStars(s, 3),
+    notShiny: monsNotShiny(s),
+    dexCompletable: boxGoal ? completeBox(s, goal, true) > 0 : canCompleteDex(s, { keepEvolutionMaterial }),
+    progress: boxProgress(s),
+  }), [sig, goal, keepEvolutionMaterial]);
+  const box = boxAll
+    .filter((m) => (!activeType || species(m.speciesId).types.includes(activeType)) && (!evolveOnly || canEvolve(m, dexMax)) && (!xpOnly || xpSet.has(m.uid)) && (!q || monName(m).toLowerCase().startsWith(q))
+      && (shinyFilter === 'all' || m.shiny === (shinyFilter === 'shiny')))
+    .sort((a, b) => (reversed ? -1 : 1) * SORTERS[sort](a, b));
+  // liste courante de la boîte lue au toucher (pas une dépendance des cases : elles ne se redessinent pas pour autant)
+  const boxRef = useRef<Mon[]>([]);
+  boxRef.current = box;
+  const openCell = useMemo(() => (uid: string) => openMon(uid, boxRef.current.map((x) => x.uid)), [openMon]);
   const boxEquippedCount = Object.values(s.mons)
     .filter((m) => !s.team.includes(m.uid))
     .reduce((a, m) => a + Object.keys(m.items).length, 0);
@@ -106,17 +130,8 @@ export function TeamPanel() {
         windowSize={5}
         removeClippedSubviews
         renderItem={({ item: m }: { item: Mon }) => (
-          <Pressable onPress={() => openMon(m.uid, box.map((x) => x.uid))} style={[styles.boxCell, { width: cellWidth }]}>
-            <View>
-              <MonThumb speciesId={m.speciesId} shiny={m.shiny} size={48} />
-              {/* lignée ciblée (🎯) : en haut à gauche, à l'opposé du ✨ des chromatiques */}
-              {isTargeted(s, m.speciesId) && <Text style={styles.targetMark}>🎯</Text>}
-              {m.locked && <Text style={styles.lockMark}>🔒</Text>}
-            </View>
-            <Text style={styles.boxName} numberOfLines={1}>{monName(m)}</Text>
-            <Text style={styles.boxLv}>Nv.{m.level}{pensionUids.has(m.uid) ? ' · 🏡' : explorationUids.has(m.uid) ? ' · 🧭' : ''}</Text>
-            <Stars mon={m} size={9} />
-          </Pressable>
+          <BoxCell mon={m} level={m.level} stars={monStars(m)} locked={!!m.locked} targeted={isTargeted(s, m.speciesId)}
+            place={pensionUids.has(m.uid) ? ' · 🏡' : explorationUids.has(m.uid) ? ' · 🧭' : ''} width={cellWidth} onOpen={openCell} />
         )}
         ListHeaderComponent={
           <View style={{ gap: 10, marginBottom: 10 }}>
@@ -292,6 +307,29 @@ export function TeamPanel() {
     </>
   );
 }
+
+/**
+ * Case de la boîte, mémorisée : elle ne se redessine que si ce qu'elle affiche change (niveau, étoiles, verrou, cible,
+ * pension/exploration), pas à chaque fin de vague. `mon` est modifié sur place par le moteur : les champs affichés sont
+ * donc aussi passés à part pour que la comparaison les voie changer.
+ */
+const BoxCell = memo(function BoxCell({ mon: m, level, locked, targeted, place, width, onOpen }: {
+  mon: Mon; level: number; stars: number; locked: boolean; targeted: boolean; place: string; width: number; onOpen: (uid: string) => void;
+}) {
+  return (
+    <Pressable onPress={() => onOpen(m.uid)} style={[styles.boxCell, { width }]}>
+      <View>
+        <MonThumb speciesId={m.speciesId} shiny={m.shiny} size={48} />
+        {/* lignée ciblée (🎯) : en haut à gauche, à l'opposé du ✨ des chromatiques */}
+        {targeted && <Text style={styles.targetMark}>🎯</Text>}
+        {locked && <Text style={styles.lockMark}>🔒</Text>}
+      </View>
+      <Text style={styles.boxName} numberOfLines={1}>{monName(m)}</Text>
+      <Text style={styles.boxLv}>Nv.{level}{place}</Text>
+      <Stars mon={m} size={9} />
+    </Pressable>
+  );
+});
 
 const styles = StyleSheet.create({
   list: { padding: 12, paddingBottom: 40, gap: BOX_GAP },

@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Text } from '../components/Text';
 import { BIOMES, STAGES_PER_ZONE, regionLastBiome, regionOf } from '../../game/content';
 import { species } from '../../game/data';
 import { BOOST_KINDS, BOOSTS, addMon, boostRemaining, equip, makeMon, setAutoAdvance, setTeam, toggleTarget } from '../../game/game';
 import { makeItem } from '../../game/items';
-import { RARITIES, RARITY_COLOR } from '../../game/model';
+import { MAX_RARITY, RARITIES, RARITY_COLOR } from '../../game/model';
 import { rng, useGame } from '../../store/game';
 import type { CollectionGoal } from '../../game/collection';
 import { useSettings } from '../../store/settings';
@@ -36,8 +37,9 @@ export function HudTop() {
   const run = runner.run;
   const biome = BIOMES[s.biome];
   const zone = biome.zones[s.zone];
-  const label = run?.kind === 'arena' ? `${biome.arena.name}` : run?.kind === 'boss' ? `${zone.name} · Boss` : `${zone.name} · Étape ${s.stage}/${STAGES_PER_ZONE}`;
-  const wave = run ? `Vague ${run.waveIndex + 1}/${run.waves.length}` : '';
+  const label = run?.kind === 'tower' ? `🗼 Tour de Combat · Étage ${run.floor}`
+    : run?.kind === 'arena' ? `${biome.arena.name}` : run?.kind === 'boss' ? `${zone.name} · Boss` : `${zone.name} · Étape ${s.stage}/${STAGES_PER_ZONE}`;
+  const wave = run?.kind === 'tower' ? `Record : étage ${s.towerBest}` : run ? `Vague ${run.waveIndex + 1}/${run.waves.length}` : '';
   const boosts = BOOST_KINDS.filter((k) => boostRemaining(s, k) > 0);
   return (
     <View>
@@ -165,6 +167,15 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
               <Button label="🔧 Dev : voir les pools des sauvages (toutes régions)" color="#37474f" onPress={() => setPools(true)} />
             )}
             {__DEV__ && <DevPools open={pools} onClose={() => setPools(false)} initialRegion={Math.min(s.prestige, 3)} />}
+            {__DEV__ && (
+              <Button label="🐛 Debug : +1 000 000 éclats et 30 Gantelets du Champion Chromatiques Nv.100 (test Chromatique +N)" color="#37474f" onPress={() => {
+                act((g) => {
+                  g.shards += 1_000_000;
+                  for (let i = 0; i < 30; i++) { const it = makeItem('gantelet-champion', MAX_RARITY, 100, rng); g.items[it.uid] = it; }
+                });
+                feedback();
+              }} />
+            )}
             {__DEV__ && (
               <Button label="🐛 Debug : Pokédex complet, plus que le Champion à battre (test écran de fin)" color="#37474f" onPress={() => {
                 act((g) => {

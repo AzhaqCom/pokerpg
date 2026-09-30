@@ -1,4 +1,5 @@
-import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from './components/Text';
 import { move, species } from '../game/data';
 import { GameState } from '../game/game';
 import { IdleGains } from '../game/idle';

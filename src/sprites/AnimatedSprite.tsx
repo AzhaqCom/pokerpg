@@ -1,8 +1,9 @@
-import { Canvas, useImage } from '@shopify/react-native-skia';
+import { Canvas } from '@shopify/react-native-skia';
 import { useMemo, useRef } from 'react';
 import { useFrameClock } from '../ui/useFrameClock';
 import { ActionKey, getSprite } from './manifest';
 import { PmdSprite } from './PmdSprite';
+import { useSpriteImage } from './imageCache';
 
 interface Props {
   species: number;
@@ -20,7 +21,7 @@ interface Props {
 /** Sprite PMD animé autonome (son propre Canvas et sa propre horloge). */
 export function AnimatedSprite({ species, shiny = false, action = 'idle', scale = 'auto', width, height, ground = 8, silhouette }: Props) {
   const sprite = getSprite(species, shiny);
-  const image = useImage(sprite?.asset ?? null);
+  const image = useSpriteImage(sprite?.asset);
   const now = useFrameClock(20);
   const start = useRef({ key: '', t: 0 });
   const k = `${sprite?.key}:${action}`;

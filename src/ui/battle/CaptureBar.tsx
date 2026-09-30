@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../components/Text';
 import { species } from '../../game/data';
 import { BALLS, BallKind, captureChance, captureLevel, tryCapture } from '../../game/game';
 import { rng, useGame } from '../../store/game';

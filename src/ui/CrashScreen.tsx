@@ -1,5 +1,6 @@
 import { Component, ReactNode } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from './components/Text';
 import { create } from 'zustand';
 
 /** Erreur attrapée (rendu ou globale) : affichée à l'écran au lieu de fermer l'app. */

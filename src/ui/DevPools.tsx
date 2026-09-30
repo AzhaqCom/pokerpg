@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './components/Text';
 import { BIOMES, REGIONS } from '../game/content';
 import { species } from '../game/data';
 import { MonThumb } from './components/MonThumb';

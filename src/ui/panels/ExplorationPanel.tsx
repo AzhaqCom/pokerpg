@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '../components/Text';
 import { PENSION_CAP_MS, SHARDS_PER_MIN, assignExploration, explorationReady, explorationSlots, harvestExploration, removeExploration } from '../../game/game';
 import { monStars } from '../../game/stats';
 import { useGame } from '../../store/game';

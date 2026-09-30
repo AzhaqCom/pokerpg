@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from './components/Text';
 import { cdFactor } from '../game/battle';
 import { Move, learnedMoves, move, evolutionTargets, species } from '../game/data';
 import { regionOf } from '../game/content';

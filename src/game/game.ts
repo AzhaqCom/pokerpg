@@ -7,8 +7,8 @@ import {
   BADGE_BONUS, BIOMES, REGIONS, REGION_START, STAGES_PER_ZONE, WAVES_PER_STAGE, ZoneDef, regionLastBiome, regionOf,
 } from './content';
 import { ALL_SPECIES, EVOLUTION_CHOICES, PType, learnedMoves, evolutionTargets, move, movesAtLevel, preEvolution, species } from './data';
-import { MAX_ITEM_LEVEL, SETS, addItemBonuses, berryScore, combatValue, setOfBiome, TEMPLATES, berryHeal, fuse, canFuse, itemScore, makeItem, newUid, recycleValue, rerollCost, rerollSub, rollLoot, rollRarity, slotOf, template, upgrade, upgradeCost } from './items';
-import { BattleBonuses, Item, ItemSlot, MAX_RARITY, Mon, emptyBonuses } from './model';
+import { BIOME_SET, MAX_ITEM_LEVEL, PLUS_SUB_STEP, SETS, addItemBonuses, berryScore, combatValue, setOfBiome, TEMPLATES, berryHeal, fuse, canFuse, itemScore, makeItem, newUid, recycleValue, rerollCost, rerollSub, rollLoot, rollRarity, slotOf, template, upgrade, upgradeCost } from './items';
+import { BattleBonuses, Item, ItemSlot, ItemTemplate, MAX_RARITY, Mon, emptyBonuses } from './model';
 import { Rng } from './rng';
 import { MAX_LEVEL, auraBonuses, combatPower, finalStats, levelFromXp, monBonuses, monStars, sumBonuses, xpForLevel } from './stats';
 import { canRankUp, eligibleAffinityTypes, talentTree } from './talents';
@@ -125,6 +125,12 @@ export interface GameState {
   boosts: Record<BoostKind, number>;
   /** Méga bonbons universels (boutique) : utilisables sur n'importe quelle lignée, conservés au prestige. */
   universalMega: number;
+  /** Tour de Combat (fin de jeu) : plus haut étage franchi (record). */
+  towerBest: number;
+  /** Étage de la Tour en cours de combat, `null` hors de la Tour (on farme alors la zone en cours). */
+  towerFloor: number | null;
+  /** Chromatiques +N gagnés tous les 10 étages, à choisir (objet au choix) depuis la Carte. */
+  towerRewards: TowerReward[];
   /** Version d'équilibrage des objets déjà convertie (2 = poids mesurés du 2026-09-24, voir `migrateSave`). */
   balanceVersion: number;
 }
@@ -143,7 +149,8 @@ export function newGame(): GameState {
     lastActive: Date.now(),
     prestige: 0,
     startedAt: Date.now(), prestigeOffered: false, adventureStart: Date.now(), endingSeen: false,
-    shinyCharmSeen: false, boosts: noBoosts(), universalMega: 0, balanceVersion: 2,
+    shinyCharmSeen: false, boosts: noBoosts(), universalMega: 0,
+    towerBest: 0, towerFloor: null, towerRewards: [], balanceVersion: 2,
   };
 }
 
@@ -798,14 +805,6 @@ export function unequip(s: GameState, monUid: string, slot: ItemSlot) {
   delete s.mons[monUid].items[slot];
 }
 
-/**
- * Équipe automatiquement les 3 emplacements avec la meilleure combinaison disponible dans le sac (jamais
- * un objet porté par un autre Pokémon) : compare le total « 3 meilleurs objets indépendants » à celui de
- * chaque panoplie complétable (2 ou 3 pièces du même set parmi les objets disponibles), bonus de
- * panoplie inclus dans le total (converti sur la même échelle que `itemScore` via `STAT_WEIGHT`) — la
- * panoplie ne l'emporte que si elle rapporte vraiment plus, aucune règle spéciale liée au type du
- * Pokémon (les panoplies ne sont pas réservées à un type). Retourne le nombre d'emplacements changés.
- */
 /** Bonus d'un Pokémon hors objets (talents, auras de l'équipe, badges) : contexte pour évaluer un équipement. */
 export function monBaseBonuses(s: GameState, uid: string): BattleBonuses {
   const mon = s.mons[uid];
@@ -815,61 +814,83 @@ export function monBaseBonuses(s: GameState, uid: string): BattleBonuses {
 }
 
 /**
- * Gain de valeur de combat si `item` remplace l'objet porté dans son emplacement, pour CE Pokémon (flèche du
- * sélecteur d'objets). Positif = mieux. Les baies se comparent entre elles (`berryScore`).
+ * Gain de valeur si `item` remplace l'objet porté dans son emplacement, pour CE Pokémon (flèche du sélecteur
+ * d'objets). Positif = mieux. Même calcul que « Équiper le meilleur » (`equipValue`), baies comprises.
  */
 export function equipGain(s: GameState, uid: string, item: Item): number {
-  const mon = s.mons[uid];
-  const slot = slotOf(item);
-  const held = heldItems(s, mon);
-  const current = held.find((it) => slotOf(it) === slot);
-  if (slot === 'berry') return berryScore(item) - (current ? berryScore(current) : 0);
+  const held = heldItems(s, s.mons[uid]);
   const base = monBaseBonuses(s, uid);
-  const withItems = (items: Item[]) => { const b = sumBonuses(base); addItemBonuses(b, items); return combatValue(b); };
-  return withItems([...held.filter((it) => slotOf(it) !== slot), item]) - withItems(held);
+  const slot = slotOf(item);
+  return equipValue(s, uid, [...held.filter((it) => slotOf(it) !== slot), item], base) - equipValue(s, uid, held, base);
 }
 
+/**
+ * Valeur d'un équipement complet pour CE Pokémon (talents, auras, badges compris) : valeur de combat des bonus
+ * (stats principales, sous-stats — baies comprises —, bonus de panoplie) + le soin de la baie.
+ */
+export function equipValue(s: GameState, uid: string, items: Item[], base = monBaseBonuses(s, uid)): number {
+  const b = sumBonuses(base);
+  addItemBonuses(b, items);
+  const berry = items.find((it) => slotOf(it) === 'berry');
+  return combatValue(b) + (berry ? berryScore(berry) / 10 : 0);
+}
+
+/** Nombre d'objets les mieux classés, par emplacement, combinés entre eux par `autoEquipBest`. */
+const AUTO_EQUIP_TOP = 6;
+/** Pièces d'une même panoplie retenues par emplacement pour tenter les bonus de panoplie. */
+const AUTO_EQUIP_SET_TOP = 2;
+
+/**
+ * « Équiper le meilleur » : la combinaison des 3 emplacements qui a la plus forte `equipValue` pour ce Pokémon, parmi
+ * les objets du sac et les siens (jamais ceux d'un autre Pokémon). Critique et Dégâts critiques se renforcent, la
+ * Recharge est plafonnée et les panoplies donnent un bonus à 2 et 3 pièces : un objet ne se juge pas seul, on évalue
+ * des combinaisons complètes. Toutes celles des `AUTO_EQUIP_TOP` meilleurs objets de chaque emplacement, plus, pour
+ * chaque panoplie, 2 ou 3 de ses pièces complétées par les meilleurs objets hors panoplie (quelques milliers
+ * d'évaluations, même avec un sac de milliers d'objets). Retourne le nombre d'emplacements changés.
+ */
 export function autoEquipBest(s: GameState, uid: string): number {
   const mon = s.mons[uid];
   if (!mon) return 0;
   const held = heldBy(s);
-  const available = (it: Item) => !held.has(it.uid) || held.get(it.uid) === mon;
   const SLOTS: ItemSlot[] = ['offense', 'defense', 'berry'];
-  const bySlot: Record<ItemSlot, Item[]> = { offense: [], defense: [], berry: [] };
-  for (const it of Object.values(s.items)) if (available(it)) bySlot[slotOf(it)].push(it);
-  const bestOf = (items: Item[]) => items.reduce<Item | undefined>((best, it) => (!best || itemScore(it) > itemScore(best) ? it : best), undefined);
-
-  type Combo = Partial<Record<ItemSlot, Item>>;
-  // la valeur d'un objet dépend du Pokémon (ses talents, les auras, les badges) : Critique et Dégâts critiques
-  // se renforcent, la Recharge est plafonnée — on évalue donc chaque combinaison complète, pas objet par objet
   const base = monBaseBonuses(s, uid);
-  const scoreCombo = (combo: Combo): number => {
-    const b = sumBonuses(base);
-    addItemBonuses(b, SLOTS.map((slot) => combo[slot]).filter((it): it is Item => !!it));
-    return combatValue(b) + (combo.berry ? berryScore(combo.berry) / 10 : 0);
-  };
-  // meilleur objet par emplacement dans le contexte du Pokémon (les autres emplacements vides)
-  const bestFor = (slot: ItemSlot, items: Item[]) => items.reduce<Item | undefined>(
-    (best, it) => (!best || scoreCombo({ [slot]: it }) > scoreCombo({ [slot]: best }) ? it : best), undefined);
-  const independent: Combo = { offense: bestFor('offense', bySlot.offense), defense: bestFor('defense', bySlot.defense), berry: bestOf(bySlot.berry) };
+  // classement de chaque emplacement par la valeur de l'objet seul, dans le contexte du Pokémon
+  const ranked: Record<ItemSlot, Item[]> = { offense: [], defense: [], berry: [] };
+  const solo = new Map<string, number>();
+  for (const it of Object.values(s.items)) {
+    const owner = held.get(it.uid);
+    if (owner && owner !== mon) continue;
+    ranked[slotOf(it)].push(it);
+    // à valeur égale, l'objet déjà porté passe devant (pas d'échange inutile)
+    solo.set(it.uid, equipValue(s, uid, [it], base) + (owner === mon ? 1e-6 : 0));
+  }
+  for (const slot of SLOTS) ranked[slot].sort((a, b) => solo.get(b.uid)! - solo.get(a.uid)!);
+  const top = (slot: ItemSlot): (Item | undefined)[] => (ranked[slot].length ? ranked[slot].slice(0, AUTO_EQUIP_TOP) : [undefined]);
 
-  let bestCombo = independent;
-  let bestScore = scoreCombo(independent);
-  for (const key of Object.keys(SETS)) {
-    const combo: Combo = { ...independent };
-    for (const slot of SLOTS) {
-      const setItem = (slot === 'berry' ? bestOf : (items: Item[]) => bestFor(slot, items))(bySlot[slot].filter((it) => template(it.templateId).set === key));
-      if (setItem) combo[slot] = setItem;
+  let best: (Item | undefined)[] = SLOTS.map((slot) => ranked[slot][0]);
+  let bestScore = equipValue(s, uid, best.filter((it): it is Item => !!it), base);
+  const consider = (combo: (Item | undefined)[]) => {
+    const sc = equipValue(s, uid, combo.filter((it): it is Item => !!it), base);
+    if (sc > bestScore) { bestScore = sc; best = combo; }
+  };
+  // 1. meilleurs objets de chaque emplacement, toutes combinaisons (les sous-stats interagissent entre elles)
+  for (const o of top('offense')) for (const d of top('defense')) for (const b of top('berry')) consider([o, d, b]);
+  // 2. panoplies : 2 ou 3 pièces du même set, l'emplacement restant pris parmi les meilleurs objets
+  for (const set of Object.keys(SETS)) {
+    const pieces = SLOTS.map((slot) => ranked[slot].filter((it) => template(it.templateId).set === set).slice(0, AUTO_EQUIP_SET_TOP));
+    if (pieces.filter((p) => p.length).length < 2) continue;
+    for (let free = -1; free < SLOTS.length; free++) { // free = emplacement hors panoplie (-1 : les 3 en panoplie)
+      if (SLOTS.some((_, i) => i !== free && !pieces[i].length)) continue;
+      const choices = SLOTS.map((slot, i) => (i === free ? top(slot) : pieces[i]));
+      for (const o of choices[0]) for (const d of choices[1]) for (const b of choices[2]) consider([o, d, b]);
     }
-    const sc = scoreCombo(combo);
-    if (sc > bestScore) { bestScore = sc; bestCombo = combo; }
   }
 
   let n = 0;
-  for (const slot of SLOTS) {
-    const pick = bestCombo[slot];
+  SLOTS.forEach((slot, i) => {
+    const pick = best[i];
     if (pick && pick.uid !== mon.items[slot]) { equip(s, uid, pick.uid); n++; }
-  }
+  });
   return n;
 }
 
@@ -892,9 +913,30 @@ export function recycle(s: GameState, itemUids: string[]): number {
   return gain;
 }
 
+/** Fin de jeu : Champion de la dernière région battu (fusion Chromatique +N, objets au-delà du Nv.100). */
+export function endgameUnlocked(s: GameState): boolean {
+  return s.prestige >= REGIONS.length - 1 && !!s.arenaBeaten[regionLastBiome(REGIONS.length - 1)];
+}
+
+/** Niveau maximum d'un objet : 100, sans limite en fin de jeu. */
+export function itemLevelCap(s: GameState): number {
+  return endgameUnlocked(s) ? Infinity : MAX_ITEM_LEVEL;
+}
+
+/** Cette rareté peut-elle encore fusionner ? Mythique → Chromatique : 8 badges ; Chromatique → +1 : fin de jeu. */
+export function fusableRarity(s: GameState, it: Item): boolean {
+  if (it.rarity >= MAX_RARITY) return endgameUnlocked(s);
+  return it.rarity !== MAX_RARITY - 1 || s.badges >= CHROMATIC_BADGE_REQ;
+}
+
+/** Clé de fusion : 3 objets de même clé fusionnent (même objet, même rareté, même cran +N). */
+function fuseKey(it: Item): string {
+  return `${it.templateId}:${it.rarity}:${it.plus ?? 0}`;
+}
+
 export function upgradeItem(s: GameState, uid: string): boolean {
   const it = s.items[uid];
-  if (!it || it.level >= MAX_ITEM_LEVEL) return false;
+  if (!it || it.level >= itemLevelCap(s)) return false;
   const cost = upgradeCost(it);
   if (s.shards < cost) return false;
   s.shards -= cost;
@@ -919,15 +961,14 @@ export const CHROMATIC_BADGE_REQ = 6;
 
 export function fuseItems(s: GameState, uids: string[], rng: Rng): Item | null {
   const items = uids.map((u) => s.items[u]);
-  if (items.some((i) => !i) || !canFuse(items)) return null;
-  if (items[0].rarity === MAX_RARITY - 1 && s.badges < CHROMATIC_BADGE_REQ) return null;
+  if (items.some((i) => !i) || !canFuse(items, endgameUnlocked(s)) || !fusableRarity(s, items[0])) return null;
   const wearer = uids.map((u) => holder(s, u)).find(Boolean);
   for (const u of uids) {
     const h = holder(s, u);
     if (h) delete h.items[slotOf(s.items[u])];
     delete s.items[u];
   }
-  const out = fuse(items, rng);
+  const out = fuse(items, rng, endgameUnlocked(s));
   s.items[out.uid] = out;
   if (wearer) wearer.items[slotOf(out)] = out.uid;
   s.totals.fusions++;
@@ -949,8 +990,8 @@ export function fuseItems(s: GameState, uids: string[], rng: Rng): Item | null {
 export function fusionBadgeCount(s: GameState): number {
   const counts = new Map<string, number>();
   for (const it of Object.values(s.items)) {
-    if (it.locked || it.rarity >= MAX_RARITY || (it.rarity === MAX_RARITY - 1 && s.badges < CHROMATIC_BADGE_REQ)) continue;
-    const k = `${it.templateId}:${it.rarity}`;
+    if (it.locked || !fusableRarity(s, it)) continue;
+    const k = fuseKey(it);
     counts.set(k, (counts.get(k) ?? 0) + 1);
   }
   let n = 0;
@@ -962,8 +1003,8 @@ export function fusionCandidates(s: GameState): Item[][] {
   const heldMap = heldBy(s);
   const groups = new Map<string, Item[]>();
   for (const it of Object.values(s.items)) {
-    if (it.locked || it.rarity >= MAX_RARITY || (it.rarity === MAX_RARITY - 1 && s.badges < CHROMATIC_BADGE_REQ)) continue;
-    const k = `${it.templateId}:${it.rarity}`;
+    if (it.locked || !fusableRarity(s, it)) continue;
+    const k = fuseKey(it);
     groups.set(k, [...(groups.get(k) ?? []), it]);
   }
   const out: Item[][] = [];
@@ -1087,7 +1128,7 @@ export function lureMult(s: GameState): number {
   return boostActive(s, 'lure') ? BOOSTS.lure.mult : 1;
 }
 
-export type StageKind = 'stage' | 'boss' | 'arena';
+export type StageKind = 'stage' | 'boss' | 'arena' | 'tower';
 
 export interface WaveEnemy {
   mon: Mon; boss?: boolean; hpMult?: number;
@@ -1130,6 +1171,9 @@ export interface WaveRewards {
   levelUps: { uid: string; level: number; newMoves: number[] }[];
   loot: Item[];
   capture: CaptureOffer | null;
+  /** Tour de Combat : éclats de l'étage, et Chromatique +N gagné (tous les 10 étages), à choisir sur la Carte. */
+  shards?: number;
+  towerReward?: TowerReward;
 }
 
 /**
@@ -1142,6 +1186,8 @@ export class StageRun {
   zone: number;
   stage: number;
   waves: WaveEnemy[][];
+  /** Tour de Combat : étage combattu. */
+  floor: number;
   waveIndex = 0;
   battle: Battle;
   result: 'win' | 'lose' | null = null;
@@ -1152,7 +1198,9 @@ export class StageRun {
     this.biome = s.biome;
     this.zone = s.zone;
     this.stage = s.stage;
-    this.waves = makeWaves(kind, s.biome, s.zone, s.stage, rng, s.team.length, s.bossesBeaten[s.biome][s.zone], shinyOdds(s), lureMult(s));
+    this.floor = s.towerFloor ?? 1;
+    this.waves = kind === 'tower' ? towerWaves(this.floor, rng)
+      : makeWaves(kind, s.biome, s.zone, s.stage, rng, s.team.length, s.bossesBeaten[s.biome][s.zone], shinyOdds(s), lureMult(s));
     this.battle = this.makeBattle();
   }
 
@@ -1176,7 +1224,8 @@ export class StageRun {
       onStageLost(this.s, this.kind);
       return null;
     }
-    const rewards = waveRewards(this.s, this.kind, this.biome, this.zone, this.enemies, this.rng2);
+    const rewards = this.kind === 'tower' ? towerFloorRewards(this.s, this.floor, this.rng2)
+      : waveRewards(this.s, this.kind, this.biome, this.zone, this.enemies, this.rng2);
     // PV conservés + 35 % (l'arène : pas de soin entre ses Pokémon)
     for (const f of b.fighters.filter((x) => x.side === 0)) {
       const heal = this.kind === "arena" ? 0 : Math.round(f.maxHp * 0.35);
@@ -1249,6 +1298,12 @@ function waveRewards(s: GameState, kind: StageKind, biomeIndex: number, zoneInde
 
 function onStageWon(s: GameState, kind: StageKind, biome: number, zone: number, stage: number, rng: Rng, rewards: WaveRewards) {
   s.totals.stagesCleared++;
+  if (kind === 'tower') {
+    const floor = s.towerFloor ?? 1;
+    s.towerBest = Math.max(s.towerBest, floor);
+    s.towerFloor = floor + 1;
+    return;
+  }
   if (kind === 'stage') {
     if (stage >= s.unlocked[biome][zone] && stage < STAGES_PER_ZONE) s.unlocked[biome][zone] = stage + 1;
     // avance automatiquement jusqu'à la dernière étape débloquée (ou l'étape fixée), puis y reste (farm)
@@ -1280,6 +1335,7 @@ function onStageWon(s: GameState, kind: StageKind, biome: number, zone: number, 
 
 /** Défaite : on recule d'une étape, jusqu'à la dernière étape de la zone précédente. */
 function onStageLost(s: GameState, kind: StageKind) {
+  if (kind === 'tower') { s.towerFloor = null; return; } // défaite dans la Tour : retour à la zone, sans pénalité
   if (kind !== 'stage') return;
   if (s.stage > 1) s.stage--;
   else if (s.zone > 0 && s.fixedStage === null) { s.zone--; s.stage = s.unlocked[s.biome][s.zone]; }
@@ -1342,6 +1398,7 @@ export function selectStage(s: GameState, biome: number, zone: number, stage: nu
   s.zone = zone;
   s.stage = Math.max(1, Math.min(stage, s.unlocked[biome][zone]));
   if (pin && s.fixedStage !== null) s.fixedStage = s.stage;
+  s.towerFloor = null; // choisir une zone sur la Carte fait sortir de la Tour
 }
 
 /** Réglage « Avancer dans les étapes » : désactivé, l'étape en cours devient l'étape fixée (voir `fixedStage`). */
@@ -1515,6 +1572,126 @@ export function buyBalls(s: GameState, kind: BallKind, n: number): boolean {
   s.shards -= cost;
   s.balls[kind] += n;
   return true;
+}
+
+// ---------------------------------------------------------------- Tour de Combat (fin de jeu)
+/**
+ * Étages infinis après le dernier Champion : 1 combat par étage contre 3 formes finales ou légendaires Nv.100 (gènes
+ * parfaits), tirées au hasard. Difficulté (PV et Attaque des adversaires) = `TOWER_BASE` × `TOWER_GROWTH`^(étage − 1) :
+ * exponentielle, alors que la puissance du joueur (Chromatique +N, niveau des objets) monte bien plus lentement, donc
+ * un mur finit toujours par arriver (le record garde du sens). Défaite = retour à la zone, sans pénalité ; reprise au
+ * dernier palier de 10 atteint. Jamais hors ligne.
+ */
+/**
+ * Calage (tools/scratch/tower.ts, 2026-09-30) : l'équipe du bot en fin de Sinnoh gagne à 87 % à ×12 et tient ~50 %
+ * vers ×16 (mur ~étage 13) ; la même équipe en Chromatique Nv.100 tient ×24 (~étage 30), +3 Nv.150 ×43 (~55),
+ * +5 Nv.200 ×66 (~73), +8 Nv.300 ×124 (~100). +2,4 %/étage suit cette progression (un cran de plus ≈ 20 étages).
+ */
+export const TOWER_BASE = 12;
+export const TOWER_GROWTH = 1.024;
+export const TOWER_TEAM = 3;
+export const TOWER_LEVEL = 100;
+
+export interface TowerReward { plus: number; level: number; floor: number }
+
+export function towerWildMult(floor: number): number {
+  return TOWER_BASE * Math.pow(TOWER_GROWTH, floor - 1);
+}
+
+let towerPool: number[] | null = null;
+/** Formes finales (plus d'évolution) et légendaires du Pokédex complet. */
+export function towerSpecies(): number[] {
+  if (!towerPool) {
+    const dexMax = REGIONS[REGIONS.length - 1].dexMax;
+    towerPool = ALL_SPECIES.filter((sp) => sp.id <= dexMax && evolutionTargets(sp.id, dexMax).length === 0).map((sp) => sp.id);
+  }
+  return towerPool;
+}
+
+export function towerWaves(floor: number, rng: Rng): WaveEnemy[][] {
+  const pool = towerSpecies();
+  const wave: WaveEnemy[] = [];
+  for (let i = 0; i < TOWER_TEAM; i++) {
+    wave.push({ mon: makeMon(pool[rng.int(pool.length)], TOWER_LEVEL, rng, false, GENE_MAX), wild: true, wildMult: towerWildMult(floor) });
+  }
+  return [wave];
+}
+
+/** Étage où l'on reprend en entrant : juste après le dernier palier de 10 franchi (record 47 → étage 41). */
+export function towerStart(s: GameState): number {
+  return Math.floor(s.towerBest / 10) * 10 + 1;
+}
+
+export function enterTower(s: GameState): boolean {
+  if (!endgameUnlocked(s)) return false;
+  s.towerFloor = towerStart(s);
+  return true;
+}
+
+export function exitTower(s: GameState) {
+  s.towerFloor = null;
+}
+
+/** Éclats par étage franchi. */
+export function towerShards(floor: number): number {
+  return 500 + 50 * floor;
+}
+
+let towerLoot: ItemTemplate[] | null = null;
+/**
+ * Objets qui tombent dans la Tour : ceux des panoplies de la dernière région (Sinnoh, 15 panoplies, 45 objets). Leur
+ * puissance ne dépend pas de la panoplie (tous créés au niveau du dernier biome, voir `biomeTier`) ; moins d'objets
+ * différents = plus de doublons, donc des fusions en Chromatique +N plus rapides (demande d'Arno, 2026-09-30).
+ */
+export function towerLootTemplates(): ItemTemplate[] {
+  if (!towerLoot) {
+    const sets = new Set(Object.entries(BIOME_SET).filter(([b]) => Number(b) >= REGIONS[REGIONS.length - 1].start).map(([, set]) => set));
+    towerLoot = TEMPLATES.filter((t) => t.set && sets.has(t.set));
+  }
+  return towerLoot;
+}
+
+/** Cran du Chromatique gagné tous les 10 étages : +0 aux étages 10-20, +1 aux 30-40, +2 aux 50-60… */
+export function towerRewardPlus(floor: number): number {
+  return Math.max(0, Math.floor((floor - 10) / 20));
+}
+
+/**
+ * Récompenses d'un étage franchi : éclats, 1 objet **Chromatique** Nv.100 + étage (panoplies de Sinnoh), et un
+ * Chromatique +N à choisir tous les 10 étages. Toujours Chromatique : la Tour ne doit jamais être bloquée par un manque
+ * de rareté, seulement par la puissance (niveau des objets, crans +N).
+ */
+function towerFloorRewards(s: GameState, floor: number, rng: Rng): WaveRewards {
+  const out: WaveRewards = { xp: {}, levelUps: [], loot: [], capture: null };
+  const shards = towerShards(floor);
+  s.shards += shards;
+  out.shards = shards;
+  const pool = towerLootTemplates();
+  const it = makeItem(pool[rng.int(pool.length)].id, MAX_RARITY, TOWER_LEVEL + floor, rng, BIOMES.length - 1);
+  s.items[it.uid] = it;
+  out.loot.push(it);
+  if (floor % 10 === 0) {
+    // 10 % de chance d'un cran de plus
+    const reward = { plus: towerRewardPlus(floor) + (rng.int(10) === 0 ? 1 : 0), level: TOWER_LEVEL + floor, floor };
+    s.towerRewards.push(reward);
+    out.towerReward = reward;
+  }
+  return out;
+}
+
+/** Réclame une récompense d'étage : le Chromatique +N de l'objet choisi (`templateId`), au niveau de l'étage. */
+export function claimTowerReward(s: GameState, index: number, templateId: string, rng: Rng): Item | null {
+  const reward = s.towerRewards[index];
+  if (!reward || !TEMPLATES.some((t) => t.id === templateId)) return null;
+  const it = makeItem(templateId, MAX_RARITY, reward.level, rng, BIOMES.length - 1);
+  if (reward.plus > 0) {
+    it.plus = reward.plus;
+    const scale = 1 + PLUS_SUB_STEP * reward.plus;
+    it.subs = it.subs.map((sub) => ({ ...sub, value: Math.round(sub.value * scale * 10) / 10 }));
+  }
+  s.items[it.uid] = it;
+  s.towerRewards.splice(index, 1);
+  return it;
 }
 
 // ---------------------------------------------------------------- boutique

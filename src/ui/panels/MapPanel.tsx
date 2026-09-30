@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '../components/Text';
 import { BIOMES, BiomeDef, REGIONS, REGION_START, STAGES_PER_ZONE, ZoneDef } from '../../game/content';
 import { species } from '../../game/data';
-import { GameState, arenaAvailable, biomeAvailable, bossAvailable, canPrestige, selectStage, startPrestige, zoneHasTarget } from '../../game/game';
+import { GameState, arenaAvailable, biomeAvailable, bossAvailable, canPrestige, endgameUnlocked, selectStage, startPrestige, zoneHasTarget } from '../../game/game';
 import { useGame } from '../../store/game';
 import { Button } from '../components/Button';
 import { Dialog, DialogSpec } from '../components/Dialog';
@@ -13,6 +14,10 @@ import { feedback } from '../components/feedback';
 import { runner } from '../battle/runner';
 import { C } from '../theme';
 import { ZoneDex, zoneSpecies } from '../ZoneDex';
+import { TowerSection } from '../TowerSection';
+
+/** Valeur de `sel` pour l'onglet de la Tour de Combat (les biomes sont numérotés à partir de 0). */
+const TOWER_TAB = -1;
 
 export function MapPanel() {
   const s = useGame((g) => g.s)!;
@@ -21,21 +26,25 @@ export function MapPanel() {
   const [openZone, setOpenZone] = useState<ZoneDef | null>(null);
   const [dialog, setDialog] = useState<DialogSpec | null>(null);
   const next = REGIONS[s.prestige + 1];
-  const [sel, setSel] = useState(s.biome);
+  // onglet affiché : un biome de la région, ou la Tour de Combat (fin de jeu, onglet après le dernier biome)
+  const endgame = endgameUnlocked(s);
+  const [sel, setSel] = useState(s.towerFloor !== null ? TOWER_TAB : s.biome);
   // la Carte ne montre que les biomes de la région courante : les biomes des régions précédentes
   // (Kanto une fois en Johto) n'ont plus leur place, ceux des régions futures restent une surprise.
   const regionStart = REGION_START[s.prestige] ?? 0;
   const regionEnd = REGION_START[s.prestige + 1] ?? BIOMES.length;
   const bi = sel >= regionStart && sel < regionEnd ? sel : s.biome;
+  const showTower = endgame && sel === TOWER_TAB;
+  const tab = showTower ? TOWER_TAB : bi;
   // suit le biome en cours : après une victoire d'arène, la Carte affiche directement le nouveau biome
   useEffect(() => { setSel(s.biome); }, [s.biome]);
   // la barre des biomes défile jusqu'à l'onglet affiché (sinon il peut être hors de l'écran, à droite)
   const tabsRef = useRef<ScrollView>(null);
   const tabX = useRef<Record<number, number>>({});
   useEffect(() => {
-    const x = tabX.current[bi];
+    const x = tabX.current[tab];
     if (x !== undefined) tabsRef.current?.scrollTo({ x: Math.max(0, x - 24), animated: true });
-  }, [bi]);
+  }, [tab]);
   return (
     <View style={{ gap: 12 }}>
       {/* prestige reporté (« Plus tard » sur le récap) : se lance d'ici, quand le joueur le souhaite */}
@@ -57,17 +66,29 @@ export function MapPanel() {
             <Pressable key={biome.name} disabled={!unlocked} onPress={() => setSel(i)}
               onLayout={(e) => {
                 tabX.current[i] = e.nativeEvent.layout.x;
-                if (i === bi) tabsRef.current?.scrollTo({ x: Math.max(0, e.nativeEvent.layout.x - 24), animated: false });
+                if (i === tab) tabsRef.current?.scrollTo({ x: Math.max(0, e.nativeEvent.layout.x - 24), animated: false });
               }}
-              style={[styles.tab, i === bi && styles.tabOn, !unlocked && styles.tabLocked]}>
-              <Text style={[styles.tabTxt, i === bi && styles.tabTxtOn]} numberOfLines={1}>
+              style={[styles.tab, i === tab && styles.tabOn, !unlocked && styles.tabLocked]}>
+              <Text style={[styles.tabTxt, i === tab && styles.tabTxtOn]} numberOfLines={1}>
                 {unlocked ? (done ? '✔ ' : '') : '🔒 '}{biome.name}
               </Text>
             </Pressable>
           );
         })}
+        {endgame && (
+          <Pressable onPress={() => setSel(TOWER_TAB)}
+            onLayout={(e) => {
+              tabX.current[TOWER_TAB] = e.nativeEvent.layout.x;
+              if (showTower) tabsRef.current?.scrollTo({ x: Math.max(0, e.nativeEvent.layout.x - 24), animated: false });
+            }}
+            style={[styles.tab, showTower && styles.tabOn]}>
+            <Text style={[styles.tabTxt, showTower && styles.tabTxtOn]} numberOfLines={1}>
+              🗼 Tour de Combat{s.towerRewards.length ? ` 🎁${s.towerRewards.length}` : ''}
+            </Text>
+          </Pressable>
+        )}
       </ScrollView>
-      <BiomeSection biome={BIOMES[bi]} bi={bi} s={s} act={act} onOpenZone={setOpenZone} />
+      {showTower ? <TowerSection /> : <BiomeSection biome={BIOMES[bi]} bi={bi} s={s} act={act} onOpenZone={setOpenZone} />}
       <ZoneDex zone={openZone} s={s} onClose={() => setOpenZone(null)} />
     </View>
   );
@@ -94,7 +115,7 @@ function ZoneMon({ id, s, col }: { id: number; s: GameState; col: ReturnType<typ
   return (
     <View style={styles.zoneMon}>
       <MonThumb speciesId={id} size={30} silhouette={!seen} />
-      {seen && <View style={styles.ball}><BallIcon kind={done ? 'hyper' : 'poke'} size={12} grey={!has} /></View>}
+      {seen && <View style={styles.ball}><BallIcon kind={done ? 'hyper' : 'poke'} size={17} grey={!has} /></View>}
       {seen && <Text style={[styles.star, { color: hasShiny ? C.gold : C.dim }]}>{shinyDone ? '✨' : hasShiny ? '★' : '☆'}</Text>}
     </View>
   );
@@ -184,7 +205,7 @@ const styles = StyleSheet.create({
   stageCur: { backgroundColor: C.accent },
   stageTxt: { color: C.text, fontWeight: '800' },
   zoneMon: { width: 32, height: 32 },
-  ball: { position: 'absolute', right: -2, bottom: -2 },
+  ball: { position: 'absolute', right: -3, bottom: -3 },
   star: { position: 'absolute', left: -2, bottom: -3, fontSize: 10, fontWeight: '900' },
   progRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   progLabel: { color: C.sub, fontSize: 10, fontWeight: '700', width: 76 },

@@ -9,13 +9,15 @@ import { BIOMES, REGION_START } from '../../game/content';
 import { move, species } from '../../game/data';
 import {
   BETWEEN_WAVES_MS, CaptureOffer, GameState, StageKind, StageRun, WaveRewards, arenaAvailable, autoCaptureBall, bestStarsOf, bossAvailable,
-  canPrestige, captureTarget, isTargeted, touchLastActive, tryCapture,
+  canPrestige, captureTarget, exitTower, isTargeted, touchLastActive, tryCapture,
 } from '../../game/game';
 import { RARITIES, RARITY_COLOR } from '../../game/model';
 import { template } from '../../game/items';
 import { rng, useGame } from '../../store/game';
 import { CollectionGoal, wantedForBox } from '../../game/collection';
 import { useSettings } from '../../store/settings';
+import { getSprite } from '../../sprites/manifest';
+import { preloadImage } from '../../sprites/imageCache';
 import { toast } from '../../store/ui';
 
 export interface FighterAnim {
@@ -78,17 +80,27 @@ class Runner {
   private start() {
     const s = useGame.getState().s;
     if (!s || !s.starterChosen || !s.team.length) return;
-    let kind: StageKind = this.next ?? 'stage';
+    // dans la Tour de Combat (`towerFloor`), on enchaîne ses étages ; demander autre chose (boss, arène) en sort
+    let kind: StageKind = this.next ?? (s.towerFloor !== null ? 'tower' : 'stage');
     this.next = null;
+    if (kind !== 'tower' && s.towerFloor !== null) useGame.getState().act(exitTower);
+    if (kind === 'tower' && s.towerFloor === null) kind = 'stage';
     if (kind === 'boss' && (!bossAvailable(s) || s.bossesBeaten[s.biome][s.zone])) kind = 'stage';
     if (kind === 'arena' && !arenaAvailable(s)) kind = 'stage';
     this.run = new StageRun(s, kind, rng);
+    // les 3 vagues sont tirées d'avance : on décode tout de suite les sprites de tous leurs ennemis (et de l'équipe),
+    // pour qu'un ennemi de la vague 2 ou 3 s'affiche dès son arrivée au lieu d'être décodé en plein combat
+    for (const mon of [...this.run.waves.flat().map((e) => e.mon), ...s.team.map((u) => s.mons[u])]) {
+      const sprite = getSprite(mon.speciesId, mon.shiny);
+      if (sprite) preloadImage(sprite.asset);
+    }
     this.phase = 'fight';
     this.resetAnims();
     const biome = BIOMES[s.biome];
     const zone = biome.zones[s.zone];
     if (kind === 'boss') this.showBanner(`Boss : ${species(zone.boss.speciesId).name} !`, '#ff5252');
     else if (kind === 'arena') this.showBanner(`${biome.arena.name} : ${biome.arena.leader} vous défie !`, '#ffb300');
+    else if (kind === 'tower') this.showBanner(`Tour de Combat : étage ${this.run.floor}`, '#b388ff');
   }
 
   private resetAnims() {
@@ -156,7 +168,9 @@ class Runner {
         }
       } else if (lost) {
         sfx('deny');
-        toast(run.kind === 'stage' ? `Défaite… retour à ${BIOMES[s.biome].zones[s.zone].name} ${s.stage}` : 'Défaite… entraîne-toi et réessaie', '#ff5252');
+        toast(run.kind === 'stage' ? `Défaite… retour à ${BIOMES[s.biome].zones[s.zone].name} ${s.stage}`
+          : run.kind === 'tower' ? `🗼 Tour : arrêt à l'étage ${run.floor} (record : étage ${s.towerBest})`
+          : 'Défaite… entraîne-toi et réessaie', '#ff5252');
       }
       this.run = null;
     } else {
@@ -179,7 +193,12 @@ class Runner {
       const best = r.loot.reduce((a, b) => (b.rarity > a.rarity ? b : a));
       const bestName = template(best.templateId).name;
       const others = r.loot.filter((it) => it !== best).map((it) => template(it.templateId).name);
-      toast(`+ ${[bestName, ...others].join(', ')}`, RARITY_COLOR[best.rarity], bestName);
+      // Tour de Combat : les éclats de l'étage dans le même message que son objet
+      toast(`+ ${[bestName, ...others].join(', ')}${r.shards ? ` · +${r.shards} 💎` : ''}`, RARITY_COLOR[best.rarity], bestName);
+    }
+    if (r.towerReward) {
+      sfx('medal');
+      toast(`🎁 Étage ${r.towerReward.floor} : Chromatique${r.towerReward.plus ? ` +${r.towerReward.plus}` : ''} à choisir sur la Carte`, '#ff5ec4');
     }
     if (r.capture) {
       const capture = r.capture;

@@ -1,4 +1,5 @@
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from './components/Text';
 import { PType } from '../game/data';
 import { AURA, SPECIALTY, SPECIALTY2 } from '../game/talents';
 import { TYPE_COLOR, typeLabel } from './helpers';

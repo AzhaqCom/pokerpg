@@ -1,5 +1,6 @@
 import { memo, useCallback, useState } from 'react';
-import { FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { FlatList, Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Text } from '../components/Text';
 import { regionOf } from '../../game/content';
 import { ALL_SPECIES, species as speciesOf } from '../../game/data';
 import { Habitat, biomeAvailable, hasShinyCharm, isTargeted, selectStage, toggleTarget, whereToFind } from '../../game/game';

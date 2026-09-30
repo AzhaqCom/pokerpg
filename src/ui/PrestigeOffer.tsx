@@ -1,4 +1,5 @@
-import { Modal, StyleSheet, Text, View } from 'react-native';
+import { Modal, StyleSheet, View } from 'react-native';
+import { Text } from './components/Text';
 import { REGIONS, regionOf } from '../game/content';
 import { GameState, postponePrestige, startPrestige } from '../game/game';
 import { useGame } from '../store/game';

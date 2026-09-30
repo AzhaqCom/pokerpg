@@ -1,4 +1,5 @@
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from './components/Text';
 import { ZoneDef } from '../game/content';
 import { species } from '../game/data';
 import { GameState } from '../game/game';

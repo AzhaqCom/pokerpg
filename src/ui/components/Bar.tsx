@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from './Text';
 import { C } from '../theme';
 
 /** Jauge 0..max ; passe au rouge sous le seuil critique. */

@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Text } from './components/Text';
 import { regionOf } from '../game/content';
 import { species } from '../game/data';
 import { chooseStarter } from '../game/game';

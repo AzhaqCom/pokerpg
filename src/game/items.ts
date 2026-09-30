@@ -1,5 +1,5 @@
 import {
-  BattleBonuses, BonusStat, Item, critOverflow, emptyBonuses, ItemSlot, ItemTemplate, MAX_RARITY, NumericBonusStat, RARITY_MULT, RARITY_SUBS,
+  BattleBonuses, BonusStat, Item, critOverflow, emptyBonuses, ItemSlot, ItemTemplate, MAX_RARITY, NumericBonusStat, RARITIES, RARITY_MULT, RARITY_SUBS,
 } from './model';
 import { BIOMES, REGIONS } from './content';
 import { Rng } from './rng';
@@ -245,16 +245,37 @@ function mainStats(t: ItemTemplate): BonusStat[] {
   return t.bonusCrit ? [t.main, 'critPct'] : [t.main];
 }
 
+/**
+ * Chromatique +N (fin de jeu) : chaque cran ajoute 0,2 au multiplicateur de rareté de la stat principale (×2,4 → ×2,6,
+ * ≈ +8 %) et 10 % aux secondaires. Pas de plafond : un +N coûte 3^N Chromatiques, la fusion est le puits sans fond.
+ */
+export const PLUS_MAIN_STEP = 0.2;
+export const PLUS_SUB_STEP = 0.1;
+
+export function plusOf(item: Item): number {
+  return item.plus ?? 0;
+}
+
+/** Multiplicateur de rareté de la stat principale, crans Chromatique +N compris. */
+export function rarityMult(item: Item): number {
+  return RARITY_MULT[item.rarity] + PLUS_MAIN_STEP * plusOf(item);
+}
+
+/** « Légendaire », « Chromatique », « Chromatique +2 ». */
+export function rarityName(item: Item): string {
+  return plusOf(item) ? `${RARITIES[item.rarity]} +${plusOf(item)}` : RARITIES[item.rarity];
+}
+
 /** Valeur de la stat principale (0 pour les baies, qui agissent en combat). */
 export function mainValue(item: Item): number {
   const t = template(item.templateId);
-  return round1(t.base * (item.tier ?? 1) * lvlMult(item.level) * RARITY_MULT[item.rarity]);
+  return round1(t.base * (item.tier ?? 1) * lvlMult(item.level) * rarityMult(item));
 }
 
 /** Soin d'une baie en % des PV (augmente avec la rareté). */
 export function berryHeal(item: Item): number {
   const t = template(item.templateId);
-  return t.berry?.heal ? Math.round(t.berry.heal * RARITY_MULT[item.rarity]) : 0;
+  return t.berry?.heal ? Math.round(t.berry.heal * rarityMult(item)) : 0;
 }
 
 function rollSub(rng: Rng, level: number, exclude: BonusStat[]): { stat: BonusStat; value: number } {
@@ -364,15 +385,17 @@ export function biomeTier(biome: number, t: ItemTemplate): number {
 
 /** Éclats obtenus en recyclant. */
 export function recycleValue(item: Item): number {
-  return 2 * (item.rarity + 1) * (item.rarity + 1) + item.level;
+  const r = item.rarity + 1 + plusOf(item);
+  return 2 * r * r + item.level;
 }
 
 /** Coût en éclats pour monter l'objet d'un niveau. */
 export function upgradeCost(item: Item): number {
-  return 5 * item.level * (item.rarity + 1);
+  return 5 * item.level * (item.rarity + 1 + plusOf(item));
 }
 
-/** Niveau maximum d'un objet (comme les Pokémon) : au-delà, l'amélioration est bloquée. */
+/** Niveau maximum d'un objet (comme les Pokémon) : au-delà, l'amélioration est bloquée — sauf en fin de jeu
+ * (`itemLevelCap` dans `game.ts`). */
 export const MAX_ITEM_LEVEL = 100;
 
 export function upgrade(item: Item): Item {
@@ -392,28 +415,36 @@ export function rerollSub(item: Item, index: number, rng: Rng): Item {
   return { ...item, subs };
 }
 
-/** Fusion 3 → 1 : trois objets identiques (même objet, même rareté) → rareté suivante. */
-export function canFuse(items: Item[]): boolean {
+/**
+ * Fusion 3 → 1 : trois objets identiques (même objet, même rareté, même cran +N) → rareté suivante. Chromatique :
+ * seulement en fin de jeu (`endgame`), vers Chromatique +N+1.
+ */
+export function canFuse(items: Item[], endgame = false): boolean {
   return items.length === 3
     && new Set(items.map((i) => i.uid)).size === 3
-    && items.every((i) => i.templateId === items[0].templateId && i.rarity === items[0].rarity)
-    && items[0].rarity < MAX_RARITY;
+    && items.every((i) => i.templateId === items[0].templateId && i.rarity === items[0].rarity && plusOf(i) === plusOf(items[0]))
+    && (items[0].rarity < MAX_RARITY || endgame);
 }
 
-export function fuse(items: Item[], rng: Rng): Item {
-  if (!canFuse(items)) throw new Error('Fusion impossible');
-  const rarity = items[0].rarity + 1;
+export function fuse(items: Item[], rng: Rng, endgame = false): Item {
+  if (!canFuse(items, endgame)) throw new Error('Fusion impossible');
+  const ascend = items[0].rarity === MAX_RARITY; // Chromatique +N → +N+1 (la rareté ne bouge plus)
+  const rarity = ascend ? MAX_RARITY : items[0].rarity + 1;
+  const plus = ascend ? plusOf(items[0]) + 1 : 0;
+  // secondaires d'un cran de plus : +10 % (par rapport au cran d'origine)
+  const subScale = ascend ? (1 + PLUS_SUB_STEP * plus) / (1 + PLUS_SUB_STEP * (plus - 1)) : 1;
   const level = Math.max(...items.map((i) => i.level));
   const t = template(items[0].templateId);
   // garde les meilleurs bonus existants, complète jusqu'au nombre de la rareté
   const best = new Map<BonusStat, number>();
   for (const it of items) for (const s of it.subs) best.set(s.stat, Math.max(best.get(s.stat) ?? 0, s.value));
   const subs = [...best.entries()].sort((a, b) => b[1] - a[1]).slice(0, RARITY_SUBS[rarity])
-    .map(([stat, value]) => ({ stat, value }));
+    .map(([stat, value]) => ({ stat, value: round1(value * subScale) }));
   while (subs.length < RARITY_SUBS[rarity]) subs.push(rollSub(rng, level, [...mainStats(t), ...subs.map((s) => s.stat)]));
   const tier = Math.max(...items.map((i) => i.tier ?? 1));
   const out: Item = { uid: newUid('i'), templateId: t.id, rarity, level, subs };
   if (tier !== 1) out.tier = tier;
+  if (plus) out.plus = plus;
   return out;
 }
 

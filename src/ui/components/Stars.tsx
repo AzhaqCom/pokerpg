@@ -1,4 +1,4 @@
-import { Text } from 'react-native';
+import { Text } from './Text';
 import { Mon } from '../../game/model';
 import { monStars } from '../../game/stats';
 import { C } from '../theme';

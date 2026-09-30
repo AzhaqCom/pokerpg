@@ -2,12 +2,12 @@ import { BIOMES, REGION_START, REGIONS, STAGES_PER_ZONE, regionLastBiome } from 
 import { ALL_SPECIES, EVOLUTION_CHOICES, evolutionTargets, species } from '../data';
 import {
   GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, applyMegaCandy, craftMegaCandy, lineBase, arenaAvailable, assignExploration, assignPension, autoCaptureBall, autoEquipBest, bestStarsOf, biomeAvailable, bossAvailable,
-  lineChain, setRecycleCandidates, hasShinyCharm, shinyCharmToAnnounce, shinyOdds, BOOSTS, BOOST_MS, UNIVERSAL_MEGA_PRICE, boostActive, boostCoverage, buyBoost, buyUniversalMega, endingReady, autoTalents, canCompleteDex, whereToFind, canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
+  lineChain, equipValue, towerLootTemplates, towerSpecies, towerStart, enterTower, towerRewardPlus, claimTowerReward, TOWER_LEVEL, setRecycleCandidates, endgameUnlocked, fusableRarity, itemLevelCap, upgradeItem, hasShinyCharm, shinyCharmToAnnounce, shinyOdds, BOOSTS, BOOST_MS, UNIVERSAL_MEGA_PRICE, boostActive, boostCoverage, buyBoost, buyUniversalMega, endingReady, autoTalents, canCompleteDex, whereToFind, canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
   harvestExploration, harvestPension, holder, isRareInZone, makeMon, addMon, makeWaves, migrateSave, monsBelowStars, monsNotShiny, newGame, pickSpecies, rankUpTalent, recycle, release, releaseBelowStars, SHARDS_PER_MIN,
   releaseExcess, releaseNotShiny, remainingEvolutions, removePension, selectStage, setAutoAdvance, START_BALLS, startPrestige,
   CAPTURE_PITY, RELEASE_CANDIES, applyMegaCandy as applyMega, lineForms, BALL_PRICE, buyBalls, autoMoves, captureTarget, setTeam, toggleLock, challengesReady, postponePrestige, idleFarmTarget, isTargeted, toggleTarget, zoneHasTarget, teamMaxLevel, tryCapture, unequipBox, xpGapMult,
 } from '../game';
-import { SETS, TEMPLATES, makeItem, statText } from '../items';
+import { SETS, TEMPLATES, makeItem, statText, mainValue, rarityName, recycleValue } from '../items';
 import { emptyBonuses } from '../model';
 import { Rng, seededRng } from '../rng';
 import { spentPoints, talentPoints } from '../talents';
@@ -1479,4 +1479,160 @@ test('sac : recycler une panoplie garde les objets verrouillés, portés et des 
   expect(uids).toEqual([a.uid, b.uid].sort());
   recycle(s, uids);
   expect(Object.keys(s.items).sort()).toEqual([locked.uid, worn.uid, other.uid].sort());
+});
+
+/** Partie en fin de jeu : Sinnoh, dernier Champion battu, 8 badges. */
+function endgameState(): GameState {
+  const s = newGame();
+  s.prestige = REGIONS.length - 1;
+  s.arenaBeaten[regionLastBiome(s.prestige)] = true;
+  s.badges = 8;
+  return s;
+}
+
+test('fin de jeu : débloquée seulement par le dernier Champion', () => {
+  const s = newGame();
+  s.arenaBeaten[regionLastBiome(0)] = true; // Champion de Kanto : pas la fin
+  expect(endgameUnlocked(s)).toBe(false);
+  expect(itemLevelCap(s)).toBe(100);
+  expect(endgameUnlocked(endgameState())).toBe(true);
+  expect(itemLevelCap(endgameState())).toBe(Infinity);
+});
+
+test('Chromatique +N : 3 Chromatiques identiques → +1, puis +2, uniquement en fin de jeu', () => {
+  const rng = seededRng(9);
+  const chroma = () => makeItem('griffe-sylve', 6, 100, rng);
+  const before = newGame();
+  before.badges = 8;
+  const a = [chroma(), chroma(), chroma()];
+  for (const it of a) before.items[it.uid] = it;
+  expect(fusableRarity(before, a[0])).toBe(false);
+  expect(fuseItems(before, a.map((i) => i.uid), rng)).toBeNull();
+  expect(fusionCandidates(before)).toHaveLength(0);
+
+  const s = endgameState();
+  for (const it of a) s.items[it.uid] = it;
+  expect(fusionCandidates(s)).toHaveLength(1);
+  const p1 = fuseItems(s, a.map((i) => i.uid), rng)!;
+  expect(p1.rarity).toBe(6);
+  expect(p1.plus).toBe(1);
+  expect(rarityName(p1)).toBe('Chromatique +1');
+  expect(mainValue(p1) / mainValue(a[0])).toBeCloseTo(2.6 / 2.4, 2);
+  const best = Math.max(...a.flatMap((i) => i.subs.map((x) => x.value)));
+  expect(Math.max(...p1.subs.map((x) => x.value))).toBeCloseTo(best * 1.1, 0);
+  // un +1 ne fusionne pas avec des Chromatiques simples
+  const mix = [p1, chroma(), chroma()];
+  for (const it of mix) s.items[it.uid] = it;
+  expect(fuseItems(s, mix.map((i) => i.uid), rng)).toBeNull();
+  const p1b = { ...p1, uid: 'p1b' }; const p1c = { ...p1, uid: 'p1c' };
+  s.items.p1b = p1b; s.items.p1c = p1c;
+  const p2 = fuseItems(s, [p1.uid, 'p1b', 'p1c'], rng)!;
+  expect(p2.plus).toBe(2);
+  expect(recycleValue(p2)).toBeGreaterThan(recycleValue(p1));
+});
+
+test('fin de jeu : les objets s\'améliorent au-delà du Nv.100', () => {
+  const s = endgameState();
+  s.shards = 1e9;
+  const it = makeItem('griffe-sylve', 6, 100, seededRng(2));
+  s.items[it.uid] = it;
+  expect(upgradeItem(s, it.uid)).toBe(true);
+  expect(s.items[it.uid].level).toBe(101);
+  const before = newGame();
+  before.shards = 1e9;
+  before.items[it.uid] = { ...it, level: 100 };
+  expect(upgradeItem(before, it.uid)).toBe(false);
+});
+
+test('Tour : adversaires = formes finales et légendaires, reprise au dernier palier de 10', () => {
+  const pool = towerSpecies();
+  expect(pool).toContain(493); // Arceus
+  expect(pool).toContain(6); // Dracaufeu
+  expect(pool).not.toContain(4); // Salamèche
+  const s = endgameState();
+  expect(towerStart(s)).toBe(1);
+  s.towerBest = 47;
+  expect(towerStart(s)).toBe(41);
+  expect(enterTower(newGame())).toBe(false); // pas avant le dernier Champion
+  expect(enterTower(s)).toBe(true);
+  expect(s.towerFloor).toBe(41);
+  selectStage(s, s.biome, 0, 1); // choisir une zone sur la Carte fait sortir de la Tour
+  expect(s.towerFloor).toBeNull();
+  expect([10, 20, 30, 40, 50, 70].map(towerRewardPlus)).toEqual([0, 0, 1, 1, 2, 3]);
+});
+
+test('Tour : étage gagné (éclats, objet Nv.100 + étage, Chromatique à choisir tous les 10), défaite sans pénalité', () => {
+  const s = endgameState();
+  chooseStarter(s, 387, seededRng(1));
+  s.towerBest = 9;
+  enterTower(s);
+  expect(s.towerFloor).toBe(1);
+  s.towerFloor = 10;
+  const shards = s.shards;
+  const run = new StageRun(s, 'tower', seededRng(2));
+  expect(run.floor).toBe(10);
+  expect(run.enemies).toHaveLength(3);
+  expect(run.enemies.every((e) => e.mon.level === TOWER_LEVEL)).toBe(true);
+  run.battle.result = 'win';
+  const r = run.finishWave()!;
+  expect(run.result).toBe('win');
+  expect(s.towerBest).toBe(10);
+  expect(s.towerFloor).toBe(11);
+  expect(s.shards - shards).toBe(r.shards);
+  expect(r.loot[0].level).toBe(110);
+  expect(r.loot[0].rarity).toBe(6); // toujours Chromatique
+  expect(towerLootTemplates().some((t) => t.id === r.loot[0].templateId)).toBe(true);
+  expect(s.towerRewards).toHaveLength(1);
+  // Chromatique au choix
+  const it = claimTowerReward(s, 0, 'gantelet-champion', seededRng(3))!;
+  expect(it.templateId).toBe('gantelet-champion');
+  expect(it.rarity).toBe(6);
+  expect(it.level).toBe(110);
+  expect(s.towerRewards).toHaveLength(0);
+  // défaite : sortie de la Tour, zone et étape inchangées
+  const { biome, zone, stage } = s;
+  const lost = new StageRun(s, 'tower', seededRng(4));
+  lost.battle.result = 'lose';
+  lost.finishWave();
+  expect(s.towerFloor).toBeNull();
+  expect([s.biome, s.zone, s.stage]).toEqual([biome, zone, stage]);
+  expect(s.towerBest).toBe(10);
+});
+
+test('Équiper le meilleur : trouve la meilleure combinaison (comparée à une recherche exhaustive)', () => {
+  const sets = ['sylve', 'cendres', 'champion'];
+  const bySlot = { offense: [] as string[], defense: [] as string[], berry: [] as string[] };
+  for (const t of TEMPLATES) if (t.set && sets.includes(t.set)) bySlot[t.slot].push(t.id);
+  for (let seed = 1; seed <= 12; seed++) {
+    const rng = seededRng(seed);
+    const s = newGame();
+    chooseStarter(s, 1, seededRng(seed));
+    s.items = {};
+    s.mons[s.team[0]].items = {};
+    const uid = s.team[0];
+    // 5 objets par emplacement (≤ AUTO_EQUIP_TOP : la recherche doit être exacte), raretés et niveaux variés
+    for (const slot of ['offense', 'defense', 'berry'] as const) {
+      for (let i = 0; i < 5; i++) {
+        const it = makeItem(bySlot[slot][rng.int(bySlot[slot].length)], rng.int(7), 1 + rng.int(100), rng);
+        s.items[it.uid] = it;
+      }
+    }
+    const items = Object.values(s.items);
+    const of = (slot: string) => items.filter((it) => TEMPLATES.find((t) => t.id === it.templateId)!.slot === slot);
+    let brute = -Infinity;
+    for (const o of of('offense')) for (const d of of('defense')) for (const b of of('berry')) brute = Math.max(brute, equipValue(s, uid, [o, d, b]));
+    autoEquipBest(s, uid);
+    const worn = Object.values(s.mons[uid].items).map((u) => s.items[u]);
+    expect(worn).toHaveLength(3);
+    expect(equipValue(s, uid, worn)).toBeCloseTo(brute, 6);
+  }
+});
+
+test('Tour : butin limité aux panoplies de Sinnoh (moins d\'objets différents, fusions plus rapides)', () => {
+  const pool = towerLootTemplates();
+  const sets = new Set(pool.map((t) => t.set));
+  expect(sets.size).toBe(15);
+  expect(pool).toHaveLength(45);
+  expect(sets.has('champion')).toBe(true);
+  expect(sets.has('prairie')).toBe(false); // panoplie de Hoenn seulement
 });

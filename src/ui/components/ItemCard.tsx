@@ -1,7 +1,9 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { SETS, statText, berryHeal, bonusCritValue, mainValue, template } from '../../game/items';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from './Text';
+import { SETS, statText, berryHeal, bonusCritValue, mainValue, plusOf, rarityName, template } from '../../game/items';
 import { Item, RARITIES, RARITY_COLOR } from '../../game/model';
 import { C } from '../theme';
+import { RainbowBorder, RainbowText } from './RainbowBorder';
 
 const SLOT_ICON = { offense: '⚔', defense: '🛡', berry: '🍒' } as const;
 const CURE_LABEL: Record<string, string> = {
@@ -20,13 +22,16 @@ export function itemMainText(it: Item) {
   return t.bonusCrit ? `${statText('critPct', bonusCritValue(it))} · ${main}` : main;
 }
 
-export function ItemCard({ item, onPress, selected, wornBy, compare }: {
-  item: Item; onPress?: () => void; selected?: boolean; wornBy?: string; compare?: 'up' | 'down' | null;
+/** `animated` : bordure arc-en-ciel tournante d'un Chromatique +N (fiche détaillée : une seule carte à l'écran). */
+export function ItemCard({ item, onPress, selected, wornBy, compare, animated }: {
+  item: Item; onPress?: () => void; selected?: boolean; wornBy?: string; compare?: 'up' | 'down' | null; animated?: boolean;
 }) {
   const t = template(item.templateId);
+  const rainbow = plusOf(item) > 0;
   const color = RARITY_COLOR[item.rarity];
   return (
-    <Pressable onPress={onPress} style={[styles.card, { borderColor: color }, selected && styles.selected]}>
+    <Pressable onPress={onPress} style={[styles.card, { borderColor: rainbow ? 'transparent' : color }, selected && styles.selected]}>
+      {rainbow && <RainbowBorder radius={12} animated={animated} />}
       <View style={styles.row}>
         <Text style={styles.icon}>{SLOT_ICON[t.slot]}</Text>
         <Text style={[styles.name, { color }]} numberOfLines={1}>{t.name}</Text>
@@ -36,7 +41,9 @@ export function ItemCard({ item, onPress, selected, wornBy, compare }: {
         <Text style={styles.lv}>Nv.{item.level}</Text>
       </View>
       {wornBy && <View style={styles.wornBadge}><Text style={styles.wornTxt}>⚠ Déjà porté par {wornBy}</Text></View>}
-      <Text style={styles.rarity}>{RARITIES[item.rarity]}{t.set ? ` · ${SETS[t.set].name}` : ''}</Text>
+      <Text style={styles.rarity}>
+        {rainbow ? <RainbowText text={rarityName(item)} /> : RARITIES[item.rarity]}{t.set ? ` · ${SETS[t.set].name}` : ''}
+      </Text>
       <Text style={styles.main}>{itemMainText(item)}</Text>
       {item.subs.map((s, i) => <Text key={i} style={styles.sub}>{statText(s.stat, s.value)}</Text>)}
     </Pressable>

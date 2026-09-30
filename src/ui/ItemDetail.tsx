@@ -1,7 +1,8 @@
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { GameState, fuseItems, heldBy, holder, recycle, rerollItemSub, upgradeItem } from '../game/game';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from './components/Text';
+import { GameState, endgameUnlocked, fusableRarity, fuseItems, heldBy, holder, itemLevelCap, recycle, rerollItemSub, upgradeItem } from '../game/game';
 import { MAX_RARITY, RARITY_COLOR } from '../game/model';
-import { MAX_ITEM_LEVEL, statText, recycleValue, rerollCost, template, upgradeCost } from '../game/items';
+import { plusOf, rarityName, statText, recycleValue, rerollCost, template, upgradeCost } from '../game/items';
 import { Item } from '../game/model';
 import { rng, useGame } from '../store/game';
 import { toast } from '../store/ui';
@@ -21,20 +22,24 @@ export function ItemDetail({ item, onClose, onSelect }: { item: Item | null; onC
   const act = useGame((g) => g.act);
   if (!item || !s) return null;
   const w = holder(s, item.uid);
-  // 2 autres exemplaires identiques (même objet, même rareté), libres et non verrouillés : fusion directe
+  // 2 autres exemplaires identiques (même objet, même rareté, même cran +N), libres et non verrouillés : fusion directe
   const held = heldBy(s);
-  const fuseMates = item.rarity < MAX_RARITY
-    ? Object.values(s.items).filter((o) => o.uid !== item.uid && o.templateId === item.templateId && o.rarity === item.rarity && !o.locked && !held.has(o.uid)).slice(0, 2)
+  const fuseMates = fusableRarity(s, item)
+    ? Object.values(s.items).filter((o) => o.uid !== item.uid && o.templateId === item.templateId && o.rarity === item.rarity
+      && plusOf(o) === plusOf(item) && !o.locked && !held.has(o.uid)).slice(0, 2)
     : [];
+  const levelCap = itemLevelCap(s);
+  // résultat de la fusion : rareté suivante, ou Chromatique +N+1 en fin de jeu
+  const fuseTarget = item.rarity < MAX_RARITY ? '' : ` (Chromatique +${plusOf(item) + 1})`;
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <Pressable style={styles.box} onPress={() => {}}>
           <ScrollView contentContainerStyle={{ gap: 10 }}>
-          <ItemCard item={item} wornBy={w ? monName(w) : undefined} />
+          <ItemCard item={item} wornBy={w ? monName(w) : undefined} animated />
           <Text style={styles.shards}>💎 {s.shards} éclats</Text>
-          <Button label={item.level >= MAX_ITEM_LEVEL ? 'Niveau maximum (100)' : `Améliorer (${upgradeCost(item)} 💎)`}
-            disabled={item.level >= MAX_ITEM_LEVEL || s.shards < upgradeCost(item)}
+          <Button label={item.level >= levelCap ? `Niveau maximum (${levelCap}${endgameUnlocked(s) ? '' : ' : sans limite après le dernier Champion'})` : `Améliorer (${upgradeCost(item)} 💎)`}
+            disabled={item.level >= levelCap || s.shards < upgradeCost(item)}
             onPress={() => { if (act((g) => upgradeItem(g, item.uid))) { feedback('level'); runner.restart(); } }} />
           {item.subs.length > 0 && (
             <View style={{ gap: 6 }}>
@@ -50,11 +55,11 @@ export function ItemDetail({ item, onClose, onSelect }: { item: Item | null; onC
             </View>
           )}
           {fuseMates.length === 2 && (
-            <Button label={`Fusionner avec 2 identiques → ${template(item.templateId).name}`} color="#8e24aa" onPress={() => {
+            <Button label={`Fusionner avec 2 identiques → ${template(item.templateId).name}${fuseTarget}`} color="#8e24aa" onPress={() => {
               const out = act((g) => fuseItems(g, [item.uid, ...fuseMates.map((m) => m.uid)], rng));
               if (out) {
                 feedback('medal', true); runner.restart();
-                toast(`Fusion : ${template(out.templateId).name}`, RARITY_COLOR[out.rarity], template(out.templateId).name);
+                toast(`Fusion : ${template(out.templateId).name} ${rarityName(out)}`, RARITY_COLOR[out.rarity], template(out.templateId).name);
                 onSelect?.(out.uid);
               }
             }} />

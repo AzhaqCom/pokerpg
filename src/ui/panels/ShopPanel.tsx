@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
+import { Text } from '../components/Text';
 import {
   BALL_PRICE, BALLS, BOOST_KINDS, BOOST_MAX_MS, BOOST_MS, BOOSTS, BallKind, BoostKind, UNIVERSAL_MEGA_PRICE,
   boostRemaining, buyBall, buyBalls, buyBoost, buyUniversalMega,

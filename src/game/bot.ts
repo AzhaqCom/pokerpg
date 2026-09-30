@@ -28,6 +28,8 @@ export interface SimReport {
   teamDetail: string[];
   /** meilleurs objets non portés du sac par emplacement : rareté/niveau */
   bagBest: string[];
+  /** état de fin de simulation (mesures de fin de jeu, ex. difficulté de la Tour de Combat) */
+  state: GameState;
 }
 
 const SIM_EPOCH = 1_700_000_000_000; // horloge simulée (ms) : la pension/l'exploration ont besoin d'un `now`
@@ -183,7 +185,7 @@ export function simulate(rng: Rng, maxSeconds = 6 * 3600, trace?: string[], regi
     return `${slot}: ${best ? describe(best) : '-'}`;
   });
   return {
-    teamDetail, bagBest,
+    teamDetail, bagBest, state: s,
     seconds: Math.round(t), milestones, teamLevels: s.team.map((u) => s.mons[u].level),
     captures: s.totals.captures, items: Object.keys(s.items).length, finished: s.arenaBeaten[lastBiome],
   };

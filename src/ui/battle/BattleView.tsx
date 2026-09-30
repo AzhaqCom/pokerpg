@@ -1,11 +1,13 @@
 import { spriteScale } from '../../data/spriteScale';
-import { Canvas, Group, LinearGradient, Oval, Rect, RoundedRect, SkImage, useImage, vec } from '@shopify/react-native-skia';
+import { Canvas, Group, LinearGradient, Oval, Rect, RoundedRect, SkImage, vec } from '@shopify/react-native-skia';
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import { Text } from '../components/Text';
 import { Fighter } from '../../game/battle';
 import { BIOMES } from '../../game/content';
 import { ActionKey, attackFrameLimit, getSprite, resolveAction } from '../../sprites/manifest';
 import { PmdSprite, totalMs } from '../../sprites/PmdSprite';
+import { useSpriteImage } from '../../sprites/imageCache';
 import { BackdropBack, BackdropFront, BackdropKind } from './Backdrop';
 import { CaptureBar } from './CaptureBar';
 import { STATUS_COLOR, STATUS_LABEL, runner } from './runner';
@@ -60,7 +62,7 @@ function useRunnerFrame() {
 
 function FighterSprite({ f, W, H, px }: { f: Fighter; W: number; H: number; px: number }) {
   const sprite = getSprite(f.speciesId, !!f.shiny)!;
-  const image = useImage(sprite.asset);
+  const image = useSpriteImage(sprite.asset); // en cache : pas de rechargement à chaque vague
   return <FighterDraw f={f} image={image} meta={sprite.meta} W={W} H={H} px={px} />;
 }
 
@@ -117,7 +119,7 @@ export function BattleView({ width }: { width: number }) {
   const run = runner.run;
   const biomeZones = BIOMES[run?.biome ?? 0].zones;
   const zone = run ? biomeZones[Math.min(run.zone, biomeZones.length - 1)] : biomeZones[0];
-  const scene: BackdropKind = run?.kind === 'arena' ? 'arena' : zone.biome;
+  const scene: BackdropKind = run?.kind === 'arena' ? 'arena' : run?.kind === 'tower' ? 'league' : zone.biome;
   const [top, bottom, ground] = SKIES[scene];
   const fighters = run?.battle.fighters ?? [];
   // zoom entier des sprites (pixel art net). Diviseur 70 depuis le canvas agrandi à 72 % (2026-09-25) : les sprites

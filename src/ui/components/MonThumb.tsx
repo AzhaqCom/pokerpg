@@ -1,4 +1,5 @@
-import { Image, ImageStyle, StyleProp, Text, View } from 'react-native';
+import { Image, ImageStyle, StyleProp, View } from 'react-native';
+import { Text } from './Text';
 import { THUMB_ASSETS } from '../../data/thumbAssets';
 import { spriteKey } from '../../sprites/manifest';
 

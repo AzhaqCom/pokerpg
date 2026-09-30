@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from '../components/Text';
 import { BALLS, BallKind, setRecycleCandidates, fuseItems, fusionCandidates, heldBy, recycle } from '../../game/game';
 import { SETS, recycleValue, slotOf, template, itemScore } from '../../game/items';
 import { Item, ItemSlot, RARITIES, RARITY_COLOR } from '../../game/model';

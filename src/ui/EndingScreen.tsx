@@ -1,10 +1,12 @@
-import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, View } from 'react-native';
+import { Text } from './components/Text';
 import { REGIONS } from '../game/content';
 import { GameState, hasShinyCharm } from '../game/game';
 import { boxProgress } from '../game/collection';
 import { useGame } from '../store/game';
 import { runner } from './battle/runner';
 import { Button } from './components/Button';
+import { RainbowText } from './components/RainbowBorder';
 import { feedback } from './components/feedback';
 import { C } from './theme';
 
@@ -45,6 +47,15 @@ export function EndingScreen() {
               <Text style={styles.stat}>⚪ Captures : {s.totals.captures} · Combats gagnés : {s.totals.stagesCleared}</Text>
               <Text style={styles.stat}>🍬 Pokémon vaincus : {s.totals.kills}</Text>
             </View>
+            <Text style={styles.unlockTitle}>🔓 Débloqué</Text>
+            <View style={styles.stats}>
+              <Text style={styles.stat}>
+                <RainbowText text="Chromatique +1, +2, +3…" />
+                {' : fusionne 3 Chromatiques identiques pour un cran de plus, sans limite (stat principale +8 % et secondaires +10 % par cran).'}
+              </Text>
+              <Text style={styles.stat}>📈 Objets au-delà du Nv.100 : l'amélioration n'a plus de plafond.</Text>
+              <Text style={styles.stat}>🗼 Tour de Combat (onglet après le dernier biome de la Carte) : étages infinis, objets de plus en plus hauts et Chromatiques +N au choix tous les 10 étages.</Text>
+            </View>
             <Text style={styles.sub}>
               La suite : compléter ta boîte avec 1 exemplaire de chaque espèce, puis 1 chromatique de chaque. Le Charme Chroma
               {hasShinyCharm(s) ? ' est déjà actif' : ' s\u2019obtient en complétant le Pokédex'} : chromatiques 2 fois plus fréquents.
@@ -69,4 +80,5 @@ const styles = StyleSheet.create({
   stats: { backgroundColor: C.panel, borderRadius: 14, padding: 12, gap: 6 },
   stat: { color: C.text, fontSize: 14, fontWeight: '700' },
   sub: { color: C.sub, fontSize: 13, textAlign: 'center' },
+  unlockTitle: { color: C.gold, fontSize: 16, fontWeight: '900', textAlign: 'center' },
 });

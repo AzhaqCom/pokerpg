@@ -1,7 +1,10 @@
+import Constants, { ExecutionEnvironment } from 'expo-constants';
+import { loadAsync } from 'expo-font';
 import { useKeepAwake } from 'expo-keep-awake';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { AppState, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { AppState, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { FONT, Text } from './src/ui/components/Text';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { initMusic, setMusicEnabled } from './src/audio/music';
 import { initSfx, setSfxEnabled } from './src/audio/sfx';
@@ -109,7 +112,7 @@ function Main() {
     bag: fusionBadgeCount(s),
     pension: pensionXpReady(s) > 0 ? 1 : 0,
     exploration: explorationReady(s) > 0 ? 1 : 0,
-    map: challengesReady(s),
+    map: challengesReady(s) + s.towerRewards.length, // + Chromatiques de la Tour à choisir
   };
   return (
     <View style={{ flex: 1 }}>
@@ -142,7 +145,25 @@ function Main() {
   );
 }
 
+/**
+ * Police du jeu dans Expo Go : l'APK l'embarque (plugin `expo-font`, 5 graisses, disponible dès le 1er affichage) ;
+ * Expo Go ne l'a pas, on la charge donc au démarrage (graisse normale seulement, le gras est alors synthétisé) et
+ * rien n'est affiché avant, pour ne jamais mesurer un texte avec une autre police que celle qui le dessine.
+ */
+function useGameFont(): boolean {
+  const needed = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+  const [ready, setReady] = useState(!needed);
+  useEffect(() => {
+    if (!needed) return;
+    loadAsync({ [FONT]: require('./assets/fonts/Nunito_400Regular.ttf') })
+      .catch((e) => console.warn('Police non chargée', e))
+      .finally(() => setReady(true));
+  }, []);
+  return ready;
+}
+
 function Root() {
+  const fontReady = useGameFont();
   const [idleGains, setIdleGains] = useState<IdleGains | null>(null);
   useBoot(setIdleGains);
   const insets = useSafeAreaInsets();
@@ -164,7 +185,7 @@ function Root() {
   return (
     <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
-      {!s ? <Text style={styles.loading}>Chargement…</Text> : !s.starterChosen ? <StarterScreen /> : <Main />}
+      {!s || !fontReady ? <Text style={styles.loading}>Chargement…</Text> : !s.starterChosen ? <StarterScreen /> : <Main />}
       <Toasts />
       <IdleSummary gains={idleGains} onClose={() => setIdleGains(null)} />
       {offerPrestige && <PrestigeOffer onClose={() => {}} />}

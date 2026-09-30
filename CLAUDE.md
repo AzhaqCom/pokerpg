@@ -69,6 +69,15 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   `BackdropFront` sur le sol, sous les sprites), palette `SKIES` dans `BattleView.tsx`. Types de zone (`ZoneDef.biome`,
   purement visuel) : prairie, forêt, grotte, eau, électrique, marais, temple, volcan, désert, **ligue** (salles de Ligue
   et du Champion), **dojo**, **hanté** (Tour Hantée, Manoir) ; les arènes ont leur propre décor.
+- **Police** : Nunito (OFL, `assets/fonts/`, 5 graisses) embarquée dans l'APK par le plugin `expo-font` (famille Android
+  « Nunito », le `fontWeight` choisit la graisse) ; chargée au démarrage dans Expo Go seulement (`useGameFont`).
+  **Toujours importer `Text`/`TextInput` depuis `src/ui/components/Text`**, jamais depuis 'react-native' : la police
+  système des Xiaomi (MiSans) faisait mesurer et dessiner les textes avec deux polices différentes au 1er lancement à
+  froid (mots coupés : « Equip », « Nv.10 ») jusqu'au rechargement. Changer de police = nouvel APK.
+- **Performances** : sprites chargés par `useSpriteImage`/`preloadImage` (`src/sprites/imageCache.ts`, cache des 24
+  dernières planches décodées ; `useImage` de Skia n'a aucun cache et redécodait chaque planche à chaque vague, par le
+  réseau dans Expo Go) ; le runner précharge les ennemis des 3 vagues au début de l'étape. Onglet Équipe : calculs de
+  collection mémorisés sur `boxSignature` et cases de la boîte mémorisées (`BoxCell`), pas recalculés à chaque `rev`.
 - État : zustand + AsyncStorage (`src/store/game.ts`, clé `pokelootborn/save/v1`, `act(fn)` modifie + sauve).
   `load()` fusionne la sauvegarde avec `newGame()` → **un nouveau champ doit avoir une valeur par défaut dans `newGame()`** ;
   `migrateSave` complète les tableaux de biomes trop courts.
@@ -105,14 +114,31 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   ~5 h Kanto, 9 h Johto, 18 h Hoenn, 40 h Sinnoh).
 - **Butin** : 11 %/sauvage (`LOOT_CHANCE`), boss 3 objets ; niveau = `max(niveau ennemi, meilleur de l'équipe)`.
 - **Objets** : 7 raretés, panoplies (`SETS`), `BIOME_SET` + `biomeTier` pour les régions 3+. Puissance calée sur les
-  **poids mesurés** (`STAT_WEIGHT`, 2026-09-24). Comparaison d'équipements par `combatValue` (modèle multiplicatif :
-  Critique × Dégâts critiques liés, Recharge plafonnée à 40 %) dans le contexte du Pokémon (`monBaseBonuses` : talents,
-  auras, badges) : `autoEquipBest` évalue chaque combinaison complète, `equipGain` donne les flèches du sélecteur.
+  **poids mesurés** (`STAT_WEIGHT`, 2026-09-24). Comparaison d'équipements par `equipValue` (`combatValue` des bonus, modèle
+  multiplicatif : Critique × Dégâts critiques liés, Recharge plafonnée à 40 %, + soin de la baie) dans le contexte du
+  Pokémon (`monBaseBonuses` : talents, auras, badges). `autoEquipBest` (2026-09-30) : toutes les combinaisons des 6
+  meilleurs objets par emplacement + pour chaque panoplie 2 ou 3 pièces complétées par les meilleurs hors panoplie
+  (exact sur un petit sac, vérifié contre une recherche exhaustive) ; `equipGain` (flèches du sélecteur) = même calcul.
   Anciennes sauvegardes : sous-stats converties une fois (`balanceVersion`). Recyclage en éclats (`recycleValue`).
   **Critique (2026-09-25)** : la chance de critique au-delà de 100 % est convertie 1 pour 1 en Dégâts critiques
   (`critOverflow`, en combat et dans `combatValue`). Les 5 objets Critique sont **mixtes** (`bonusCrit`) : Critique fixe par
   rareté (`CRIT_BY_RARITY` 8→25 %) + Dégâts critiques qui grimpent avec le niveau (`CRIT_HYBRID_BASE`, calés pour valoir
   l'objet Attaque équivalent à ~30 % de Critique) ; les objets déjà possédés suivent (valeur recalculée depuis le modèle).
+- **Fin de jeu** (`endgameUnlocked` : dernier Champion battu, 2026-09-30) : **Chromatique +N** (`Item.plus`) = fusion de 3
+  Chromatiques +N identiques (`fuseKey` : objet, rareté, cran) → +N+1, sans plafond ; stat principale +0,2 au
+  multiplicateur de rareté par cran (`rarityMult`, ×2,4 → ×2,6…), secondaires +10 % par cran (`PLUS_SUB_STEP`),
+  recyclage/amélioration plus chers. Niveau des objets déplafonné (`itemLevelCap`). Cartes +N : bordure arc-en-ciel
+  (`RainbowBorder`, fixe dans les listes, tournante seulement dans la fiche détaillée) et « Chromatique +2 » en couleurs.
+- **Tour de Combat** (fin de jeu, onglet « 🗼 Tour de Combat » après le dernier biome de la Carte, `TowerSection`, 2026-09-30) : `StageKind` `'tower'`, 1 combat par étage
+  contre 3 formes finales/légendaires Nv.100 aux gènes parfaits (`towerSpecies`, `towerWaves`), PV et Atq ×`TOWER_BASE`
+  (12) × `TOWER_GROWTH` (1,024)^(étage − 1), calés par `tools/scratch/tower.ts` (mur ~étage 13 pour le bot en fin de
+  Sinnoh, ~30 en Chromatique Nv.100, ~100 en +8 Nv.300). `GameState.towerFloor` (null = hors Tour ; le runner enchaîne
+  les étages, `selectStage`/boss/arène en sortent), `towerBest` (record), reprise au palier de 10 (`towerStart`).
+  Défaite = sortie sans pénalité ; jamais hors ligne. Récompenses (`towerFloorRewards`) : `towerShards` éclats, 1 objet
+  **Chromatique** Nv.100 + étage tiré parmi les 45 objets des 15 panoplies de Sinnoh (`towerLootTemplates` : puissance
+  identique quelle que soit la panoplie, créés au niveau du dernier biome ; moins d'objets différents = plus de doublons
+  à fusionner), tous les 10 étages un Chromatique +`towerRewardPlus`
+  (+1 tous les 20 étages, 10 % de chance d'un cran de plus) à choisir objet par objet (`towerRewards`, `claimTowerReward`).
 - **Qualité génétique** : gènes 0-15 (PV/Atq/Déf/Vit) tirés à la capture, jamais modifiés (sauf méga bonbons). Étoiles :
   4★ parfait, 3★ ≥ 80 %, 2★ ≥ 50 %. Plancher garanti par badge (`genesMinForBadges` : ≥ 8 dès 4 badges, ≥ 12 dès 8).
 - **Sous-stats** (depuis le 2026-09-24) : Attaque, Défense, PV, Vitesse, Critique, Dégâts critiques, Dégâts du type,

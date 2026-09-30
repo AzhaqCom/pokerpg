@@ -70,6 +70,8 @@ export interface Item {
   locked?: boolean;
   /** facteur de puissance de la stat principale (objet réutilisé hors de sa région, voir `biomeTier`), 1 si absent */
   tier?: number;
+  /** Chromatique +N (fin de jeu, après le dernier Champion) : 3 Chromatiques +N identiques → +N+1. Absent = +0. */
+  plus?: number;
 }
 
 export interface BattleBonuses {

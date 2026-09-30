@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { FlatList, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Text, TextInput } from '../components/Text';
 import { PType, species } from '../../game/data';
 import { PENSION_CAP_MS, PENSION_XP_SHARE, assignPension, harvestPension, pensionSlots, pensionXpReady, removePension } from '../../game/game';
 import { teamXpPerHour } from '../../game/idle';
