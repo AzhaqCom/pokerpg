@@ -63,6 +63,18 @@ class Runner {
     this.run = null;
   }
 
+  /**
+   * Nouvelle partie ou prestige : tout ce qui vient de l'ancienne partie disparaît, surtout l'offre de capture en
+   * cours (sinon un Arceus de Sinnoh reste capturable dans une partie neuve à Kanto).
+   */
+  newGame() {
+    this.restart();
+    this.offer = null;
+    this.banner = null;
+    this.floaters = [];
+    this.paused = false;
+  }
+
   private start() {
     const s = useGame.getState().s;
     if (!s || !s.starterChosen || !s.team.length) return;

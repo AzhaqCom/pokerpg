@@ -1,14 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { BALL_PRICE, BALLS, BallKind, buyBall, buyBalls, fuseItems, fusionCandidates, heldBy, recycle } from '../../game/game';
-import { slotOf, template, itemScore } from '../../game/items';
+import { useState } from 'react';
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { BALLS, BallKind, setRecycleCandidates, fuseItems, fusionCandidates, heldBy, recycle } from '../../game/game';
+import { SETS, recycleValue, slotOf, template, itemScore } from '../../game/items';
 import { Item, ItemSlot, RARITIES, RARITY_COLOR } from '../../game/model';
 import { rng, useGame } from '../../store/game';
 import { useSettings } from '../../store/settings';
-import { toast } from '../../store/ui';
+import { toast, useUi } from '../../store/ui';
 import { ItemDetail } from '../ItemDetail';
 import { BallIcon } from '../components/BallIcon';
 import { Button } from '../components/Button';
+import { Dialog, DialogSpec } from '../components/Dialog';
 import { ItemCard } from '../components/ItemCard';
 import { feedback } from '../components/feedback';
 import { monName } from '../helpers';
@@ -19,59 +20,33 @@ const FILTERS: { key: ItemSlot | 'all'; label: string }[] = [
   { key: 'all', label: 'Tout' }, { key: 'offense', label: 'Offensif' }, { key: 'defense', label: 'Défensif' }, { key: 'berry', label: 'Baies' },
 ];
 
-/** Icône de Ball = bouton d'achat direct : tap = +1, appui long = achat en rafale (fin de partie : des
- * milliers d'éclats à dépenser) ; au relâchement d'une rafale, `onBurstEnd` ouvre la boîte « ×10 · ×100 ». */
-function BuyBallIcon({ kind, onBurstEnd }: { kind: BallKind; onBurstEnd: (kind: BallKind) => void }) {
-  const act = useGame((g) => g.act);
-  const s = useGame((g) => g.s)!;
-  useGame((g) => g.rev);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const stop = () => { if (timer.current) { clearInterval(timer.current); timer.current = null; } };
-  useEffect(() => stop, []);
-  const endPress = () => { if (timer.current) onBurstEnd(kind); stop(); };
-  const buyOne = () => { if (act((g) => buyBall(g, kind))) feedback(); };
-  const start = () => {
-    stop();
-    timer.current = setInterval(() => { if (!act((g) => buyBall(g, kind))) stop(); }, 120);
-  };
-  const can = s.shards >= BALL_PRICE[kind];
-  return (
-    <Pressable onPress={buyOne} onLongPress={start} onPressOut={endPress} delayLongPress={350}
-      style={[styles.ballBuy, !can && { opacity: 0.4 }]}>
-      <BallIcon kind={kind} size={32} />
-      <Text style={styles.resTxt}>{s.balls[kind]}</Text>
-      <Text style={styles.ballPrice}>{BALL_PRICE[kind]}💎</Text>
-    </Pressable>
-  );
-}
-
-/** Durée d'affichage de la boîte d'achat groupé, relancée à chaque achat. */
-const BULK_BOX_MS = 3000;
-const BULK_AMOUNTS = [10, 100];
-
 export function BagPanel() {
   const s = useGame((g) => g.s)!;
-  // boîte « ×10 · ×100 » : ouverte au relâchement d'une rafale, une seule Ball à la fois, fermée après 3 s
-  const [bulk, setBulk] = useState<BallKind | null>(null);
-  const bulkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const openBulk = (kind: BallKind) => {
-    if (bulkTimer.current) clearTimeout(bulkTimer.current);
-    setBulk(kind);
-    bulkTimer.current = setTimeout(() => setBulk(null), BULK_BOX_MS);
-  };
-  useEffect(() => () => { if (bulkTimer.current) clearTimeout(bulkTimer.current); }, []);
   useGame((g) => g.rev);
   const act = useGame((g) => g.act);
+  const setTab = useUi((u) => u.setTab);
   const recycleMaxRarity = useSettings((st) => st.recycleMaxRarity);
   const [filter, setFilter] = useState<ItemSlot | 'all'>('all');
+  // filtre par panoplie (null = toutes) : permet aussi de recycler d'un coup une panoplie dont on ne veut pas
+  const [panoply, setPanoply] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<DialogSpec | null>(null);
   const [sel, setSel] = useState<string | null>(null);
   const held = heldBy(s);
   const items = Object.values(s.items)
-    .filter((i) => filter === 'all' || slotOf(i) === filter)
+    .filter((i) => (filter === 'all' || slotOf(i) === filter) && (!panoply || template(i.templateId).set === panoply))
     .sort((a, b) => b.rarity - a.rarity || itemScore(b) - itemScore(a));
   const fusions = fusionCandidates(s);
   const junk = Object.values(s.items).filter((i) => i.rarity <= recycleMaxRarity && !i.locked && !held.has(i.uid));
   const selected = sel ? s.items[sel] : null;
+  // panoplies présentes dans le sac, dans l'ordre des biomes, avec leur nombre d'objets
+  const setCounts = new Map<string, number>();
+  for (const it of Object.values(s.items)) {
+    const id = template(it.templateId).set;
+    if (id) setCounts.set(id, (setCounts.get(id) ?? 0) + 1);
+  }
+  const bagSets = Object.keys(SETS).filter((id) => setCounts.has(id));
+  const setJunk = panoply ? setRecycleCandidates(s, panoply) : [];
+  const setGain = setJunk.reduce((a, it) => a + recycleValue(it), 0);
 
   return (
     <>
@@ -95,29 +70,12 @@ export function BagPanel() {
           <View style={{ gap: 10, marginBottom: 10 }}>
             <View style={styles.res}>
               <Text style={styles.resTxt}>💎 {s.shards} éclats</Text>
-              <View style={styles.ballsCol}>
-                <Text style={styles.ballsHint}>Clique sur les Balls pour acheter</Text>
-                <View style={styles.ballsRow}>
-                  {(Object.keys(BALLS) as BallKind[]).map((b) => <BuyBallIcon key={b} kind={b} onBurstEnd={openBulk} />)}
-                </View>
-                {bulk && (
-                  <View style={styles.bulkRow}>
-                    <BallIcon kind={bulk} size={18} />
-                    {BULK_AMOUNTS.map((n) => {
-                      const cost = BALL_PRICE[bulk] * n;
-                      const can = s.shards >= cost;
-                      return (
-                        <Pressable key={n} disabled={!can} style={[styles.bulkBtn, !can && { opacity: 0.35 }]} onPress={() => {
-                          if (act((g) => buyBalls(g, bulk, n))) { feedback(); toast(`+${n} ${BALLS[bulk].name}s`); openBulk(bulk); }
-                        }}>
-                          <Text style={styles.bulkTxt}>×{n}</Text>
-                          <Text style={styles.ballPrice}>{cost}💎</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                )}
+              <View style={styles.ballsRow}>
+                {(Object.keys(BALLS) as BallKind[]).map((b) => (
+                  <View key={b} style={styles.ballStock}><BallIcon kind={b} size={18} /><Text style={styles.resTxt}>{s.balls[b]}</Text></View>
+                ))}
               </View>
+              <Pressable onPress={() => setTab('shop')} hitSlop={8}><Text style={styles.shopLink}>🛒 Boutique</Text></Pressable>
             </View>
             <View style={styles.row}>
               <Button small label={`Fusionner (${fusions.length})`} color={fusions.length ? '#8e24aa' : C.panel2} disabled={!fusions.length} onPress={() => {
@@ -138,11 +96,37 @@ export function BagPanel() {
                 </Pressable>
               ))}
             </View>
+            {(bagSets.length > 1 || panoply) && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }} style={{ flexGrow: 0 }}>
+                <Pressable onPress={() => setPanoply(null)} style={[styles.chip, !panoply && styles.chipOn]}>
+                  <Text style={styles.chipTxt}>Toutes panoplies</Text>
+                </Pressable>
+                {bagSets.map((id) => (
+                  <Pressable key={id} onPress={() => setPanoply(panoply === id ? null : id)} style={[styles.chip, panoply === id && styles.chipOn]}>
+                    <Text style={styles.chipTxt}>{SETS[id].name} ({setCounts.get(id)})</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
+            {panoply && SETS[panoply] && (
+              <Button small label={`♻ Recycler ${SETS[panoply].name} (${setJunk.length}) · +${setGain}💎`} color={setJunk.length ? '#6d4c41' : C.panel2}
+                disabled={!setJunk.length} onPress={() => setDialog({
+                  title: `Recycler ${SETS[panoply].name} ?`,
+                  message: `${setJunk.length} objet${setJunk.length > 1 ? 's' : ''} de cette panoplie, toutes raretés confondues → +${setGain} éclats. `
+                    + 'Les objets verrouillés 🔒 et ceux portés par un Pokémon sont gardés. Irréversible.',
+                  primary: { label: 'Recycler', color: '#c62828', onPress: () => {
+                    const gain = act((g) => recycle(g, setRecycleCandidates(g, panoply).map((i) => i.uid)));
+                    feedback(); toast(`+${gain} éclats`);
+                  } },
+                  secondary: { label: 'Annuler', onPress: () => {} },
+                })} />
+            )}
           </View>
         }
         ListEmptyComponent={<Text style={styles.hint}>Ton sac est vide : les objets tombent en combat (et les boss en donnent 3).</Text>}
       />
       <ItemDetail item={selected} onClose={() => setSel(null)} onSelect={setSel} />
+      <Dialog spec={dialog} onClose={() => setDialog(null)} />
     </>
   );
 }
@@ -151,14 +135,9 @@ const styles = StyleSheet.create({
   list: { padding: 12, paddingBottom: 40 },
   res: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: C.panel, borderRadius: 12, padding: 10 },
   resTxt: { color: C.text,  fontSize: 13, fontWeight: '700' },
-  ballsCol: { flex: 1, gap: 4 },
-  ballsHint: { color: C.dim, fontSize: 11, fontWeight: '600' },
-  ballsRow: { flexDirection: 'row', gap: 6 },
-  ballBuy: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2, backgroundColor: C.panel2, borderRadius: 12, paddingVertical: 8 },
-  ballPrice: { color: C.dim, fontSize: 10, fontWeight: '600' },
-  bulkRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 },
-  bulkBtn: { flex: 1, alignItems: 'center', backgroundColor: C.accent, borderRadius: 10, paddingVertical: 4 },
-  bulkTxt: { color: C.text, fontSize: 13, fontWeight: '900' },
+  ballsRow: { flex: 1, flexDirection: 'row', gap: 10 },
+  ballStock: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  shopLink: { color: C.accent, fontSize: 13, fontWeight: '800' },
   row: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   hint: { color: C.dim, fontSize: 12 },
   chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: C.panel },

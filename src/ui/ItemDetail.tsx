@@ -1,7 +1,7 @@
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { GameState, fuseItems, heldBy, holder, recycle, rerollItemSub, upgradeItem } from '../game/game';
 import { MAX_RARITY, RARITY_COLOR } from '../game/model';
-import { MAX_ITEM_LEVEL, STAT_LABEL, recycleValue, rerollCost, template, upgradeCost } from '../game/items';
+import { MAX_ITEM_LEVEL, statText, recycleValue, rerollCost, template, upgradeCost } from '../game/items';
 import { Item } from '../game/model';
 import { rng, useGame } from '../store/game';
 import { toast } from '../store/ui';
@@ -41,7 +41,7 @@ export function ItemDetail({ item, onClose, onSelect }: { item: Item | null; onC
               <Text style={styles.label}>Changer une sous-stat ({rerollCost(item)} 💎, tirage au hasard)</Text>
               {item.subs.map((sub, i) => (
                 <View key={i} style={styles.subRow}>
-                  <Text style={styles.subTxt}>{STAT_LABEL[sub.stat]} +{sub.value} %</Text>
+                  <Text style={styles.subTxt}>{statText(sub.stat, sub.value)}</Text>
                   <Button small label="↻ Changer" disabled={s.shards < rerollCost(item)} onPress={() => {
                     if (act((g) => rerollItemSub(g, item.uid, i, rng))) { feedback(); runner.restart(); }
                   }} />

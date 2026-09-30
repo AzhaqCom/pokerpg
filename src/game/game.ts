@@ -36,8 +36,12 @@ export function hasShinyCharm(s: GameState): boolean {
 }
 
 /** Chance d'un chromatique (1 sur N) pour la partie en cours. */
-export function shinyOdds(s: GameState): number {
-  return hasShinyCharm(s) ? SHINY_ODDS_CHARM : SHINY_ODDS;
+/**
+ * `boostMult` : effet du Mini Charme Chroma de la boutique (×1,5 s'il est actif ; hors ligne, moyenne sur la part de
+ * l'absence qu'il couvre). Se cumule avec le Charme Chroma : 1/256 → 1/171, 1/128 → 1/85.
+ */
+export function shinyOdds(s: GameState, boostMult = boostActive(s, 'charm') ? BOOSTS.charm.mult : 1): number {
+  return Math.round((hasShinyCharm(s) ? SHINY_ODDS_CHARM : SHINY_ODDS) / boostMult);
 }
 export const BALLS = {
   poke: { name: 'Poké Ball', chance: 30 },
@@ -115,6 +119,12 @@ export interface GameState {
   adventureStart: number;
   /** Écran de fin (« Maître Pokémon », Champion de la dernière région) déjà montré. */
   endingSeen: boolean;
+  /** Fenêtre « Charme Chroma obtenu » déjà fermée par le joueur dans la région en cours (remis à `false` au prestige). */
+  shinyCharmSeen: boolean;
+  /** Boutique : fin (horodatage ms) de chaque bonus temporaire acheté, 0 = inactif (voir `BOOSTS`). */
+  boosts: Record<BoostKind, number>;
+  /** Méga bonbons universels (boutique) : utilisables sur n'importe quelle lignée, conservés au prestige. */
+  universalMega: number;
   /** Version d'équilibrage des objets déjà convertie (2 = poids mesurés du 2026-09-24, voir `migrateSave`). */
   balanceVersion: number;
 }
@@ -133,7 +143,7 @@ export function newGame(): GameState {
     lastActive: Date.now(),
     prestige: 0,
     startedAt: Date.now(), prestigeOffered: false, adventureStart: Date.now(), endingSeen: false,
-    balanceVersion: 2,
+    shinyCharmSeen: false, boosts: noBoosts(), universalMega: 0, balanceVersion: 2,
   };
 }
 
@@ -167,7 +177,14 @@ export function startPrestige(s: GameState): boolean {
   s.starterChosen = false;
   s.prestige++;
   s.prestigeOffered = false; // le récap de la région suivante s'affichera à son tour
+  s.shinyCharmSeen = false; // le charme se perd avec le Pokédex : il sera réannoncé en complétant le suivant
+  s.boosts = noBoosts(); // bonus de la boutique perdus comme les éclats (les méga bonbons universels restent)
   return true;
+}
+
+/** Charme Chroma obtenu mais pas encore annoncé : fenêtre à afficher (le joueur doit la fermer lui-même). */
+export function shinyCharmToAnnounce(s: GameState): boolean {
+  return !s.shinyCharmSeen && hasShinyCharm(s);
 }
 
 /** « Plus tard » sur le récap de fin de région : on reste farmer, le prestige reste disponible depuis la Carte. */
@@ -250,6 +267,13 @@ export function migrateSave(raw: Record<string, unknown>): Record<string, unknow
       stock[base] = (stock[base] ?? 0) + stock[id];
       delete stock[id];
     }
+  }
+  // bug du 2026-09-30 : une offre de capture restée à l'écran après « Nouvelle partie » a fait capturer Arceus à
+  // Kanto. Le Pokédex ne garde que les espèces de la région en cours (le Pokémon lui-même, s'il reste, n'est pas touché).
+  if (raw.dex && typeof raw.dex === 'object') {
+    const dexMax = regionOf(typeof raw.prestige === 'number' ? raw.prestige : 0).dexMax;
+    const dex = raw.dex as Record<string, number[]>;
+    for (const k of ['seen', 'caught', 'shiny']) if (Array.isArray(dex[k])) dex[k] = dex[k].filter((id) => id <= dexMax);
   }
   // même regroupement pour les cibles (2026-09-25 : les formes à choix rejoignent leur lignée, Voltali → Évoli)
   if (Array.isArray(raw.targets)) raw.targets = [...new Set((raw.targets as number[]).map((id) => lineBase(id)))];
@@ -707,14 +731,18 @@ export function craftMegaCandy(s: GameState, speciesId: number): boolean {
   return true;
 }
 
-/** Consomme 1 méga bonbon de la lignée pour +1 à un gène (plafond 15) : seule façon d'améliorer des gènes. */
+/**
+ * Consomme 1 méga bonbon pour +1 à un gène (plafond 15) : seule façon d'améliorer des gènes. Celui de la lignée
+ * d'abord, sinon un méga bonbon universel (boutique).
+ */
 export function applyMegaCandy(s: GameState, uid: string, gene: GeneKey): boolean {
   const mon = s.mons[uid];
   if (!mon) return false;
   const base = lineBase(mon.speciesId);
   const have = s.megaCandies[base] ?? 0;
-  if (have < 1 || mon.genes[gene] >= GENE_MAX) return false;
-  s.megaCandies[base] = have - 1;
+  if ((have < 1 && !(s.universalMega > 0)) || mon.genes[gene] >= GENE_MAX) return false;
+  if (have > 0) s.megaCandies[base] = have - 1;
+  else s.universalMega--;
   mon.genes[gene]++;
   if (monStars(mon) === 4) mon.locked = true; // devenu parfait : verrouillé d'office
   return true;
@@ -843,6 +871,12 @@ export function autoEquipBest(s: GameState, uid: string): number {
     if (pick && pick.uid !== mon.items[slot]) { equip(s, uid, pick.uid); n++; }
   }
   return n;
+}
+
+/** Objets d'une panoplie recyclables d'un coup depuis le Sac : ni verrouillés 🔒 ni portés. */
+export function setRecycleCandidates(s: GameState, setId: string): Item[] {
+  const held = heldBy(s);
+  return Object.values(s.items).filter((it) => template(it.templateId).set === setId && !it.locked && !held.has(it.uid));
 }
 
 export function recycle(s: GameState, itemUids: string[]): number {
@@ -1032,8 +1066,12 @@ export function effectivePool(zone: ZoneDef, bossBeaten: boolean): [number, numb
   return [...zone.pool, [zone.boss.speciesId, BOSS_POOL_WEIGHT]];
 }
 
-export function pickSpecies(zone: ZoneDef, rng: Rng, bossBeaten = false): number {
-  const pool = effectivePool(zone, bossBeaten);
+/** Poids sous lequel une espèce est « rare » dans sa zone (capture ×0,5, cible du Parfum rare). */
+const RARE_WEIGHT = 10;
+
+/** `rareMult` : Parfum rare de la boutique, multiplie le poids des espèces rares de la zone. */
+export function pickSpecies(zone: ZoneDef, rng: Rng, bossBeaten = false, rareMult = 1): number {
+  const pool = effectivePool(zone, bossBeaten).map(([id, w]): [number, number] => [id, w < RARE_WEIGHT ? Math.round(w * rareMult) : w]);
   const total = pool.reduce((a, [, w]) => a + w, 0);
   let r = rng.int(total);
   for (const [id, w] of pool) { if (r < w) return id; r -= w; }
@@ -1041,7 +1079,12 @@ export function pickSpecies(zone: ZoneDef, rng: Rng, bossBeaten = false): number
 }
 
 export function isRareInZone(zone: ZoneDef, speciesId: number, bossBeaten = false) {
-  return (effectivePool(zone, bossBeaten).find(([id]) => id === speciesId)?.[1] ?? 0) < 10;
+  return (effectivePool(zone, bossBeaten).find(([id]) => id === speciesId)?.[1] ?? 0) < RARE_WEIGHT;
+}
+
+/** Multiplicateur du Parfum rare en combat (1 s'il est inactif). */
+export function lureMult(s: GameState): number {
+  return boostActive(s, 'lure') ? BOOSTS.lure.mult : 1;
 }
 
 export type StageKind = 'stage' | 'boss' | 'arena';
@@ -1053,7 +1096,7 @@ export interface WaveEnemy {
 }
 
 /** Génère les vagues d'une étape. */
-export function makeWaves(kind: StageKind, biomeIndex: number, zoneIndex: number, stage: number, rng: Rng, teamSize = 3, bossBeaten = false, odds = SHINY_ODDS): WaveEnemy[][] {
+export function makeWaves(kind: StageKind, biomeIndex: number, zoneIndex: number, stage: number, rng: Rng, teamSize = 3, bossBeaten = false, odds = SHINY_ODDS, rareMult = 1): WaveEnemy[][] {
   const biome = BIOMES[biomeIndex];
   if (kind === 'arena') {
     return biome.arena.team.map(([id, lv]) => [{ mon: makeMon(id, lv, rng, false, 12), hpMult: 2 * bossRamp(biomeIndex, 2, 5), boss: true }]);
@@ -1073,7 +1116,7 @@ export function makeWaves(kind: StageKind, biomeIndex: number, zoneIndex: number
     const wave: WaveEnemy[] = [];
     for (let i = 0; i < n; i++) {
       const shiny = rng.int(odds) === 0;
-      wave.push({ mon: makeMon(pickSpecies(zone, rng, bossBeaten), Math.max(2, lv - 1 + rng.int(2)), rng, shiny), wild: true, wildMult: zoneWildMult(biomeIndex, zoneIndex, stage) });
+      wave.push({ mon: makeMon(pickSpecies(zone, rng, bossBeaten, rareMult),Math.max(2, lv - 1 + rng.int(2)), rng, shiny), wild: true, wildMult: zoneWildMult(biomeIndex, zoneIndex, stage) });
     }
     waves.push(wave);
   }
@@ -1109,7 +1152,7 @@ export class StageRun {
     this.biome = s.biome;
     this.zone = s.zone;
     this.stage = s.stage;
-    this.waves = makeWaves(kind, s.biome, s.zone, s.stage, rng, s.team.length, s.bossesBeaten[s.biome][s.zone], shinyOdds(s));
+    this.waves = makeWaves(kind, s.biome, s.zone, s.stage, rng, s.team.length, s.bossesBeaten[s.biome][s.zone], shinyOdds(s), lureMult(s));
     this.battle = this.makeBattle();
   }
 
@@ -1163,7 +1206,8 @@ export function xpGapMult(monLevel: number, enemyAvgLevel: number): number {
 function waveRewards(s: GameState, kind: StageKind, biomeIndex: number, zoneIndex: number, enemies: WaveEnemy[], rng: Rng): WaveRewards {
   const zones = BIOMES[biomeIndex].zones;
   const zone = zones[Math.min(zoneIndex, zones.length - 1)];
-  const totalXp = enemies.reduce((a, e) => a + 2 * e.mon.level * (e.boss ? 5 : 1), 0);
+  const totalXp = enemies.reduce((a, e) => a + 2 * e.mon.level * (e.boss ? 5 : 1), 0)
+    * (boostActive(s, 'xp') ? BOOSTS.xp.mult : 1); // Multi Exp (boutique)
   const share = Math.max(1, Math.round(totalXp / s.team.length));
   const enemyAvgLevel = enemies.reduce((a, e) => a + e.mon.level, 0) / enemies.length;
   const out: WaveRewards = { xp: {}, levelUps: [], loot: [], capture: null };
@@ -1196,7 +1240,7 @@ function waveRewards(s: GameState, kind: StageKind, biomeIndex: number, zoneInde
   if (kind === 'boss') {
     const b = enemies[0].mon;
     out.capture = { speciesId: b.speciesId, level: b.level, shiny: b.shiny, rare: false, guaranteed: true };
-  } else if (kind === 'stage' && (shiny || rng.int(100) < CAPTURE_OFFER_CHANCE)) {
+  } else if (kind === 'stage' && (shiny || rng.int(100) < CAPTURE_OFFER_CHANCE * (boostActive(s, 'incense') ? BOOSTS.incense.mult : 1))) {
     const e = shiny ?? enemies[rng.int(enemies.length)];
     out.capture = { speciesId: e.mon.speciesId, level: e.mon.level, shiny: e.mon.shiny, rare: isRareInZone(zone, e.mon.speciesId, s.bossesBeaten[biomeIndex][zoneIndex]), guaranteed: e.mon.shiny };
   }
@@ -1407,6 +1451,8 @@ export function genesMinForBadges(badges: number): number {
 }
 
 export function tryCapture(s: GameState, offer: CaptureOffer, ball: BallKind | null, rng: Rng): Mon | null {
+  // espèce hors de la région en cours (offre périmée d'une partie ou d'une région précédente) : refusée, Ball rendue
+  if (offer.speciesId > regionOf(s.prestige).dexMax) return null;
   if (!offer.guaranteed) {
     if (!ball || s.balls[ball] <= 0) return null;
     s.balls[ball]--;
@@ -1468,6 +1514,56 @@ export function buyBalls(s: GameState, kind: BallKind, n: number): boolean {
   if (n < 1 || s.shards < cost) return false;
   s.shards -= cost;
   s.balls[kind] += n;
+  return true;
+}
+
+// ---------------------------------------------------------------- boutique
+export type BoostKind = 'charm' | 'incense' | 'lure' | 'xp';
+/** Durée ajoutée par achat ; plusieurs achats s'additionnent, jusqu'à `BOOST_MAX_MS` restant. */
+export const BOOST_MS = 3600_000;
+export const BOOST_MAX_MS = 8 * 3600_000;
+/** Bonus temporaires de la boutique : actifs en combat comme hors ligne, perdus au prestige. */
+export const BOOSTS: Record<BoostKind, { name: string; icon: string; price: number; mult: number; desc: string }> = {
+  charm: { name: 'Mini Charme Chroma', icon: '✨', price: 3000, mult: 1.5, desc: 'Chromatiques ×1,5 (se cumule avec le Charme Chroma)' },
+  incense: { name: 'Encens', icon: '🕯', price: 800, mult: 2, desc: 'Offres de capture 2 fois plus fréquentes (35 % → 70 % des vagues)' },
+  lure: { name: 'Parfum rare', icon: '🌸', price: 1500, mult: 3, desc: 'Espèces rares de la zone 3 fois plus fréquentes' },
+  xp: { name: 'Multi Exp', icon: '📘', price: 1000, mult: 1.5, desc: 'XP de l’équipe ×1,5 en combat' },
+};
+export const BOOST_KINDS = Object.keys(BOOSTS) as BoostKind[];
+export const UNIVERSAL_MEGA_PRICE = 2000;
+
+export function noBoosts(): Record<BoostKind, number> {
+  return { charm: 0, incense: 0, lure: 0, xp: 0 };
+}
+
+/** Temps restant (ms) d'un bonus de la boutique, 0 s'il est inactif. */
+export function boostRemaining(s: GameState, kind: BoostKind, now = Date.now()): number {
+  return Math.max(0, (s.boosts?.[kind] ?? 0) - now);
+}
+
+export function boostActive(s: GameState, kind: BoostKind, now = Date.now()): boolean {
+  return boostRemaining(s, kind, now) > 0;
+}
+
+/** Hors ligne : part (0 à 1) de la période `[from, from + durationMs]` couverte par le bonus. */
+export function boostCoverage(s: GameState, kind: BoostKind, from: number, durationMs: number): number {
+  if (durationMs <= 0) return 0;
+  return Math.max(0, Math.min(1, ((s.boosts?.[kind] ?? 0) - from) / durationMs));
+}
+
+/** Achète 1 h de bonus (ajoutée au temps restant) ; refusé si trop peu d'éclats ou si on dépasserait 8 h. */
+export function buyBoost(s: GameState, kind: BoostKind, now = Date.now()): boolean {
+  const left = boostRemaining(s, kind, now);
+  if (s.shards < BOOSTS[kind].price || left + BOOST_MS > BOOST_MAX_MS) return false;
+  s.shards -= BOOSTS[kind].price;
+  s.boosts = { ...noBoosts(), ...s.boosts, [kind]: now + left + BOOST_MS };
+  return true;
+}
+
+export function buyUniversalMega(s: GameState): boolean {
+  if (s.shards < UNIVERSAL_MEGA_PRICE) return false;
+  s.shards -= UNIVERSAL_MEGA_PRICE;
+  s.universalMega = (s.universalMega ?? 0) + 1;
   return true;
 }
 

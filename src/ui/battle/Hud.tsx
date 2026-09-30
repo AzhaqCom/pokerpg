@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { BIOMES, STAGES_PER_ZONE, regionLastBiome, regionOf } from '../../game/content';
 import { species } from '../../game/data';
-import { addMon, equip, makeMon, setAutoAdvance, setTeam, toggleTarget } from '../../game/game';
+import { BOOST_KINDS, BOOSTS, addMon, boostRemaining, equip, makeMon, setAutoAdvance, setTeam, toggleTarget } from '../../game/game';
 import { makeItem } from '../../game/items';
 import { RARITIES, RARITY_COLOR } from '../../game/model';
 import { rng, useGame } from '../../store/game';
@@ -16,6 +16,7 @@ import { DevPools } from '../DevPools';
 import { C } from '../theme';
 import { useFrameClock } from '../useFrameClock';
 import { runner } from './runner';
+import { formatLeft } from '../panels/ShopPanel';
 
 /** Bandeau au-dessus du combat : où l'on est, boss à lancer, vitesse, réglages. */
 
@@ -37,19 +38,28 @@ export function HudTop() {
   const zone = biome.zones[s.zone];
   const label = run?.kind === 'arena' ? `${biome.arena.name}` : run?.kind === 'boss' ? `${zone.name} · Boss` : `${zone.name} · Étape ${s.stage}/${STAGES_PER_ZONE}`;
   const wave = run ? `Vague ${run.waveIndex + 1}/${run.waves.length}` : '';
+  const boosts = BOOST_KINDS.filter((k) => boostRemaining(s, k) > 0);
   return (
-    <View style={styles.top}>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.zone} numberOfLines={1}>{label}</Text>
-        <Text style={styles.wave}>{wave}</Text>
+    <View>
+      <View style={styles.top}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.zone} numberOfLines={1}>{label}</Text>
+          <Text style={styles.wave}>{wave}</Text>
+        </View>
+        {s.badges > 0 && (
+          <Pressable onPress={() => settings.set({ fast: !settings.fast })} style={[styles.speed, settings.fast && styles.speedOn]}>
+            <Text style={styles.speedTxt}>×{settings.fast ? 2 : 1}</Text>
+          </Pressable>
+        )}
+        <Pressable onPress={() => setOpen(true)} hitSlop={10}><Text style={styles.gear}>⚙</Text></Pressable>
+        <SettingsModal open={open} onClose={() => setOpen(false)} />
       </View>
-      {s.badges > 0 && (
-        <Pressable onPress={() => settings.set({ fast: !settings.fast })} style={[styles.speed, settings.fast && styles.speedOn]}>
-          <Text style={styles.speedTxt}>×{settings.fast ? 2 : 1}</Text>
-        </Pressable>
+      {/* bonus de la boutique actifs : leur propre ligne, pour ne jamais rogner le nom de la zone */}
+      {boosts.length > 0 && (
+        <View style={styles.boosts}>
+          {boosts.map((k) => <Text key={k} style={styles.boost}>{BOOSTS[k].icon} {formatLeft(boostRemaining(s, k))}</Text>)}
+        </View>
       )}
-      <Pressable onPress={() => setOpen(true)} hitSlop={10}><Text style={styles.gear}>⚙</Text></Pressable>
-      <SettingsModal open={open} onClose={() => setOpen(false)} />
     </View>
   );
 }
@@ -159,7 +169,11 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
               <Button label="🐛 Debug : Pokédex complet, plus que le Champion à battre (test écran de fin)" color="#37474f" onPress={() => {
                 act((g) => {
                   const max = regionOf(g.prestige).dexMax;
-                  for (let id = 1; id <= max; id++) if (!g.dex.seen.includes(id)) g.dex.seen.push(id);
+                  // vus (prestige) et capturés (Charme Chroma : sa fenêtre passe avant le récap de fin de région)
+                  for (let id = 1; id <= max; id++) {
+                    if (!g.dex.seen.includes(id)) g.dex.seen.push(id);
+                    if (!g.dex.caught.includes(id)) g.dex.caught.push(id);
+                  }
                   const team = [6, 9, 65].map((id) => makeMon(id, 100, rng, false, 15));
                   for (const m of team) {
                     addMon(g, m);
@@ -189,7 +203,7 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
             )}
             <Button label="Nouvelle partie" color="#5a2020" onPress={() => setDialog({
               title: 'Tout effacer ?', message: 'Équipe, objets, Pokédex et progression seront perdus.',
-              primary: { label: 'Tout effacer', onPress: async () => { await reset(); runner.restart(); onClose(); } },
+              primary: { label: 'Tout effacer', onPress: async () => { await reset(); runner.newGame(); onClose(); } },
               secondary: { label: 'Annuler', onPress: () => { } },
             })} />
             <Text style={styles.credits}>
@@ -222,6 +236,8 @@ function Row({ label, value, onChange, sub }: { label: string; value: boolean; o
 }
 
 const styles = StyleSheet.create({
+  boosts: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 12, paddingBottom: 4, marginTop: -2 },
+  boost: { color: C.gold, fontSize: 11, fontWeight: '800' },
   top: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 6 },
   zone: { color: C.text, fontWeight: '900', fontSize: 16 },
   wave: { color: C.sub, fontSize: 12, fontWeight: '600' },

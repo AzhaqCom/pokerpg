@@ -43,7 +43,7 @@ export function MapPanel() {
         <Button label={`🏆 Nouveau départ à ${next.name}`} color="#ffb300" onPress={() => setDialog({
           title: `Partir pour ${next.name} ?`,
           message: 'Équipe, boîte, objets, badges et Pokédex repartent à zéro. Seuls tes bonbons et méga bonbons restent acquis.',
-          primary: { label: 'Nouveau départ', onPress: () => { act((g) => startPrestige(g)); runner.paused = false; feedback('evolve'); } },
+          primary: { label: 'Nouveau départ', onPress: () => { act((g) => startPrestige(g)); runner.newGame(); feedback('evolve'); } },
           secondary: { label: 'Annuler', onPress: () => {} },
         })} />
       )}

@@ -2,12 +2,12 @@ import { BIOMES, REGION_START, REGIONS, STAGES_PER_ZONE, regionLastBiome } from 
 import { ALL_SPECIES, EVOLUTION_CHOICES, evolutionTargets, species } from '../data';
 import {
   GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, applyMegaCandy, craftMegaCandy, lineBase, arenaAvailable, assignExploration, assignPension, autoCaptureBall, autoEquipBest, bestStarsOf, biomeAvailable, bossAvailable,
-  lineChain, hasShinyCharm, shinyOdds, endingReady, autoTalents, canCompleteDex, whereToFind, canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
+  lineChain, setRecycleCandidates, hasShinyCharm, shinyCharmToAnnounce, shinyOdds, BOOSTS, BOOST_MS, UNIVERSAL_MEGA_PRICE, boostActive, boostCoverage, buyBoost, buyUniversalMega, endingReady, autoTalents, canCompleteDex, whereToFind, canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
   harvestExploration, harvestPension, holder, isRareInZone, makeMon, addMon, makeWaves, migrateSave, monsBelowStars, monsNotShiny, newGame, pickSpecies, rankUpTalent, recycle, release, releaseBelowStars, SHARDS_PER_MIN,
   releaseExcess, releaseNotShiny, remainingEvolutions, removePension, selectStage, setAutoAdvance, START_BALLS, startPrestige,
   CAPTURE_PITY, RELEASE_CANDIES, applyMegaCandy as applyMega, lineForms, BALL_PRICE, buyBalls, autoMoves, captureTarget, setTeam, toggleLock, challengesReady, postponePrestige, idleFarmTarget, isTargeted, toggleTarget, zoneHasTarget, teamMaxLevel, tryCapture, unequipBox, xpGapMult,
 } from '../game';
-import { SETS, TEMPLATES, makeItem } from '../items';
+import { SETS, TEMPLATES, makeItem, statText } from '../items';
 import { emptyBonuses } from '../model';
 import { Rng, seededRng } from '../rng';
 import { spentPoints, talentPoints } from '../talents';
@@ -1356,4 +1356,127 @@ test('fin de l\'aventure : écran de fin après le Champion de la dernière rég
   expect(endingReady(s)).toBe(true);
   s.endingSeen = true;
   expect(endingReady(s)).toBe(false);
+});
+
+test('Charme Chroma : annoncé une fois par région, réannoncé après un nouveau départ', () => {
+  const s = newGame();
+  expect(shinyCharmToAnnounce(s)).toBe(false);
+  for (let id = 1; id <= 151; id++) s.dex.caught.push(id), s.dex.seen.push(id);
+  expect(shinyCharmToAnnounce(s)).toBe(true);
+  s.shinyCharmSeen = true;
+  expect(shinyCharmToAnnounce(s)).toBe(false);
+  s.arenaBeaten[regionLastBiome(0)] = true;
+  expect(startPrestige(s)).toBe(true);
+  expect(s.shinyCharmSeen).toBe(false);
+  for (let id = 1; id <= 251; id++) s.dex.caught.push(id);
+  expect(shinyCharmToAnnounce(s)).toBe(true);
+});
+
+test('capture : une espèce hors de la région en cours est refusée (offre périmée d\'une ancienne partie)', () => {
+  const s = newGame();
+  const rng = seededRng(1);
+  expect(tryCapture(s, { speciesId: 493, level: 50, shiny: false, rare: false, guaranteed: true }, null, rng)).toBeNull();
+  expect(s.dex.caught).not.toContain(493);
+  expect(tryCapture(s, { speciesId: 150, level: 50, shiny: false, rare: false, guaranteed: true }, null, rng)).not.toBeNull();
+});
+
+test('chargement : le Pokédex ne garde que les espèces de la région en cours (Arceus capturé à Kanto par le bug)', () => {
+  const raw = migrateSave({ prestige: 0, dex: { seen: [1, 150, 493], caught: [1, 493], shiny: [493] } });
+  expect(raw.dex).toEqual({ seen: [1, 150], caught: [1], shiny: [] });
+  const johto = migrateSave({ prestige: 1, dex: { seen: [200, 493], caught: [200], shiny: [] } });
+  expect((johto.dex as GameState['dex']).seen).toEqual([200]);
+});
+
+test('libellé des objets : la Recharge s\'affiche en réduction', () => {
+  expect(statText('cdrPct', 30)).toBe('Recharge −30 %');
+  expect(statText('atkPct', 12)).toBe('Attaque +12 %');
+});
+
+test('boutique : un bonus dure 1 h par achat, s\'additionne jusqu\'à 8 h et se perd au prestige', () => {
+  const s = newGame();
+  const now = 1_000_000;
+  s.shards = 100_000;
+  expect(buyBoost(s, 'xp', now)).toBe(true);
+  expect(s.shards).toBe(100_000 - BOOSTS.xp.price);
+  expect(boostActive(s, 'xp', now + BOOST_MS - 1)).toBe(true);
+  expect(boostActive(s, 'xp', now + BOOST_MS)).toBe(false);
+  for (let i = 1; i < 8; i++) expect(buyBoost(s, 'xp', now)).toBe(true);
+  expect(buyBoost(s, 'xp', now)).toBe(false); // 8 h déjà en réserve
+  expect(s.boosts.xp).toBe(now + 8 * BOOST_MS);
+  s.shards = 0;
+  expect(buyBoost(s, 'charm', now)).toBe(false);
+  s.arenaBeaten[regionLastBiome(0)] = true;
+  for (let id = 1; id <= 151; id++) s.dex.seen.push(id);
+  s.universalMega = 2;
+  expect(startPrestige(s)).toBe(true);
+  expect(boostActive(s, 'xp', now)).toBe(false);
+  expect(s.universalMega).toBe(2);
+});
+
+test('boutique : Mini Charme Chroma ×1,5, cumulable avec le Charme Chroma', () => {
+  const s = newGame();
+  s.boosts.charm = Date.now() + BOOST_MS;
+  expect(shinyOdds(s)).toBe(171);
+  for (let id = 1; id <= 151; id++) s.dex.caught.push(id);
+  expect(shinyOdds(s)).toBe(85);
+  s.boosts.charm = 0;
+  expect(shinyOdds(s)).toBe(128);
+});
+
+test('boutique : couverture hors ligne au prorata de l\'absence', () => {
+  const s = newGame();
+  s.boosts.lure = 1000 + 2 * 3600_000;
+  expect(boostCoverage(s, 'lure', 1000, 8 * 3600_000)).toBeCloseTo(0.25);
+  expect(boostCoverage(s, 'lure', 1000, 3600_000)).toBe(1);
+  expect(boostCoverage(s, 'incense', 1000, 3600_000)).toBe(0);
+});
+
+test('boutique : Parfum rare, les espèces rares sortent 3 fois plus souvent', () => {
+  const zone = { ...BIOMES[0].zones[0], pool: [[10, 5], [13, 45]] as [number, number][] };
+  const count = (mult: number) => {
+    const rng = seededRng(7);
+    let n = 0;
+    for (let i = 0; i < 20000; i++) if (pickSpecies(zone, rng, false, mult) === 10) n++;
+    return n / 20000;
+  };
+  expect(count(1)).toBeCloseTo(0.1, 1.5);
+  expect(count(3)).toBeCloseTo(15 / 60, 1.5);
+});
+
+test('boutique : méga bonbon universel, utilisé après ceux de la lignée', () => {
+  const s = newGame();
+  const mon = makeMon(1, 5, seededRng(3), false);
+  mon.genes = { hp: 5, atk: 5, def: 5, spe: 5 };
+  addMon(s, mon);
+  expect(applyMega(s, mon.uid, 'atk')).toBe(false);
+  s.shards = UNIVERSAL_MEGA_PRICE;
+  expect(buyUniversalMega(s)).toBe(true);
+  expect(buyUniversalMega(s)).toBe(false);
+  s.megaCandies[1] = 1;
+  expect(applyMega(s, mon.uid, 'atk')).toBe(true);
+  expect(s.megaCandies[1]).toBe(0);
+  expect(s.universalMega).toBe(1);
+  expect(applyMega(s, mon.uid, 'atk')).toBe(true);
+  expect(s.universalMega).toBe(0);
+  expect(mon.genes.atk).toBe(7);
+});
+
+test('sac : recycler une panoplie garde les objets verrouillés, portés et des autres panoplies', () => {
+  const s = newGame();
+  chooseStarter(s, 1, seededRng(1));
+  s.items = {}; // sans l'objet de départ du starter
+  s.mons[s.team[0]].items = {};
+  const rng = seededRng(4);
+  const a = makeItem('griffe-sylve', 0, 5, rng);
+  const b = makeItem('cape-sylve', 4, 5, rng);
+  const locked = makeItem('baie-sylve', 1, 5, rng);
+  locked.locked = true;
+  const worn = makeItem('griffe-sylve', 2, 5, rng);
+  const other = makeItem('griffe-cendres', 0, 5, rng);
+  for (const it of [a, b, locked, worn, other]) s.items[it.uid] = it;
+  equip(s, s.team[0], worn.uid);
+  const uids = setRecycleCandidates(s, 'sylve').map((i) => i.uid).sort();
+  expect(uids).toEqual([a.uid, b.uid].sort());
+  recycle(s, uids);
+  expect(Object.keys(s.items).sort()).toEqual([locked.uid, worn.uid, other.uid].sort());
 });

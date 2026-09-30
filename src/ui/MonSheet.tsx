@@ -340,16 +340,16 @@ export function MonSheet() {
           <Button small label={`Donner un bonbon (+${CANDY_XP} XP)`} disabled={!candies}
             onPress={() => { const r = act((g) => feedCandy(g, mon.uid)); if (r?.levels) toast(`${sp.name} passe au niveau ${mon.level} !`); }} />
 
-          <Text style={styles.section}>Méga bonbons · {megaCandies}</Text>
+          <Text style={styles.section}>Méga bonbons · {megaCandies}{s.universalMega > 0 ? ` · universels ${s.universalMega}` : ''}</Text>
           <Button small label={`Fabriquer 1 méga bonbon (${MEGA_CANDY_COST} bonbons)`} disabled={candies < MEGA_CANDY_COST}
             onPress={() => { if (act((g) => craftMegaCandy(g, mon.speciesId))) feedback(); }} />
-          <Text style={styles.sub}>Améliorer un gène (1 méga bonbon)</Text>
+          <Text style={styles.sub}>Améliorer un gène (1 méga bonbon{s.universalMega > 0 ? ' : ceux de la lignée d’abord, puis les universels' : ''})</Text>
           <View style={styles.row}>
             {GENES.map(({ key, label }) => {
               const v = mon.genes[key];
               const maxed = v >= GENE_MAX;
               return (
-                <Button key={key} small style={{ flex: 1 }} disabled={maxed || megaCandies < 1}
+                <Button key={key} small style={{ flex: 1 }} disabled={maxed || megaCandies + (s.universalMega ?? 0) < 1}
                   label={maxed ? `${label} max` : `${label} ${v}→${v + 1}`}
                   onPress={() => { if (act((g) => applyMegaCandy(g, mon.uid, key))) feedback(); }} />
               );

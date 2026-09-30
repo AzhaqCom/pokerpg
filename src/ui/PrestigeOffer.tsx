@@ -48,7 +48,7 @@ export function PrestigeOffer({ onClose }: { onClose: () => void }) {
           </Text>
           <Button label={`Nouveau départ à ${next.name}`} color="#ffb300" onPress={() => {
             act((g) => startPrestige(g));
-            runner.paused = false;
+            runner.newGame();
             feedback('evolve');
             onClose();
           }} />

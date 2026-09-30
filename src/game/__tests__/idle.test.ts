@@ -322,3 +322,16 @@ test('hors ligne : l\'objectif de collection capture ce qui manque (et rien sans
   expect(Object.keys(box.targetCaught).length).toBeGreaterThan(0);
   expect(box.targetMons.length).toBe(Object.values(box.targetCaught).reduce((a, n) => a + n, 0)); // tout est gardé
 });
+
+test('boutique : Multi Exp hors ligne au prorata de l’absence couverte', () => {
+  const s = readyGame();
+  const base = computeIdleGains(s, 2 * H, seededRng(5))!;
+  s.boosts.xp = s.lastActive + 2 * H; // couvre toute l'absence
+  const full = computeIdleGains(s, 2 * H, seededRng(5))!;
+  s.boosts.xp = s.lastActive + H; // la moitié
+  const half = computeIdleGains(s, 2 * H, seededRng(5))!;
+  const xp = (g: typeof base) => g.perMon.reduce((a, p) => a + p.xp, 0);
+  expect(xp(base)).toBeGreaterThan(0);
+  expect(xp(full) / xp(base)).toBeCloseTo(1.5, 1);
+  expect(xp(half) / xp(base)).toBeCloseTo(1.25, 1);
+});

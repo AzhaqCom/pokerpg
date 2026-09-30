@@ -48,8 +48,8 @@ export function DexPanel() {
   const header = (
     <View style={{ gap: 10, marginBottom: 10 }}>
       <View style={styles.row}>
-        <Text style={styles.count}>{s.dex.caught.length}<Text style={styles.dim}>/{maxId} capturés</Text></Text>
-        <Text style={styles.dim}>{s.dex.seen.length} vus · ✨ {s.dex.shiny.length}</Text>
+        <Text style={styles.count}>{s.dex.caught.filter((id) => id <= maxId).length}<Text style={styles.dim}>/{maxId} capturés</Text></Text>
+        <Text style={styles.dim}>{s.dex.seen.filter((id) => id <= maxId).length} vus · ✨ {s.dex.shiny.filter((id) => id <= maxId).length}</Text>
       </View>
       <Text style={[styles.dim, hasShinyCharm(s) && { color: C.gold }]}>
         {hasShinyCharm(s) ? '✨ Charme Chroma actif : chromatiques 2 fois plus fréquents dans cette région'

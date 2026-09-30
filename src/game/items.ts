@@ -218,8 +218,13 @@ const SUB_POOL: BonusStat[] = ['atkPct', 'defPct', 'hpPct', 'spePct', 'critPct',
 
 export const STAT_LABEL: Record<BonusStat, string> = {
   atkPct: 'Attaque', defPct: 'Défense', hpPct: 'PV', spePct: 'Vitesse', critPct: 'Critique',
-  critDmgPct: 'Dégâts critiques', typeDmgPct: 'Dégâts de son type', cdrPct: 'Recharge −',
+  critDmgPct: 'Dégâts critiques', typeDmgPct: 'Dégâts de son type', cdrPct: 'Recharge',
 };
+
+/** « Attaque +12 % », mais « Recharge −12 % » (la Recharge est une réduction). */
+export function statText(stat: BonusStat, value: number): string {
+  return `${STAT_LABEL[stat]} ${stat === 'cdrPct' ? '−' : '+'}${value} %`;
+}
 
 export function template(id: string): ItemTemplate {
   const t = TEMPLATES.find((x) => x.id === id);

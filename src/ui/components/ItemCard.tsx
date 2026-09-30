@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { SETS, STAT_LABEL, berryHeal, bonusCritValue, mainValue, template } from '../../game/items';
+import { SETS, statText, berryHeal, bonusCritValue, mainValue, template } from '../../game/items';
 import { Item, RARITIES, RARITY_COLOR } from '../../game/model';
 import { C } from '../theme';
 
@@ -16,8 +16,8 @@ export function itemMainText(it: Item) {
     if (t.berry.cures) parts.push(`Soigne ${CURE_LABEL[t.berry.cures] ?? t.berry.cures}`);
     return parts.join(' · ');
   }
-  const main = `${STAT_LABEL[t.main]} +${mainValue(it)} %`;
-  return t.bonusCrit ? `${STAT_LABEL.critPct} +${bonusCritValue(it)} % · ${main}` : main;
+  const main = statText(t.main, mainValue(it));
+  return t.bonusCrit ? `${statText('critPct', bonusCritValue(it))} · ${main}` : main;
 }
 
 export function ItemCard({ item, onPress, selected, wornBy, compare }: {
@@ -38,7 +38,7 @@ export function ItemCard({ item, onPress, selected, wornBy, compare }: {
       {wornBy && <View style={styles.wornBadge}><Text style={styles.wornTxt}>⚠ Déjà porté par {wornBy}</Text></View>}
       <Text style={styles.rarity}>{RARITIES[item.rarity]}{t.set ? ` · ${SETS[t.set].name}` : ''}</Text>
       <Text style={styles.main}>{itemMainText(item)}</Text>
-      {item.subs.map((s, i) => <Text key={i} style={styles.sub}>{STAT_LABEL[s.stat]} +{s.value} %</Text>)}
+      {item.subs.map((s, i) => <Text key={i} style={styles.sub}>{statText(s.stat, s.value)}</Text>)}
     </Pressable>
   );
 }

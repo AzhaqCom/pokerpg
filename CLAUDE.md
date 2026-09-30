@@ -52,14 +52,16 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   des capacités de la fiche (`autoMoves`).
 - Sprites : atlas PMD par espèce (`assets/sprites/p025.png`, `ps025.png` chromatique), manifeste `src/data/sprites.json`,
   `spriteAssets.ts`, miniatures `assets/thumbs` (`tools/make_thumbs.py`, 240 px).
-- UI : `App.tsx` ; `src/ui/battle/runner.ts` (singleton hors React qui pilote le combat affiché, offres de capture,
+- UI : `App.tsx` (onglets Équipe, Sac, Boutique, Carte, Pension, Exploration, Pokédex) ; `src/ui/battle/runner.ts` (singleton hors React qui pilote le combat affiché, offres de capture,
   bandeaux), `BattleView.tsx` (Skia), `Hud.tsx` (réglages), `CaptureBar.tsx`, `panels/` (Équipe, Sac, Carte, Pension,
   Exploration, Pokédex), `MonSheet.tsx` (fiche Pokémon), `HelpScreen.tsx`, `IdleSummary.tsx`, `PrestigeOffer.tsx`.
   Les listes longues (`TeamPanel`, `BagPanel`, `DexPanel`) sont des `FlatList` rendues **hors** du `ScrollView` de `App.tsx`.
   PC colorés par palier (`CP_TIERS`/`cpColor` dans `ui/helpers.ts` : gris < 250, vert, bleu 600, violet 1 200, orange
   2 000, rouge 3 000, doré ≥ 4 000) sur la fiche, les cartes d'équipe et la liste d'échange.
-  Sac : Balls achetées au toucher (+1) ou en rafale (appui long) ; au relâchement d'une rafale, boîte « ×10 · ×100 »
-  sous les Balls pendant 3 s (`buyBalls`, tout ou rien).
+  Boutique : Balls achetées au toucher (+1) ou en rafale (appui long) ; au relâchement d'une rafale, boîte « ×10 · ×100 »
+  sous les Balls pendant 3 s (`buyBalls`, tout ou rien). Le Sac n'affiche plus que le stock.
+  Sac : filtre par panoplie (puces défilantes) et « ♻ Recycler <panoplie> » avec confirmation (`setRecycleCandidates` :
+  toutes raretés, jamais les objets verrouillés 🔒 ni portés).
   Lisibilité du combat (2026-09-25) : zone de combat haute de 72 % de la largeur ; messages 1,6 s, 2 max à l'écran
   (`TOAST_MS`/`TOAST_MAX`, `store/ui.ts`), un seul par événement (butin groupé par vague, capacités groupées par
   Pokémon, « ✨ X chromatique capturé ! ») ; offre de capture `CaptureBar` sur une seule ligne compacte.
@@ -88,6 +90,15 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   manquantes, ne pas proposer une espèce déjà possédée à 3★+, ne pas capturer un chromatique déjà obtenu.
 - **Charme Chroma** (`hasShinyCharm`/`shinyOdds`) : Pokédex de la région complet (capturés) → chromatiques 1/128 au lieu
   de 1/256, en combat et hors ligne ; perdu au prestige (le Pokédex repart à zéro), regagné dans la région suivante.
+  Annoncé par une fenêtre à fermer soi-même (`ShinyCharmScreen`, combat en pause), une fois par région (`shinyCharmSeen`).
+- **Boutique** (onglet 🛒, `ShopPanel`, 2026-09-30) : Balls (déplacées depuis le Sac), bonus temporaires `BOOSTS`
+  (`GameState.boosts` = horodatage de fin ; 1 h par achat, 8 h de réserve au plus, perdus au prestige) : Mini Charme Chroma
+  3 000 (chromatiques ×1,5, cumulable : 1/171, 1/85), Encens 800 (offres de capture ×2), Parfum rare 1 500 (poids des
+  espèces rares < 10 ×3, `pickSpecies(…, rareMult)`), Multi Exp 1 000 (XP de l'équipe ×1,5). Hors ligne, chaque bonus
+  compte au prorata de l'absence couverte (`boostCoverage`). Méga bonbon universel 2 000 (`universalMega`, gardé au
+  prestige ; `applyMegaCandy` prend ceux de la lignée d'abord). Minuteurs des bonus actifs dans `HudTop`.
+- **Nouvelle partie / prestige** : `runner.newGame()` efface l'offre de capture en cours (bug du 2026-09-30 : Arceus de
+  Sinnoh capturé à Kanto) ; `tryCapture` refuse toute espèce > `dexMax` ; `migrateSave` purge le Pokédex hors région.
 - **Fin de l'aventure** (`endingReady`, `EndingScreen`) : Champion de la dernière région → écran « Maître Pokémon » avec le
   récap de toute la partie (`adventureStart`), montré une fois (`endingSeen`), puis on continue dans la région.
 - **Poids des espèces** : voir `REGIONS.md`. Tous les légendaires sont à 20 (chasse aux chromatiques en hors ligne visée :

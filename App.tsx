@@ -1,11 +1,11 @@
 import { useKeepAwake } from 'expo-keep-awake';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AppState, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { initMusic, setMusicEnabled } from './src/audio/music';
 import { initSfx, setSfxEnabled } from './src/audio/sfx';
-import { challengesReady, canEvolve, canPrestige, endingReady, hasShinyCharm, explorationReady, fusionBadgeCount, pensionXpReady, touchLastActive } from './src/game/game';
+import { challengesReady, canEvolve, canPrestige, endingReady, shinyCharmToAnnounce, explorationReady, fusionBadgeCount, pensionXpReady, touchLastActive } from './src/game/game';
 import { IdleGains, applyIdleGains, computeIdleGains } from './src/game/idle';
 import { rng, useGame } from './src/store/game';
 import { useSettings } from './src/store/settings';
@@ -14,7 +14,7 @@ import { CrashView, ErrorBoundary, useCrash, reportError } from './src/ui/CrashS
 import { IdleSummary } from './src/ui/IdleSummary';
 import { PrestigeOffer } from './src/ui/PrestigeOffer';
 import { EndingScreen } from './src/ui/EndingScreen';
-import { toast } from './src/store/ui';
+import { ShinyCharmScreen } from './src/ui/ShinyCharmScreen';
 import { BattleView } from './src/ui/battle/BattleView';
 import { HudTop } from './src/ui/battle/Hud';
 import { runner } from './src/ui/battle/runner';
@@ -26,12 +26,14 @@ import { DexPanel } from './src/ui/panels/DexPanel';
 import { ExplorationPanel } from './src/ui/panels/ExplorationPanel';
 import { MapPanel } from './src/ui/panels/MapPanel';
 import { PensionPanel } from './src/ui/panels/PensionPanel';
+import { ShopPanel } from './src/ui/panels/ShopPanel';
 import { TeamPanel } from './src/ui/panels/TeamPanel';
 import { C } from './src/ui/theme';
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'team', label: 'Équipe', icon: '👥' },
   { key: 'bag', label: 'Sac', icon: '🎒' },
+  { key: 'shop', label: 'Boutique', icon: '🛒' },
   { key: 'map', label: 'Carte', icon: '🗺' },
   { key: 'pension', label: 'Pension', icon: '🏡' },
   { key: 'exploration', label: 'Exploration', icon: '🧭' },
@@ -123,13 +125,14 @@ function Main() {
           {tab === 'map' && <MapPanel />}
           {tab === 'pension' && <PensionPanel />}
           {tab === 'exploration' && <ExplorationPanel />}
+          {tab === 'shop' && <ShopPanel />}
         </ScrollView>
       )}
       <View style={styles.tabs}>
         {TABS.map((t) => (
           <Pressable key={t.key} onPress={() => setTab(t.key)} style={[styles.tab, tab === t.key && styles.tabOn]}>
             <Text style={styles.tabIcon}>{t.icon}</Text>
-            <Text style={[styles.tabTxt, tab === t.key && { color: C.text }]}>{t.label}</Text>
+            <Text style={[styles.tabTxt, tab === t.key && { color: C.text }]} numberOfLines={1} adjustsFontSizeToFit>{t.label}</Text>
             {!!badge[t.key] && <View style={styles.dot}><Text style={styles.dotTxt}>{badge[t.key]}</Text></View>}
           </Pressable>
         ))}
@@ -149,19 +152,15 @@ function Root() {
   // (combat normal ou debug) ; pas seulement au moment précis de la victoire (le runner est un singleton,
   // sa pause doit suivre l'état du jeu). Affiché une fois : « Plus tard » laisse farmer la région, le
   // nouveau départ se lance ensuite depuis la bannière de la Carte.
-  const offerPrestige = !!s && s.starterChosen && canPrestige(s) && !s.prestigeOffered;
+  // Charme Chroma (Pokédex de la région complet) : fenêtre à fermer soi-même, combat en pause, une fois par région.
+  // Passe avant le récap de prestige et l'écran de fin, et après le résumé hors ligne (jamais deux fenêtres à la fois).
+  const charm = !!s && s.starterChosen && !idleGains && shinyCharmToAnnounce(s);
+  useEffect(() => { if (charm) runner.paused = true; }, [charm]);
+  const offerPrestige = !!s && s.starterChosen && !charm && canPrestige(s) && !s.prestigeOffered;
   useEffect(() => { if (offerPrestige) runner.paused = true; }, [offerPrestige]);
   // fin de l'aventure (Champion de la dernière région) : écran « Maître Pokémon », combat en pause le temps de le lire
-  const ending = !!s && s.starterChosen && endingReady(s);
+  const ending = !!s && s.starterChosen && !charm && endingReady(s);
   useEffect(() => { if (ending) runner.paused = true; }, [ending]);
-  // Charme Chroma : annoncé au moment où le Pokédex de la région est complété (pas au lancement s'il l'était déjà)
-  const charm = !!s && hasShinyCharm(s);
-  const hadCharm = useRef<boolean | null>(null);
-  useEffect(() => {
-    if (!s) return;
-    if (hadCharm.current === false && charm) toast('✨ Charme Chroma obtenu : chromatiques 2 fois plus fréquents dans cette région !', C.gold);
-    hadCharm.current = charm;
-  }, [charm, !!s]);
   return (
     <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
@@ -170,6 +169,7 @@ function Root() {
       <IdleSummary gains={idleGains} onClose={() => setIdleGains(null)} />
       {offerPrestige && <PrestigeOffer onClose={() => {}} />}
       {ending && <EndingScreen />}
+      {charm && <ShinyCharmScreen />}
     </View>
   );
 }

@@ -13,7 +13,7 @@
 import { Battle } from './battle';
 import { BIOMES, STAGES_PER_ZONE, WAVES_PER_STAGE } from './content';
 import {
-  BETWEEN_WAVES_MS, BallKind, CAPTURE_OFFER_CHANCE, GameState, LOOT_CHANCE, PENSION_CAP_MS, RELEASE_CANDIES, shinyOdds,
+  BETWEEN_WAVES_MS, BOOSTS, BallKind, CAPTURE_OFFER_CHANCE, GameState, boostCoverage, LOOT_CHANCE, PENSION_CAP_MS, RELEASE_CANDIES, shinyOdds,
   addMon, allyFighter, bestStarsOf, captureChance, genesMinForBadges, giveXp, idleFarmTarget, isRareInZone, isTargeted,
   keepTargetCapture, lineBase, makeMon, makeWaves, pickSpecies, teamMaxLevel, wildFighter, xpGapMult,
 } from './game';
@@ -205,6 +205,10 @@ export function computeIdleGains(
   if (absenceMs < IDLE_MIN_MS || !s.team.length) return null;
   const durationMs = Math.min(absenceMs, IDLE_CAP_MS);
   const { biome: farmBiome, zone: farmZone } = idleFarmTarget(s);
+  // bonus de la boutique : chacun compte au prorata de la part de l'absence qu'il couvre (1 h de Multi Exp sur
+  // 8 h d'absence = XP ×1,0625 en moyenne)
+  const cover = (kind: keyof typeof BOOSTS) => 1 + (BOOSTS[kind].mult - 1) * boostCoverage(s, kind, s.lastActive, durationMs);
+  const boost = { xp: cover('xp'), charm: cover('charm'), incense: cover('incense'), lure: cover('lure') };
   // l'équipe reprend là où elle était (ou à la plus haute étape débloquée de la zone suivante, si l'idle y passe),
   // sans dépasser l'étape fixée si le réglage « Avancer dans les étapes » est désactivé
   const cap = Math.max(1, Math.min(STAGES_PER_ZONE, s.fixedStage ?? STAGES_PER_ZONE, s.unlocked[farmBiome]?.[farmZone] ?? 1));
@@ -221,7 +225,7 @@ export function computeIdleGains(
     const mon = s.mons[uid];
     let rawXp = 0;
     for (let k = 1; k <= cap; k++) rawXp += (samples[k].avgXpShare[uid] ?? 0) * run.wavesWon[k];
-    const xp = Math.max(0, Math.round(rawXp * IDLE_REWARD_MULT));
+    const xp = Math.max(0, Math.round(rawXp * IDLE_REWARD_MULT * boost.xp));
     const clone: Mon = { ...mon, moves: [...mon.moves] };
     const r = xp > 0 ? giveXp(clone, xp) : { levels: 0, newMoves: [] };
     return { uid, xp, levelBefore: mon.level, levelAfter: clone.level, newMoves: r.newMoves };
@@ -241,15 +245,15 @@ export function computeIdleGains(
     }
   }
 
-  // chromatiques : 1/256 par ennemi vaincu, dans le pool de la zone (jamais réduits)
+  // chromatiques : 1/256 par ennemi vaincu (voir `shinyOdds`), dans le pool de la zone (jamais réduits)
   const shinyNeed = needTracker(s, true);
   const shinies: Mon[] = [];
   const zone = BIOMES[farmBiome].zones[farmZone];
   const levelCap = teamMaxLevel(s);
   for (let i = 0; i < kills; i++) {
-    if (rng.int(shinyOdds(s)) === 0) {
+    if (rng.int(shinyOdds(s, boost.charm)) === 0) {
       // même tirage qu'en combat (`makeWaves`) : un légendaire `joinsPool` vaincu fait partie du pool
-      const speciesId = pickSpecies(zone, rng, s.bossesBeaten[farmBiome][farmZone]);
+      const speciesId = pickSpecies(zone, rng, s.bossesBeaten[farmBiome][farmZone], boost.lure);
       // objectif « boîte + chromatiques » : un chromatique qui ne manque pas à la boîte est ignoré ; sinon déjà au Pokédex
       if (skipOwnedShiny && (goal === 'boxShiny' ? !shinyNeed.wants(speciesId) : s.dex.shiny.includes(speciesId))) continue;
       shinyNeed.add(speciesId);
@@ -258,7 +262,7 @@ export function computeIdleGains(
     }
   }
 
-  const t = idleTargetCaptures(s, run.wavesWon, farmBiome, farmZone, rng, opts.bestBall ?? false, opts.convertTargets ?? true, goal);
+  const t = idleTargetCaptures(s, run.wavesWon, farmBiome, farmZone, rng, opts.bestBall ?? false, opts.convertTargets ?? true, goal, boost.incense, boost.lure);
   return { absenceMs, durationMs, wavesWon, kills, perMon, bagItems, shardsFromRecycle, shinies, farmBiome, farmZone, endStage: run.endStage, ...t };
 }
 
@@ -269,7 +273,7 @@ export function computeIdleGains(
  */
 function idleTargetCaptures(
   s: GameState, wavesWon: number[], farmBiome: number, farmZone: number, rng: Rng, bestBall: boolean, convert: boolean,
-  goal: CollectionGoal = 'off',
+  goal: CollectionGoal = 'off', incense = 1, lure = 1,
 ): Pick<IdleGains, 'targetCaught' | 'targetMons' | 'targetCandies' | 'ballsUsed' | 'missStreak'> {
   const out = { targetCaught: {} as Record<number, number>, targetMons: [] as Mon[], targetCandies: {} as Record<number, number>, ballsUsed: { poke: 0, super: 0, hyper: 0 }, missStreak: s.missStreak };
   if (!s.targets.length && goal === 'off') return out;
@@ -287,8 +291,8 @@ function idleTargetCaptures(
   for (let k = 1; k < wavesWon.length; k++) {
     const lv = zone.minLv + Math.floor(((zone.maxLv - zone.minLv) * (k - 1)) / (STAGES_PER_ZONE - 1));
     for (let w = 0; w < wavesWon[k]; w++) {
-      if (rng.int(100) >= CAPTURE_OFFER_CHANCE) continue;
-      const speciesId = pickSpecies(zone, rng, bossBeaten);
+      if (rng.int(100) >= CAPTURE_OFFER_CHANCE * incense) continue;
+      const speciesId = pickSpecies(zone, rng, bossBeaten, lure);
       const forGoal = wanted(speciesId);
       if (!forGoal && !isTargeted(s, speciesId)) continue;
       const ball = order.find((b) => balls[b] > 0);

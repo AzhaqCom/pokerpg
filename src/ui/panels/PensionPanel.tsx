@@ -115,7 +115,7 @@ export function PensionPanel() {
               placeholderTextColor={C.dim}
               style={styles.search}
             />
-            <View style={styles.row}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }} style={{ flexGrow: 0 }}>
               {[0, 2, 3, 4].map((n) => (
                 <Pressable key={n} onPress={() => setMinStars(n)} style={[styles.chip, minStars === n && styles.chipOn]}>
                   <Text style={styles.chipTxt}>{n === 0 ? 'Tous' : `${n}★+`}</Text>
@@ -127,7 +127,7 @@ export function PensionPanel() {
               <Pressable onPress={nextLevelSort} style={[styles.chip, levelSort !== 'dex' && styles.chipOn]}>
                 <Text style={styles.chipTxt}>{levelSort === 'dex' ? 'Trier par niveau' : levelSort === 'asc' ? 'Niveau ▲' : 'Niveau ▼'}</Text>
               </Pressable>
-            </View>
+            </ScrollView>
             {candTypes.length > 0 && (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }} style={{ flexGrow: 0 }}>
                 <Pressable onPress={() => setTypeFilter(null)} style={[styles.chip, !activeType && styles.chipOn]}>
