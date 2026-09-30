@@ -1,5 +1,6 @@
-import { BIOMES } from '../content';
-import { addMon, chooseStarter, makeMon, newGame, teamMaxLevel } from '../game';
+import { BIOMES, REGIONS, regionLastBiome } from '../content';
+import { addMon, chooseStarter, equip, makeMon, newGame, setTowerIdlePick, teamMaxLevel, towerIdleActive, towerIdleFloor } from '../game';
+import { makeItem } from '../items';
 import { IDLE_CAP_MS, applyIdleGains, computeIdleGains, idleRun, teamXpPerHour } from '../idle';
 import { seededRng } from '../rng';
 
@@ -334,4 +335,48 @@ test('boutique : Multi Exp hors ligne au prorata de l’absence couverte', () =>
   expect(xp(base)).toBeGreaterThan(0);
   expect(xp(full) / xp(base)).toBeCloseTo(1.5, 1);
   expect(xp(half) / xp(base)).toBeCloseTo(1.25, 1);
+});
+
+/** Fin de jeu, équipe surpuissante (3 Mewtwo Nv.100 équipés en Chromatique +5 Nv.300) : gagne les premiers étages. */
+function towerGame() {
+  const s = newGame();
+  s.prestige = REGIONS.length - 1;
+  s.arenaBeaten[regionLastBiome(s.prestige)] = true;
+  s.badges = 8;
+  for (let i = 0; i < 3; i++) {
+    const m = makeMon(150, 100, seededRng(10 + i), false, 15);
+    addMon(s, m);
+    for (const id of ['gantelet-champion', 'cape-champion', 'baie-champion']) {
+      const it = makeItem(id, 6, 300, seededRng(20 + i), 46);
+      it.plus = 5;
+      s.items[it.uid] = it;
+      equip(s, m.uid, it.uid);
+    }
+  }
+  return s;
+}
+
+test('entraînement hors ligne dans la Tour : 1 Chromatique tous les 10 étages gagnés, éclats ÷ 2, zone inchangée', () => {
+  const s = towerGame();
+  expect(towerIdleActive(s)).toBe(false); // aucun étage franchi : absence en zone
+  s.towerBest = 23;
+  expect(towerIdleActive(s)).toBe(true);
+  expect(towerIdleFloor(s)).toBe(20); // dernier palier de 10
+  setTowerIdlePick(s, 99);
+  expect(towerIdleFloor(s)).toBe(23); // jamais au-delà du record
+  setTowerIdlePick(s, 3);
+  const g = computeIdleGains(s, 2 * H, seededRng(4))!;
+  expect(g.tower?.floor).toBe(3);
+  expect(g.wavesWon).toBeGreaterThan(20);
+  expect(g.bagItems).toHaveLength(Math.floor(g.wavesWon / 10));
+  expect(g.bagItems.every((it) => it.rarity === 6 && it.level >= 101 && !it.plus)).toBe(true);
+  expect(g.shinies).toHaveLength(0);
+  expect(g.perMon.every((p) => p.xp === 0)).toBe(true);
+  const { biome, zone, stage, shards } = s;
+  applyIdleGains(s, g);
+  expect(s.shards - shards).toBe(g.tower!.shards + g.shardsFromRecycle);
+  expect([s.biome, s.zone, s.stage]).toEqual([biome, zone, stage]);
+  // désactivé : l'absence farme la zone
+  s.towerIdle = false;
+  expect(computeIdleGains(s, 2 * H, seededRng(4))!.tower).toBeUndefined();
 });

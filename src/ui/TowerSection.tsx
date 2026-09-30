@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { Text } from './components/Text';
 import {
-  GameState, claimTowerReward, enterTower, exitTower, towerRewardPlus, towerShards, towerStart, towerWildMult,
+  GameState, TOWER_IDLE_ITEM_EVERY, claimTowerReward, enterTower, exitTower, setTowerIdle, setTowerIdlePick, towerIdleFloor,
+  towerRewardPlus, towerShards, towerStart, towerWildMult,
 } from '../game/game';
 import { SETS, TEMPLATES, rarityName, template } from '../game/items';
 import { RARITY_COLOR } from '../game/model';
@@ -60,6 +61,34 @@ export function TowerSection() {
         <Text style={styles.line}>
           🎁 Étage {nextChest} : <ChromaLabel plus={towerRewardPlus(nextChest)} /> de l'objet de ton choix
         </Text>
+      </View>
+
+      <View style={styles.card}>
+        <View style={styles.row}>
+          <Text style={[styles.name, { flex: 1 }]}>🌙 Hors ligne : s'entraîner dans la Tour</Text>
+          <Switch value={s.towerIdle} onValueChange={(v) => { act((g) => setTowerIdle(g, v)); feedback(); }} />
+        </View>
+        {s.towerIdle && s.towerBest >= 1 ? (
+          <>
+            <Text style={styles.sub}>
+              Pendant ton absence, ton équipe rejoue un étage déjà franchi : la moitié de ses éclats et 1{' '}
+              <ChromaLabel plus={0} /> Nv.{100 + towerIdleFloor(s)} tous les {TOWER_IDLE_ITEM_EVERY} étages gagnés. Désactive
+              pour chasser les chromatiques et les cibles 🎯 dans ta zone.
+            </Text>
+            <View style={styles.row}>
+              <Pressable style={styles.step} onPress={() => act((g) => setTowerIdlePick(g, towerIdleFloor(g) - 1))}><Text style={styles.stepTxt}>−</Text></Pressable>
+              <Text style={styles.line}>Étage {towerIdleFloor(s)}{s.towerIdlePick === null ? ' (dernier palier)' : ''}</Text>
+              <Pressable style={styles.step} onPress={() => act((g) => setTowerIdlePick(g, towerIdleFloor(g) + 1))}><Text style={styles.stepTxt}>+</Text></Pressable>
+              {s.towerIdlePick !== null && (
+                <Pressable style={styles.auto} onPress={() => act((g) => setTowerIdlePick(g, null))}><Text style={styles.stepTxt}>Auto</Text></Pressable>
+              )}
+            </View>
+          </>
+        ) : (
+          <Text style={styles.sub}>
+            {s.towerIdle ? 'Franchis au moins un étage pour que ton absence se passe dans la Tour.' : 'Ton absence farme ta zone (chromatiques, cibles 🎯).'}
+          </Text>
+        )}
       </View>
 
       {s.towerRewards.length > 0 && (
@@ -135,4 +164,7 @@ const styles = StyleSheet.create({
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   pick: { backgroundColor: C.panel2, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, maxWidth: '100%' },
   pickTxt: { color: C.text, fontSize: 12, fontWeight: '700' },
+  step: { width: 34, height: 34, borderRadius: 17, backgroundColor: C.panel2, alignItems: 'center', justifyContent: 'center' },
+  auto: { paddingHorizontal: 12, height: 34, borderRadius: 17, backgroundColor: C.panel2, alignItems: 'center', justifyContent: 'center' },
+  stepTxt: { color: C.text, fontSize: 15, fontWeight: '800' },
 });

@@ -13,13 +13,14 @@
 import { Battle } from './battle';
 import { BIOMES, STAGES_PER_ZONE, WAVES_PER_STAGE } from './content';
 import {
-  BETWEEN_WAVES_MS, BOOSTS, BallKind, CAPTURE_OFFER_CHANCE, GameState, boostCoverage, LOOT_CHANCE, PENSION_CAP_MS, RELEASE_CANDIES, shinyOdds,
+  BETWEEN_WAVES_MS, BOOSTS, BallKind, CAPTURE_OFFER_CHANCE, GameState, TOWER_IDLE_ITEM_EVERY, TOWER_LEVEL, boostCoverage,
+  towerIdleActive, towerIdleFloor, towerLootTemplates, towerShards, towerWaves, LOOT_CHANCE, PENSION_CAP_MS, RELEASE_CANDIES, shinyOdds,
   addMon, allyFighter, bestStarsOf, captureChance, genesMinForBadges, giveXp, idleFarmTarget, isRareInZone, isTargeted,
   keepTargetCapture, lineBase, makeMon, makeWaves, pickSpecies, teamMaxLevel, wildFighter, xpGapMult,
 } from './game';
-import { recycleValue, rollLoot } from './items';
+import { makeItem, recycleValue, rollLoot } from './items';
 import { CollectionGoal, needTracker } from './collection';
-import { Item, Mon } from './model';
+import { Item, MAX_RARITY, Mon } from './model';
 import { monStars } from './stats';
 import { Rng } from './rng';
 
@@ -69,6 +70,8 @@ export interface IdleGains {
   ballsUsed: Record<BallKind, number>;
   /** Compteur de pitié (`missStreak`) après les lancers de l'absence. */
   missStreak: number;
+  /** Entraînement dans la Tour (fin de jeu) : étage rejoué et éclats gagnés ; absent = farm de zone. */
+  tower?: { floor: number; shards: number };
 }
 
 interface WaveSample {
@@ -204,6 +207,7 @@ export function computeIdleGains(
   const skipOwnedShiny = opts.skipOwnedShiny ?? false;
   if (absenceMs < IDLE_MIN_MS || !s.team.length) return null;
   const durationMs = Math.min(absenceMs, IDLE_CAP_MS);
+  if (towerIdleActive(s)) return towerIdleGains(s, absenceMs, durationMs, rng);
   const { biome: farmBiome, zone: farmZone } = idleFarmTarget(s);
   // bonus de la boutique : chacun compte au prorata de la part de l'absence qu'il couvre (1 h de Multi Exp sur
   // 8 h d'absence = XP ×1,0625 en moyenne)
@@ -319,11 +323,66 @@ function idleTargetCaptures(
   return out;
 }
 
+/** Taux de victoire et durée moyenne d'un étage de la Tour (équipe fraîche à chaque étage, comme en jouant). */
+function sampleTowerFloor(s: GameState, rng: Rng, floor: number, n = SAMPLE_WAVES): { winRate: number; avgMs: number } {
+  let wins = 0;
+  let totalMs = 0;
+  for (let i = 0; i < n; i++) {
+    const wave = towerWaves(floor, rng)[0];
+    const allies = s.team.map((u) => allyFighter(s, u));
+    const enemies = wave.map((e, j) => wildFighter(`tower${i}-${j}`, e.mon, { wild: e.wild, wildMult: e.wildMult }));
+    const battle = new Battle([...allies, ...enemies], rng);
+    battle.runToEnd();
+    totalMs += battle.t * 1000 + BETWEEN_WAVES_MS;
+    if (battle.result === 'win') wins++;
+  }
+  return { winRate: wins / n, avgMs: totalMs / n };
+}
+
+/** Étages rejoués sous l'étage choisi après des défaites (on redescend d'un étage à chaque défaite, puis on regrimpe). */
+const TOWER_IDLE_DEPTH = 10;
+
+/**
+ * Absence en fin de jeu : l'équipe rejoue l'étage `towerIdleFloor` de la Tour (une défaite la fait redescendre d'un étage,
+ * une victoire remonter, jamais au-delà de l'étage choisi). Chaque étage gagné : la moitié de ses éclats ; tous les
+ * `TOWER_IDLE_ITEM_EVERY` étages gagnés, un Chromatique (panoplies de Sinnoh) au niveau 100 + étage. Ni XP, ni
+ * chromatiques, ni captures (propres aux zones). Ne modifie pas `s`.
+ */
+function towerIdleGains(s: GameState, absenceMs: number, durationMs: number, rng: Rng): IdleGains {
+  const top = towerIdleFloor(s);
+  const low = Math.max(1, top - TOWER_IDLE_DEPTH + 1);
+  const samples: Record<number, { winRate: number; avgMs: number }> = {};
+  const sample = (f: number) => (samples[f] ??= sampleTowerFloor(s, rng, f));
+  const gains = emptyGains(s, absenceMs, durationMs);
+  const pool = towerLootTemplates();
+  let floor = top;
+  let won = 0;
+  let shards = 0;
+  for (let t = 0; t < durationMs;) {
+    const smp = sample(floor);
+    t += Math.max(500, smp.avgMs);
+    if (rng.int(10000) < smp.winRate * 10000) {
+      won++;
+      shards += Math.floor(towerShards(floor) / 2);
+      if (won % TOWER_IDLE_ITEM_EVERY === 0) {
+        gains.bagItems.push(makeItem(pool[rng.int(pool.length)].id, MAX_RARITY, TOWER_LEVEL + floor, rng, BIOMES.length - 1));
+      }
+      floor = Math.min(top, floor + 1);
+    } else {
+      floor = Math.max(low, floor - 1);
+    }
+  }
+  gains.wavesWon = won;
+  gains.kills = won * 3;
+  gains.tower = { floor: top, shards };
+  return gains;
+}
+
 /** Encaisse un résultat de `computeIdleGains` : déterministe, ne tire plus de hasard. */
 export function applyIdleGains(s: GameState, gains: IdleGains) {
   for (const pm of gains.perMon) if (pm.xp > 0) giveXp(s.mons[pm.uid], pm.xp);
   for (const it of gains.bagItems) s.items[it.uid] = it;
-  s.shards += gains.shardsFromRecycle;
+  s.shards += gains.shardsFromRecycle + (gains.tower?.shards ?? 0);
   for (const mon of gains.shinies) addMon(s, mon);
   for (const mon of gains.targetMons) addMon(s, mon);
   for (const [base, n] of Object.entries(gains.targetCandies)) s.candies[base] = (s.candies[base] ?? 0) + n;

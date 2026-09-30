@@ -131,6 +131,10 @@ export interface GameState {
   towerFloor: number | null;
   /** Chromatiques +N gagnés tous les 10 étages, à choisir (objet au choix) depuis la Carte. */
   towerRewards: TowerReward[];
+  /** Hors ligne, s'entraîner dans la Tour plutôt que farmer la zone (fin de jeu, activé par défaut). */
+  towerIdle: boolean;
+  /** Étage de l'entraînement hors ligne, `null` = dernier palier de 10 franchi (`towerIdleFloor`). */
+  towerIdlePick: number | null;
   /** Version d'équilibrage des objets déjà convertie (2 = poids mesurés du 2026-09-24, voir `migrateSave`). */
   balanceVersion: number;
 }
@@ -150,7 +154,7 @@ export function newGame(): GameState {
     prestige: 0,
     startedAt: Date.now(), prestigeOffered: false, adventureStart: Date.now(), endingSeen: false,
     shinyCharmSeen: false, boosts: noBoosts(), universalMega: 0,
-    towerBest: 0, towerFloor: null, towerRewards: [], balanceVersion: 2,
+    towerBest: 0, towerFloor: null, towerRewards: [], towerIdle: true, towerIdlePick: null, balanceVersion: 2,
   };
 }
 
@@ -1630,6 +1634,34 @@ export function enterTower(s: GameState): boolean {
 
 export function exitTower(s: GameState) {
   s.towerFloor = null;
+}
+
+/**
+ * Entraînement hors ligne dans la Tour (fin de jeu) : l'absence rejoue un étage déjà franchi au lieu de farmer la zone
+ * (dont le butin ne sert plus à rien après la Tour). Moins de butin qu'en jouant, mais que du Chromatique au niveau de
+ * l'étage : 1 tous les `TOWER_IDLE_ITEM_EVERY` étages gagnés, éclats ÷ 2, jamais de Chromatique +N (jeu actif seulement).
+ * Désactivable pour chasser les chromatiques et les cibles 🎯, qui n'existent qu'en zone.
+ */
+export const TOWER_IDLE_ITEM_EVERY = 10;
+
+/** L'absence se passe-t-elle dans la Tour ? (au moins un étage franchi, réglage activé) */
+export function towerIdleActive(s: GameState): boolean {
+  return endgameUnlocked(s) && s.towerIdle && s.towerBest >= 1;
+}
+
+/** Étage rejoué hors ligne : celui choisi (jamais au-delà du record), sinon le dernier palier de 10 franchi. */
+export function towerIdleFloor(s: GameState): number {
+  const auto = Math.max(1, Math.floor(s.towerBest / 10) * 10);
+  return Math.max(1, Math.min(s.towerBest, s.towerIdlePick ?? auto));
+}
+
+export function setTowerIdle(s: GameState, on: boolean) {
+  s.towerIdle = on;
+}
+
+/** Choisit l'étage d'entraînement hors ligne (`null` = automatique, dernier palier). */
+export function setTowerIdlePick(s: GameState, floor: number | null) {
+  s.towerIdlePick = floor === null ? null : Math.max(1, Math.min(s.towerBest, Math.round(floor)));
 }
 
 /** Éclats par étage franchi. */

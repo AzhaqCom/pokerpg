@@ -4,7 +4,7 @@ import { move, species } from '../game/data';
 import { GameState } from '../game/game';
 import { IdleGains } from '../game/idle';
 import { template } from '../game/items';
-import { RARITY_COLOR } from '../game/model';
+import { RARITIES, RARITY_COLOR } from '../game/model';
 import { useGame } from '../store/game';
 import { runner } from './battle/runner';
 import { Button } from './components/Button';
@@ -61,10 +61,20 @@ export function IdleSummary({ gains, onClose }: { gains: IdleGains | null; onClo
           <Text style={styles.title}>Pendant ton absence ({formatDuration(gains.durationMs)})</Text>
           <ScrollView style={{ maxHeight: 340 }}>
             {gains.wavesWon === 0 ? (
-              <Text style={styles.msg}>Ton équipe n'a pas tenu face aux ennemis de la zone. Renforce-la avant de repartir farmer.</Text>
+              <Text style={styles.msg}>
+                {gains.tower ? `Ton équipe n'a franchi aucun étage de la Tour (étage ${gains.tower.floor}). Choisis un étage plus bas dans l'onglet de la Tour.`
+                  : 'Ton équipe n\'a pas tenu face aux ennemis de la zone. Renforce-la avant de repartir farmer.'}
+              </Text>
             ) : (
               <>
-                <Text style={styles.line}>⚔️ {gains.wavesWon} vague{gains.wavesWon > 1 ? 's' : ''} gagnée{gains.wavesWon > 1 ? 's' : ''}</Text>
+                {gains.tower ? (
+                  <>
+                    <Text style={styles.line}>🗼 Entraînement dans la Tour (étage {gains.tower.floor}) : {gains.wavesWon} étage{gains.wavesWon > 1 ? 's' : ''} gagné{gains.wavesWon > 1 ? 's' : ''}</Text>
+                    <Text style={styles.line}>💎 +{gains.tower.shards} éclats</Text>
+                  </>
+                ) : (
+                  <Text style={styles.line}>⚔️ {gains.wavesWon} vague{gains.wavesWon > 1 ? 's' : ''} gagnée{gains.wavesWon > 1 ? 's' : ''}</Text>
+                )}
                 {gains.perMon.filter((p) => p.xp > 0).map((p) => {
                   const mon = s.mons[p.uid];
                   if (!mon) return null;
@@ -78,7 +88,7 @@ export function IdleSummary({ gains, onClose }: { gains: IdleGains | null; onClo
                 })}
                 {groupLoot(gains.bagItems).map((g) => (
                   <Text key={`${g.templateId}-${g.rarity}`} style={[styles.line, { color: RARITY_COLOR[g.rarity] }]}>
-                    + {template(g.templateId).name}{g.count > 1 ? ` ×${g.count}` : ''}
+                    + {template(g.templateId).name}{g.count > 1 ? ` ×${g.count}` : ''}{gains.tower ? ` (${RARITIES[g.rarity]})` : ''}
                   </Text>
                 ))}
                 {gains.shardsFromRecycle > 0 && <Text style={styles.line}>💎 +{gains.shardsFromRecycle} éclats (recyclage auto)</Text>}

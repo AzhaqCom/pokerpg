@@ -139,6 +139,11 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   identique quelle que soit la panoplie, créés au niveau du dernier biome ; moins d'objets différents = plus de doublons
   à fusionner), tous les 10 étages un Chromatique +`towerRewardPlus`
   (+1 tous les 20 étages, 10 % de chance d'un cran de plus) à choisir objet par objet (`towerRewards`, `claimTowerReward`).
+  **Entraînement hors ligne** (`towerIdle`, activé par défaut, interrupteur dans l'onglet de la Tour) : dès un étage
+  franchi, l'absence rejoue `towerIdleFloor` (dernier palier de 10, ou `towerIdlePick`, jamais au-delà du record ; une
+  défaite fait redescendre d'un étage, 10 au plus) au lieu de farmer la zone : 1 Chromatique Nv.100 + étage tous les
+  `TOWER_IDLE_ITEM_EVERY` (10) étages gagnés, éclats ÷ 2, ni XP, ni chromatiques, ni captures, ni +N (`towerIdleGains`
+  dans `idle.ts`). Mesuré : 230 à 390 Chromatiques par nuit de 8 h.
 - **Qualité génétique** : gènes 0-15 (PV/Atq/Déf/Vit) tirés à la capture, jamais modifiés (sauf méga bonbons). Étoiles :
   4★ parfait, 3★ ≥ 80 %, 2★ ≥ 50 %. Plancher garanti par badge (`genesMinForBadges` : ≥ 8 dès 4 badges, ≥ 12 dès 8).
 - **Sous-stats** (depuis le 2026-09-24) : Attaque, Défense, PV, Vitesse, Critique, Dégâts critiques, Dégâts du type,
