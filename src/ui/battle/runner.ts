@@ -11,8 +11,9 @@ import {
   BETWEEN_WAVES_MS, CaptureOffer, GameState, StageKind, StageRun, WaveRewards, arenaAvailable, autoCaptureBall, bestStarsOf, bossAvailable,
   canPrestige, captureTarget, exitTower, isTargeted, maxBattleSpeed, SPEED_UNLOCKS, touchLastActive, tryCapture,
 } from '../../game/game';
-import { RARITIES, RARITY_COLOR } from '../../game/model';
+import { MAX_RARITY, RARITIES, RARITY_COLOR } from '../../game/model';
 import { template } from '../../game/items';
+import { chromaTier } from '../helpers';
 import { rng, useGame } from '../../store/game';
 import { CollectionGoal, wantedForBox } from '../../game/collection';
 import { useSettings } from '../../store/settings';
@@ -207,7 +208,8 @@ class Runner {
     }
     if (r.towerReward) {
       sfx('medal');
-      toast(`🎁 Étage ${r.towerReward.floor} : Chromatique${r.towerReward.plus ? ` +${r.towerReward.plus}` : ''} à choisir sur la Carte`, '#ff5ec4');
+      toast(`🎁 Étage ${r.towerReward.floor} : Chromatique${r.towerReward.plus ? ` +${r.towerReward.plus}` : ''} à choisir sur la Carte`,
+        r.towerReward.plus ? chromaTier(r.towerReward.plus).text : RARITY_COLOR[MAX_RARITY]);
     }
     if (r.capture) {
       const capture = r.capture;

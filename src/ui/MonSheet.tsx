@@ -18,14 +18,14 @@ import { toast, useUi } from '../store/ui';
 import { Button } from './components/Button';
 import { Dialog, DialogSpec } from './components/Dialog';
 import { ItemCard, SLOT_ICON, SubChips, itemMainText } from './components/ItemCard';
-import { RainbowBorder, RainbowText } from './components/RainbowBorder';
+import { ChromaPill, RainbowBorder } from './components/RainbowBorder';
 import { ItemDetail } from './ItemDetail';
 import { BallIcon } from './components/BallIcon';
 import { MonThumb } from './components/MonThumb';
 import { Stars } from './components/Stars';
 import { feedback } from './components/feedback';
 import { TypeBadge } from './components/TypeBadge';
-import { TYPE_COLOR, cpColor, monName, monStats, textOn, typeLabel, xpProgress } from './helpers';
+import { TYPE_COLOR, chromaTier, cpColor, monName, monStats, textOn, typeLabel, xpProgress } from './helpers';
 import { runner } from './battle/runner';
 import { C } from './theme';
 
@@ -289,12 +289,13 @@ export function MonSheet() {
                           style={[styles.miniItem, { borderColor: !it ? C.panel2 : plusOf(it) > 0 ? 'transparent' : RARITY_COLOR[it.rarity] }]}>
                           {it && t ? (
                             <>
-                              {/* Chromatique +N : bordure arc-en-ciel fixe, comme dans le Sac */}
-                              {plusOf(it) > 0 && <RainbowBorder radius={10} />}
-                              <Text style={[styles.miniName, { color: RARITY_COLOR[it.rarity] }]} numberOfLines={2}>{SLOT_ICON[slot]} {t.name}</Text>
-                              <Text style={styles.miniLv}>
-                                {plusOf(it) > 0 ? <><RainbowText text={`+${plusOf(it)}`} />{' · '}</> : null}Nv.{it.level}
-                              </Text>
+                              {/* Chromatique +N : bordure fixe aux couleurs du palier du cran, comme dans le Sac */}
+                              {plusOf(it) > 0 && <RainbowBorder plus={plusOf(it)} radius={10} />}
+                              <Text style={[styles.miniName, { color: plusOf(it) > 0 ? chromaTier(plusOf(it)).text : RARITY_COLOR[it.rarity] }]} numberOfLines={2}>{SLOT_ICON[slot]} {t.name}</Text>
+                              <View style={styles.miniLvRow}>
+                                {plusOf(it) > 0 && <ChromaPill plus={plusOf(it)} />}
+                                <Text style={styles.miniLv}>Nv.{it.level}</Text>
+                              </View>
                               <Text style={styles.miniStat}>{itemMainText(it, true)}</Text>
                               <SubChips item={it} />
                             </>
@@ -667,6 +668,7 @@ const styles = StyleSheet.create({
   miniItem: { flex: 1, minHeight: 64, borderWidth: 1.5, borderRadius: 10, padding: 6, backgroundColor: C.bg, gap: 2 },
   miniName: { fontSize: 11, fontWeight: '800' },
   miniLv: { color: C.dim, fontSize: 10, fontWeight: '700' },
+  miniLvRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   miniStat: { color: C.sub, fontSize: 10, fontWeight: '700' },
   geneBtn: { flex: 1, alignItems: 'center', backgroundColor: C.panel2, borderRadius: 10, paddingVertical: 6 },
   geneMax: { backgroundColor: '#1b3a2a' },

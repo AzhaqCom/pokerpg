@@ -181,6 +181,18 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
               }} />
             )}
             {__DEV__ && (
+              <Button label="🐛 Debug : 1 Chromatique de chaque cran (+0 à +12, et +20) dans le Sac (test des couleurs)" color="#37474f" onPress={() => {
+                act((g) => {
+                  for (const plus of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 20]) {
+                    const it = makeItem('gantelet-champion', MAX_RARITY, 100 + plus * 10, rng);
+                    if (plus) it.plus = plus;
+                    g.items[it.uid] = it;
+                  }
+                });
+                feedback();
+              }} />
+            )}
+            {__DEV__ && (
               <Button label="🐛 Debug : Pokédex complet, plus que le Champion à battre (test écran de fin)" color="#37474f" onPress={() => {
                 act((g) => {
                   const max = regionOf(g.prestige).dexMax;

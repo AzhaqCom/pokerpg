@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../components/Text';
 import {
   BALL_PRICE, BALLS, BOOST_KINDS, BOOST_MAX_MS, BOOST_MS, BOOSTS, BallKind, BoostKind, UNIVERSAL_MEGA_PRICE,
@@ -8,8 +8,8 @@ import {
 import { useGame } from '../../store/game';
 import { toast } from '../../store/ui';
 import { BallIcon } from '../components/BallIcon';
-import { Button } from '../components/Button';
 import { feedback } from '../components/feedback';
+import { useHoldRepeat } from '../components/useHoldRepeat';
 import { C } from '../theme';
 import { useFrameClock } from '../useFrameClock';
 
@@ -21,140 +21,190 @@ export function formatLeft(ms: number): string {
   return h ? `${h} h ${String(min % 60).padStart(2, '0')}` : `${min} min`;
 }
 
-/** Icône de Ball = bouton d'achat direct : tap = +1, appui long = achat en rafale (fin de partie : des
- * milliers d'éclats à dépenser) ; au relâchement d'une rafale, `onBurstEnd` ouvre la boîte « ×10 · ×100 ». */
-function BuyBallIcon({ kind, onBurstEnd }: { kind: BallKind; onBurstEnd: (kind: BallKind) => void }) {
-  const act = useGame((g) => g.act);
-  const s = useGame((g) => g.s)!;
-  useGame((g) => g.rev);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const stop = () => { if (timer.current) { clearInterval(timer.current); timer.current = null; } };
-  useEffect(() => stop, []);
-  const endPress = () => { if (timer.current) onBurstEnd(kind); stop(); };
-  const buyOne = () => { if (act((g) => buyBall(g, kind))) feedback(); };
-  const start = () => {
-    stop();
-    timer.current = setInterval(() => { if (!act((g) => buyBall(g, kind))) stop(); }, 120);
-  };
-  const can = s.shards >= BALL_PRICE[kind];
+/** « 48 250 » : séparateur de milliers (sans `Intl`, pas toujours complet sous Hermes). */
+const fmt = (n: number) => String(Math.floor(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+
+/** Effet d'un bonus en quelques mots (tuiles de la grille ; la description complète s'affiche au toucher). */
+const BOOST_SHORT: Record<BoostKind, string> = {
+  charm: 'Chromatiques ×1,5', incense: 'Offres de capture ×2', lure: 'Espèces rares ×3', xp: 'XP de l’équipe ×1,5',
+};
+
+/**
+ * Bouton d'achat : le prix quand on peut payer, sinon ce qui manque (« −6 750 ») au lieu d'un simple bouton grisé.
+ * `label` remplace le texte (ex. « réserve pleine »).
+ */
+function BuyButton({ cost, shards, text, label, onPress, onLongPress, onPressOut, style, big }: {
+  cost: number; shards: number; text: string; label?: string; onPress: () => void;
+  onLongPress?: () => void; onPressOut?: () => void; style?: object;
+  /** grand bouton (achat de Balls) : 40 px de haut, texte plus gros — facile à toucher */
+  big?: boolean;
+}) {
+  const can = !label && shards >= cost;
   return (
-    <Pressable onPress={buyOne} onLongPress={start} onPressOut={endPress} delayLongPress={350}
-      style={[styles.ballBuy, !can && { opacity: 0.4 }]}>
-      <BallIcon kind={kind} size={32} />
-      <Text style={styles.resTxt}>{s.balls[kind]}</Text>
-      <Text style={styles.price}>{BALL_PRICE[kind]}💎</Text>
+    <Pressable disabled={!can} onPress={onPress} onLongPress={onLongPress} onPressOut={onPressOut} delayLongPress={350}
+      style={({ pressed }) => [styles.buy, big && styles.buyBig, !can && styles.buyOff, pressed && { opacity: 0.75 }, style]}>
+      <Text style={[styles.buyTxt, big && styles.buyTxtBig, !can && styles.buyTxtOff]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+        {label ?? (can ? text : `−${fmt(cost - shards)}`)}
+      </Text>
     </Pressable>
   );
 }
 
-/** Durée d'affichage de la boîte d'achat groupé, relancée à chaque achat. */
-const BULK_BOX_MS = 3000;
-const BULK_AMOUNTS = [10, 100];
+/**
+ * Ball de la boutique (3 sur une ligne, 2026-10-01) : toucher = +1 ; maintenir = la fenêtre d'achat en quantité
+ * (`BulkModal`) s'ouvre aussitôt, sans attendre le relâchement. Sur Android, une fenêtre qui s'ouvre interrompt l'appui
+ * en cours : l'achat en continu se fait donc dans la fenêtre (maintenir « +1 »).
+ */
+function BallTile({ kind, onBulk }: { kind: BallKind; onBulk: (kind: BallKind) => void }) {
+  const s = useGame((g) => g.s)!;
+  const act = useGame((g) => g.act);
+  const price = BALL_PRICE[kind];
+  const can = s.shards >= price;
+  return (
+    <Pressable disabled={!can} delayLongPress={350}
+      onPress={() => { if (act((g) => buyBall(g, kind))) feedback(); }}
+      onLongPress={() => { feedback(); onBulk(kind); }}
+      style={({ pressed }) => [styles.ballTile, !can && { opacity: 0.4 }, pressed && { opacity: 0.75 }]}>
+      <BallIcon kind={kind} size={32} />
+      <Text style={styles.stockN}>×{fmt(s.balls[kind])}</Text>
+      <Text style={styles.desc}>{BALLS[kind].chance} % · {price} 💎</Text>
+    </Pressable>
+  );
+}
 
-function BoostCard({ kind }: { kind: BoostKind }) {
+/**
+ * Fenêtre d'achat en quantité d'une Ball (maintenir sa tuile) : +1 (maintenir = achat en continu de plus en plus vite,
+ * `useHoldRepeat`), ×10, ×100 ; reste ouverte jusqu'à « Fermer ».
+ */
+function BulkModal({ kind, onClose }: { kind: BallKind | null; onClose: () => void }) {
+  const s = useGame((g) => g.s)!;
+  useGame((g) => g.rev);
+  const act = useGame((g) => g.act);
+  const hold = useHoldRepeat((n) => (kind ? act((g) => { let k = 0; while (k < n && buyBall(g, kind)) k++; return k; }) ?? 0 : 0));
+  if (!kind) return null;
+  const price = BALL_PRICE[kind];
+  const buy = (n: number) => { if (act((g) => buyBalls(g, kind, n))) { feedback(); toast(`+${n} ${BALLS[kind].name}s`); } };
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.backdrop} onPress={onClose}>
+        <Pressable style={styles.modal} onPress={() => {}}>
+          <View style={styles.modalHead}>
+            <BallIcon kind={kind} size={36} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.modalTitle}>{BALLS[kind].name}</Text>
+              <Text style={styles.desc}>stock {fmt(s.balls[kind])} · capture {BALLS[kind].chance} % · {price} 💎 l'unité</Text>
+            </View>
+          </View>
+          <Text style={styles.desc}>💎 {fmt(s.shards)} éclats</Text>
+          <View style={styles.modalBtns}>
+            <BuyButton big cost={price} shards={s.shards} text="+1" onPress={() => { if (act((g) => buyBall(g, kind))) feedback(); }}
+              onLongPress={hold.start} onPressOut={hold.stop} style={{ flex: 1 }} />
+            {[10, 100].map((n) => (
+              <BuyButton key={n} big cost={price * n} shards={s.shards} text={`×${n} · ${fmt(price * n)} 💎`} onPress={() => buy(n)} style={{ flex: 1.6 }} />
+            ))}
+          </View>
+          <Text style={styles.hint}>Maintenir « +1 » pour acheter en continu.</Text>
+          <Pressable onPress={onClose} style={styles.closeBtn}><Text style={styles.closeTxt}>Fermer</Text></Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+/** Tuile d'un bonus temporaire : effet court, jauge de réserve (jusqu'à 8 h), temps restant, achat d'1 h. */
+function BoostTile({ kind }: { kind: BoostKind }) {
   const s = useGame((g) => g.s)!;
   const act = useGame((g) => g.act);
   const b = BOOSTS[kind];
   const left = boostRemaining(s, kind);
   const full = left + BOOST_MS > BOOST_MAX_MS;
-  const can = s.shards >= b.price && !full;
   return (
-    <View style={[styles.card, left > 0 && styles.cardOn]}>
-      <Text style={styles.icon}>{b.icon}</Text>
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text style={styles.name}>{b.name}</Text>
-        <Text style={styles.desc}>{b.desc}</Text>
-        <Text style={[styles.desc, left > 0 && { color: C.gold, fontWeight: '800' }]}>
-          {left > 0 ? `Actif : encore ${formatLeft(left)}` : '1 h, en combat comme hors ligne'}
-        </Text>
-      </View>
-      <Button small label={full ? 'Max 8 h' : `${b.price}💎`} disabled={!can}
-        color={can ? C.accent : C.panel2}
+    <Pressable onPress={() => toast(`${b.icon} ${b.desc}`)} style={[styles.boost, left > 0 && styles.boostOn]}>
+      <Text style={styles.name} numberOfLines={1}>{b.icon} {b.name}</Text>
+      <Text style={styles.desc} numberOfLines={1}>{BOOST_SHORT[kind]}</Text>
+      <View style={styles.gauge}><View style={[styles.gaugeFill, { width: `${Math.min(100, (left / BOOST_MAX_MS) * 100)}%` }]} /></View>
+      <Text style={[styles.desc, left > 0 && styles.active]}>{left > 0 ? `actif · ${formatLeft(left)}` : 'inactif'}</Text>
+      <BuyButton cost={b.price} shards={s.shards} text={`+1 h · ${fmt(b.price)} 💎`} label={full ? 'réserve pleine' : undefined}
         onPress={() => { if (act((g) => buyBoost(g, kind))) { feedback('medal'); toast(`${b.icon} ${b.name} : +1 h`, C.gold); } }} />
-    </View>
+    </Pressable>
   );
 }
 
+/**
+ * Boutique (refaite le 2026-10-01) : solde d'éclats fixé en haut (la Boutique a sa propre zone de défilement, comme le
+ * Sac), Balls en cartes, bonus en grille avec jauge, méga bonbon universel. Les règles d'achat sont dans `game.ts`.
+ */
 export function ShopPanel() {
   useFrameClock(1); // minuteurs des bonus
   const s = useGame((g) => g.s)!;
   useGame((g) => g.rev);
   const act = useGame((g) => g.act);
-  // boîte « ×10 · ×100 » : ouverte au relâchement d'une rafale, une seule Ball à la fois, fermée après 3 s
   const [bulk, setBulk] = useState<BallKind | null>(null);
-  const bulkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const openBulk = (kind: BallKind) => {
-    if (bulkTimer.current) clearTimeout(bulkTimer.current);
-    setBulk(kind);
-    bulkTimer.current = setTimeout(() => setBulk(null), BULK_BOX_MS);
-  };
-  useEffect(() => () => { if (bulkTimer.current) clearTimeout(bulkTimer.current); }, []);
-  const canMega = s.shards >= UNIVERSAL_MEGA_PRICE;
   return (
-    <View style={{ gap: 10 }}>
+    <View style={{ flex: 1 }}>
       <View style={styles.shards}>
-        <Text style={styles.shardsTxt}>💎 {s.shards} éclats</Text>
-        <Text style={styles.desc}>Exploration, recyclage des objets</Text>
+        <Text style={styles.shardsTxt}>💎 {fmt(s.shards)}</Text>
+        <Text style={styles.desc}>éclats · Exploration, Tour, recyclage</Text>
       </View>
-
-      <Text style={styles.section}>Balls</Text>
-      <View style={styles.panel}>
-        <Text style={styles.desc}>Touche une Ball pour en acheter une, appui long pour en acheter en rafale.</Text>
+      <ScrollView contentContainerStyle={styles.body}>
+        <Text style={styles.section}>Balls</Text>
         <View style={styles.ballsRow}>
-          {(Object.keys(BALLS) as BallKind[]).map((b) => <BuyBallIcon key={b} kind={b} onBurstEnd={openBulk} />)}
+          {(Object.keys(BALLS) as BallKind[]).map((b) => <BallTile key={b} kind={b} onBulk={setBulk} />)}
         </View>
-        {bulk && (
-          <View style={styles.bulkRow}>
-            <BallIcon kind={bulk} size={18} />
-            {BULK_AMOUNTS.map((n) => {
-              const cost = BALL_PRICE[bulk] * n;
-              const can = s.shards >= cost;
-              return (
-                <Pressable key={n} disabled={!can} style={[styles.bulkBtn, !can && { opacity: 0.35 }]} onPress={() => {
-                  if (act((g) => buyBalls(g, bulk, n))) { feedback(); toast(`+${n} ${BALLS[bulk].name}s`); openBulk(bulk); }
-                }}>
-                  <Text style={styles.bulkTxt}>×{n}</Text>
-                  <Text style={styles.price}>{cost}💎</Text>
-                </Pressable>
-              );
-            })}
+        <Text style={styles.hint}>Toucher une Ball : +1. Maintenir : achat en quantité (×10, ×100, en continu).</Text>
+
+        <Text style={styles.section}>Bonus temporaires <Text style={styles.desc}>· 1 h par achat, 8 h au plus, perdus au nouveau départ</Text></Text>
+        <View style={styles.grid}>
+          {BOOST_KINDS.map((k) => <BoostTile key={k} kind={k} />)}
+        </View>
+        <Text style={styles.hint}>Toucher un bonus pour lire son effet en détail.</Text>
+
+        <Text style={styles.section}>Objets</Text>
+        <View style={styles.megaCard}>
+          <Text style={styles.megaIcon}>🍬</Text>
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={styles.name}>Méga bonbon universel · {s.universalMega ?? 0}</Text>
+            <Text style={styles.desc}>+1 gène, n'importe quel Pokémon (fiche, onglet Bonbons) · gardé au nouveau départ</Text>
           </View>
-        )}
-      </View>
-
-      <Text style={styles.section}>Bonus temporaires</Text>
-      <Text style={styles.desc}>Chaque achat ajoute 1 h (8 h au plus). Perdus au nouveau départ, comme les éclats.</Text>
-      {BOOST_KINDS.map((k) => <BoostCard key={k} kind={k} />)}
-
-      <Text style={styles.section}>Objets</Text>
-      <View style={styles.card}>
-        <Text style={styles.icon}>🍬</Text>
-        <View style={{ flex: 1, gap: 2 }}>
-          <Text style={styles.name}>Méga bonbon universel · {s.universalMega ?? 0}</Text>
-          <Text style={styles.desc}>+1 à un gène de n'importe quel Pokémon (fiche Pokémon). Conservé au nouveau départ.</Text>
+          <BuyButton cost={UNIVERSAL_MEGA_PRICE} shards={s.shards} text={`+1 · ${fmt(UNIVERSAL_MEGA_PRICE)} 💎`}
+            onPress={() => { if (act((g) => buyUniversalMega(g))) { feedback('medal'); toast('+1 méga bonbon universel', C.gold); } }} />
         </View>
-        <Button small label={`${UNIVERSAL_MEGA_PRICE}💎`} disabled={!canMega} color={canMega ? C.accent : C.panel2}
-          onPress={() => { if (act((g) => buyUniversalMega(g))) { feedback('medal'); toast('+1 méga bonbon universel', C.gold); } }} />
-      </View>
+      </ScrollView>
+      <BulkModal kind={bulk} onClose={() => setBulk(null)} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  shards: { backgroundColor: C.panel, borderRadius: 12, padding: 12, gap: 2 },
+  shards: { flexDirection: 'row', alignItems: 'baseline', gap: 8, backgroundColor: C.panel, borderRadius: 12, padding: 10, marginHorizontal: 12 },
   shardsTxt: { color: C.gold, fontSize: 18, fontWeight: '900' },
+  body: { padding: 12, paddingTop: 4, paddingBottom: 40, gap: 8 },
   section: { color: C.text, fontSize: 15, fontWeight: '900', marginTop: 6 },
-  panel: { backgroundColor: C.panel, borderRadius: 12, padding: 10, gap: 6 },
-  card: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.panel, borderRadius: 12, padding: 10 },
-  cardOn: { borderWidth: 1, borderColor: C.gold },
-  icon: { fontSize: 26 },
-  name: { color: C.text, fontSize: 14, fontWeight: '800' },
-  desc: { color: C.dim, fontSize: 12 },
-  resTxt: { color: C.text, fontSize: 13, fontWeight: '700' },
-  ballsRow: { flexDirection: 'row', gap: 6 },
-  ballBuy: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2, backgroundColor: C.panel2, borderRadius: 12, paddingVertical: 8 },
-  price: { color: C.dim, fontSize: 10, fontWeight: '600' },
-  bulkRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  bulkBtn: { flex: 1, alignItems: 'center', backgroundColor: C.accent, borderRadius: 10, paddingVertical: 4 },
-  bulkTxt: { color: C.text, fontSize: 13, fontWeight: '900' },
+  hint: { color: C.dim, fontSize: 11, marginTop: -2 },
+  name: { color: C.text, fontSize: 13, fontWeight: '800' },
+  desc: { color: C.dim, fontSize: 11 },
+  stockN: { color: C.text, fontWeight: '900' },
+  active: { color: C.gold, fontWeight: '800' },
+  ballsRow: { flexDirection: 'row', gap: 8 },
+  ballTile: { flex: 1, alignItems: 'center', gap: 2, backgroundColor: C.panel, borderRadius: 12, paddingVertical: 10 },
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24 },
+  modal: { backgroundColor: C.panel, borderRadius: 18, padding: 16, gap: 10 },
+  modalHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  modalTitle: { color: C.text, fontSize: 17, fontWeight: '900' },
+  modalBtns: { flexDirection: 'row', gap: 10 },
+  closeBtn: { alignItems: 'center', paddingVertical: 10, borderRadius: 10, backgroundColor: C.panel2 },
+  closeTxt: { color: C.text, fontWeight: '800' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  boost: { width: '48.8%', backgroundColor: C.panel, borderRadius: 12, padding: 8, gap: 2, borderWidth: 1.5, borderColor: 'transparent' },
+  boostOn: { borderColor: C.gold },
+  gauge: { height: 5, backgroundColor: C.panel2, borderRadius: 3, overflow: 'hidden', marginVertical: 3 },
+  gaugeFill: { height: '100%', backgroundColor: C.gold },
+  megaCard: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.panel, borderRadius: 12, padding: 10 },
+  megaIcon: { fontSize: 26 },
+  buy: { backgroundColor: C.accent, borderRadius: 8, paddingVertical: 5, paddingHorizontal: 6, alignItems: 'center', marginTop: 2 },
+  buyOff: { backgroundColor: C.panel2 },
+  buyTxt: { color: C.text, fontSize: 11, fontWeight: '900' },
+  buyBig: { height: 40, justifyContent: 'center', borderRadius: 10, marginTop: 0 },
+  buyTxtBig: { fontSize: 14 },
+  buyTxtOff: { color: C.dim },
 });

@@ -5,7 +5,8 @@ import { BonusStat, Item, ItemTemplate, Mon, RARITIES, RARITY_COLOR } from '../.
 import { species } from '../../game/data';
 import { MonThumb } from './MonThumb';
 import { C } from '../theme';
-import { RainbowBorder, RainbowText } from './RainbowBorder';
+import { ChromaPill, ChromaText, RainbowBorder } from './RainbowBorder';
+import { chromaTier } from '../helpers';
 
 export const SLOT_ICON = { offense: '⚔', defense: '🛡', berry: '🍒' } as const;
 export const CURE_LABEL: Record<string, string> = {
@@ -66,7 +67,8 @@ export function SubChips({ item }: { item: Item }) {
  * Carte d'objet. Compacte par défaut (Sac en 2 colonnes, sélecteur, fiche Pokémon) : nom sur 2 lignes au besoin, niveau
  * dessous (pas la panoplie : toujours coupée à cette largeur, elle est dans la fiche de l'objet), rareté portée par la couleur, sous-stats en pastilles abrégées (les plus utiles en vert).
  * `full` (fiche d'un objet) : rareté, panoplie et sous-stats en toutes lettres, valeurs exactes.
- * `animated` : bordure arc-en-ciel tournante d'un Chromatique +N (fiche détaillée : une seule carte à l'écran).
+ * Chromatique +N : bordure, pastille « +N » et nom aux couleurs du palier du cran (`chromaTier`, un look par cran).
+ * `animated` : bordure tournante (fiche détaillée : une seule carte à l'écran).
  * `wornBy` : porteur de l'objet. Carte compacte : sa miniature en pastille sur le coin haut-droit, superposée — la carte
  * ne grandit jamais (avant le 2026-10-01, un bandeau « Déjà porté par … » ajoutait une ligne). Fiche : le texte.
  */
@@ -74,12 +76,14 @@ export function ItemCard({ item, onPress, selected, wornBy, compare, animated, f
   item: Item; onPress?: () => void; selected?: boolean; wornBy?: Mon; compare?: 'up' | 'down' | null; animated?: boolean; full?: boolean;
 }) {
   const t = template(item.templateId);
-  const rainbow = plusOf(item) > 0;
-  const color = RARITY_COLOR[item.rarity];
+  const plus = plusOf(item);
+  const tier = plus > 0 ? chromaTier(plus) : null;
+  const color = tier ? tier.text : RARITY_COLOR[item.rarity];
   const setName = t.set ? SETS[t.set].name : '';
   return (
-    <Pressable onPress={onPress} style={[styles.card, { borderColor: rainbow ? 'transparent' : color }, selected && styles.selected]}>
-      {rainbow && <RainbowBorder radius={12} animated={animated} />}
+    <Pressable onPress={onPress} style={[styles.card, { borderColor: tier ? 'transparent' : color }, selected && styles.selected]}>
+      {tier && <RainbowBorder plus={plus} radius={12} animated={animated} />}
+      {tier && <ChromaPill plus={plus} overlay />}
       {wornBy && !full && (
         <View style={styles.wornThumb} pointerEvents="none">
           <MonThumb speciesId={wornBy.speciesId} shiny={wornBy.shiny} size={22} />
@@ -94,12 +98,11 @@ export function ItemCard({ item, onPress, selected, wornBy, compare, animated, f
       {wornBy && full && <View style={styles.wornBadge}><Text style={styles.wornTxt}>Porté par {species(wornBy.speciesId).name}</Text></View>}
       {full ? (
         <Text style={styles.rarity}>
-          {rainbow ? <RainbowText text={rarityName(item)} /> : RARITIES[item.rarity]} · Nv.{item.level}{setName ? ` · ${setName}` : ''}{item.locked ? ' · 🔒' : ''}
+          {tier ? <><ChromaText plus={plus} text={rarityName(item)} />{` (${tier.name})`}</> : RARITIES[item.rarity]} · Nv.{item.level}{setName ? ` · ${setName}` : ''}{item.locked ? ' · 🔒' : ''}
         </Text>
       ) : (
-        <Text style={styles.rarity} numberOfLines={1}>
-          {rainbow ? <><RainbowText text={rarityName(item)} />{' · '}</> : null}Nv.{item.level}{item.locked ? ' 🔒' : ''}
-        </Text>
+        // carte compacte : le cran est porté par la bordure et la pastille, comme la rareté par la couleur
+        <Text style={styles.rarity} numberOfLines={1}>Nv.{item.level}{item.locked ? ' 🔒' : ''}</Text>
       )}
       <Text style={styles.main}>{itemMainText(item, !full)}</Text>
       {full && t.set && (

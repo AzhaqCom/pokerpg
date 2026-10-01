@@ -11,6 +11,7 @@ import { useSpriteImage } from '../../sprites/imageCache';
 import { BackdropBack, BackdropFront, BackdropKind } from './Backdrop';
 import { CaptureBar } from './CaptureBar';
 import { STATUS_COLOR, STATUS_LABEL, runner } from './runner';
+import { useUi } from '../../store/ui';
 
 /** Positions (fractions du canvas) : front, puis arrière haut, arrière bas. */
 const ALLY_POS = [{ x: 0.34, y: 0.74 }, { x: 0.17, y: 0.58 }, { x: 0.17, y: 0.92 }];
@@ -51,7 +52,9 @@ function useRunnerFrame() {
       if (dt >= 33) {
         last.current = t;
         runner.update(dt);
-        setTick((n) => (n + 1) % 1e6);
+        // rien à redessiner si le combat est en pause, ou caché par la fiche Pokémon (plein écran) : la simulation
+        // continue, mais on épargne 30 rendus React par seconde (très coûteux dans Expo Go, mode développement)
+        if (!runner.paused && useUi.getState().monSheet === null) setTick((n) => (n + 1) % 1e6);
       } else if (!last.current) last.current = t;
       raf = requestAnimationFrame(loop);
     };

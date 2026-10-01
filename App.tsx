@@ -126,15 +126,15 @@ function Main() {
       <HudTop />
       <BattleView width={width} />
       <View style={{ height: 6 }} />
-      {tab === 'bag' || tab === 'team' || tab === 'dex' ? (
-        // listes virtualisées (FlatList) : ne doivent jamais être imbriquées dans le ScrollView ci-dessous
-        <View style={{ flex: 1 }}>{tab === 'bag' ? <BagPanel /> : tab === 'dex' ? <DexPanel /> : <TeamPanel />}</View>
+      {tab === 'bag' || tab === 'team' || tab === 'dex' || tab === 'shop' ? (
+        // listes virtualisées (FlatList) : ne doivent jamais être imbriquées dans le ScrollView ci-dessous ;
+        // la Boutique a sa propre zone de défilement pour garder le solde d'éclats fixé en haut
+        <View style={{ flex: 1 }}>{tab === 'bag' ? <BagPanel /> : tab === 'dex' ? <DexPanel /> : tab === 'shop' ? <ShopPanel /> : <TeamPanel />}</View>
       ) : (
         <ScrollView key={tab} style={{ flex: 1 }} contentContainerStyle={styles.panel}>
           {tab === 'map' && <MapPanel />}
           {tab === 'pension' && <PensionPanel />}
           {tab === 'exploration' && <ExplorationPanel />}
-          {tab === 'shop' && <ShopPanel />}
         </ScrollView>
       )}
       <View style={styles.tabs}>

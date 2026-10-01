@@ -16,7 +16,9 @@ par un prestige. 47 biomes. Fonctionnement des régions et recette d'ajout : `RE
 ## Commandes
 ```
 npm install
-npx expo start -c       # Expo Go / dev client
+npx expo start -c       # Expo Go / dev client (mode développement : lent, pour déboguer)
+npx expo start -c --no-dev --minify   # Expo Go en mode production : à utiliser pour juger les performances
+                                      # (le mode développement lague partout, l'APK et ce mode sont fluides)
 npm run typecheck       # tsc --noEmit
 npx jest --testPathIgnorePatterns=balance.test.ts   # tests rapides (~230, ~20 s)
 npx jest balance.test.ts                            # simulations de bout en bout (~11 min)
@@ -68,8 +70,12 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   PC affichés = `monPower` (le Pokémon seul : objets, talents, badges, **sans les auras** de l'équipe/pension, pour
   qu'ils ne bougent pas quand on change d'équipe). PC colorés par palier (`CP_TIERS`/`cpColor` dans `ui/helpers.ts` : gris < 250, vert, bleu 600, violet 1 200, orange
   2 000, rouge 3 000, doré ≥ 4 000) sur la fiche, les cartes d'équipe et la liste d'échange.
-  Boutique : Balls achetées au toucher (+1) ou en rafale (appui long) ; au relâchement d'une rafale, boîte « ×10 · ×100 »
-  sous les Balls pendant 3 s (`buyBalls`, tout ou rien). Le Sac n'affiche plus que le stock.
+  Boutique (`ShopPanel`, refaite le 2026-10-01) : sa propre zone de défilement (comme le Sac) pour garder le solde
+  d'éclats fixé en haut ; les 3 Balls sur une ligne (stock, taux, prix) : toucher = +1, maintenir = fenêtre d'achat en
+  quantité aussitôt (`BulkModal` : +1 — maintenir = achat en continu `useHoldRepeat` —, ×10, ×100 ; reste ouverte jusqu'à
+  « Fermer » ; une fenêtre ouverte interrompt l'appui en cours sur Android, d'où la rafale dans la fenêtre) ; bonus en
+  grille 2×2 avec jauge de réserve (8 h) ; un bouton inaccessible affiche ce qui manque (« −6 750 »). Le Sac n'affiche
+  plus que le stock de Balls.
   Cartes d'objets (`ItemCard`, 2026-10-01) : compactes par défaut (nom sur 2 lignes, « Nv. » sans la panoplie, rareté portée
   par la couleur, sous-stats en pastilles abrégées `STAT_SHORT`, colorées par `subTier` (vert ≥ 10, jaune ≥ 8, d'après `SUB_WORTH`), porteur en
   pastille miniature sur le coin haut-droit, jamais une ligne de plus) ;
@@ -155,8 +161,12 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
 - **Fin de jeu** (`endgameUnlocked` : dernier Champion battu, 2026-09-30) : **Chromatique +N** (`Item.plus`) = fusion de 3
   Chromatiques +N identiques (`fuseKey` : objet, rareté, cran) → +N+1, sans plafond ; stat principale +0,2 au
   multiplicateur de rareté par cran (`rarityMult`, ×2,4 → ×2,6…), secondaires +10 % par cran (`PLUS_SUB_STEP`),
-  recyclage/amélioration plus chers. Niveau des objets déplafonné (`itemLevelCap`). Cartes +N : bordure arc-en-ciel
-  (`RainbowBorder`, fixe dans les listes, tournante seulement dans la fiche détaillée) et « Chromatique +2 » en couleurs.
+  recyclage/amélioration plus chers. Niveau des objets déplafonné (`itemLevelCap`). Cartes +N : **un look par cran, jamais
+  partagé** (`chromaTier` dans `ui/helpers.ts`, 2026-10-01) : +1 Aurore, +2 Lagon, +3 Émeraude, +4 Améthyste, +5 Brasier,
+  +6 Or, +7 Diamant, +8 Cosmos, +9 Éclipse, +10 Arc-en-ciel (avant : tous les +N), +11 et plus Légende (bordure dorée
+  épaisse + liseré du cran − 10). Bordure dégradée (`RainbowBorder`, fixe dans les listes, tournante seulement dans la fiche
+  détaillée ; halo flouté dès l'Or), pastille « +N » à cheval sur le coin haut-gauche (`ChromaPill`), nom de l'objet et
+  « Chromatique +N » de la fiche aux couleurs du palier (`ChromaText`).
 - **Tour de Combat** (fin de jeu, onglet « 🗼 Tour de Combat » après le dernier biome de la Carte, `TowerSection`, 2026-09-30) : `StageKind` `'tower'`, 1 combat par étage
   contre 3 formes finales/légendaires Nv.100 aux gènes parfaits (`towerSpecies`, `towerWaves`), PV et Atq ×`TOWER_BASE`
   (12) × `TOWER_GROWTH` (1,024)^(étage − 1), calés par `tools/scratch/tower.ts` avant la refonte Vitesse/Recharge (mur

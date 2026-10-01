@@ -31,6 +31,58 @@ export const CP_TIERS: [number, string][] = [
 ];
 export const cpColor = (cp: number) => (CP_TIERS.find(([min]) => cp >= min) ?? CP_TIERS[CP_TIERS.length - 1])[1];
 
+/** Couleurs de l'arc-en-ciel (boucle fermée : la dernière reprend la première). */
+export const RAINBOW = ['#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be', '#007aff', '#af52de', '#ff3b30'];
+
+/** Palier visuel d'un objet Chromatique +N (voir `chromaTier`). */
+export interface ChromaTier {
+  name: string;
+  /** dégradé circulaire de la bordure, en boucle fermée */
+  colors: string[];
+  /** Légende (+11 et plus) : liseré intérieur aux couleurs du cran − 10 */
+  inner?: string[];
+  /** épaisseur de la bordure */
+  width: number;
+  /** halo : copie floutée de la bordure (Or et au-delà) */
+  glow: boolean;
+  /** nom de l'objet */
+  text: string;
+  /** pastille « +N » : fond et chiffres (fond sombre et chiffres aux couleurs de la bordure pour l'arc-en-ciel) */
+  pill: string;
+  ink: string;
+}
+
+const GOLD = ['#fff8c4', '#ffc400', '#ff8f00', '#ffc400', '#fff8c4'];
+/**
+ * Un look par cran, jamais partagé (retour d'Arno, 2026-10-01) : du froid au chaud puis au précieux de +1 à +6,
+ * Diamant, Cosmos, Éclipse, puis l'arc-en-ciel (avant : tous les +N) réservé au +10. Au-delà, Légende : bordure dorée
+ * épaisse et liseré intérieur du cran − 10 (+11 Aurore, +12 Lagon…), unique jusqu'à +20 (étage 410 de la Tour).
+ */
+const CHROMA_TIERS: ChromaTier[] = [
+  { name: 'Aurore', colors: ['#ff5ec4', '#c792ff', '#ff5ec4'], width: 2, glow: false, text: '#ff8fd8', pill: '#e077e0', ink: '#3d0a2c' },
+  { name: 'Lagon', colors: ['#18ffff', '#1de9b6', '#00b0ff', '#18ffff'], width: 2, glow: false, text: '#5ff5ff', pill: '#1de9e0', ink: '#00363a' },
+  { name: 'Émeraude', colors: ['#00e676', '#c6ff00', '#00e676'], width: 2, glow: false, text: '#8cff6a', pill: '#5cf05c', ink: '#0b3d10' },
+  { name: 'Améthyste', colors: ['#7c4dff', '#e040fb', '#7c4dff'], width: 2, glow: false, text: '#d48cff', pill: '#a64dff', ink: '#ffffff' },
+  { name: 'Brasier', colors: ['#ff9100', '#ff1744', '#ff9100'], width: 2, glow: false, text: '#ff8a50', pill: '#ff6d00', ink: '#3d0700' },
+  { name: 'Or', colors: GOLD, width: 2.5, glow: true, text: '#ffd740', pill: '#ffc400', ink: '#3d2a00' },
+  { name: 'Diamant', colors: ['#ffffff', '#b3e5fc', '#e1bee7', '#ffffff'], width: 2.5, glow: true, text: '#e3f2fd', pill: '#e3f2fd', ink: '#0d2b45' },
+  { name: 'Cosmos', colors: ['#536dfe', '#d500f9', '#00e5ff', '#536dfe'], width: 2.5, glow: true, text: '#b388ff', pill: '#7c4dff', ink: '#ffffff' },
+  { name: 'Éclipse', colors: ['#ffe57f', '#ff6d00', '#2b1200', '#ff6d00', '#ffe57f'], width: 2.5, glow: true, text: '#ffb74d', pill: '#ff9100', ink: '#3d1f00' },
+  { name: 'Arc-en-ciel', colors: RAINBOW, width: 3, glow: true, text: '#ffffff', pill: '#1b1f2a', ink: '#ffffff' },
+];
+const LEGEND = { name: 'Légende', colors: GOLD, width: 4, glow: true, text: '#fff3c4', pill: '#ffd740', ink: '#3d2a00' };
+
+/** Palier d'un Chromatique +N (`plus` ≥ 1). */
+export function chromaTier(plus: number): ChromaTier {
+  if (plus <= CHROMA_TIERS.length) return CHROMA_TIERS[Math.max(1, plus) - 1];
+  return { ...LEGEND, inner: CHROMA_TIERS[(plus - 1) % CHROMA_TIERS.length].colors };
+}
+
+/** Couleurs d'un palier lisibles en texte lettre par lettre (sans la reprise de la boucle, ni le brun de l'Éclipse). */
+export function chromaTextColors(colors: string[]): string[] {
+  return colors.slice(0, -1).filter((c) => textOn(c, 0.25) === '#111');
+}
+
 export function monStats(s: GameState, uid: string) {
   const f = allyFighter(s, uid);
   return { ...f.stats, cp: monPower(s, uid), bonuses: f.bonuses };

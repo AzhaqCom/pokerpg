@@ -11,7 +11,7 @@ import { rng, useGame } from '../store/game';
 import { toast } from '../store/ui';
 import { runner } from './battle/runner';
 import { Button } from './components/Button';
-import { RainbowText } from './components/RainbowBorder';
+import { ChromaText } from './components/RainbowBorder';
 import { feedback } from './components/feedback';
 import { C } from './theme';
 
@@ -19,7 +19,7 @@ const SLOT_ICON = { offense: '⚔', defense: '🛡', berry: '🍒' } as const;
 
 /** « Chromatique », « Chromatique +2 » (en arc-en-ciel à partir de +1). */
 function ChromaLabel({ plus }: { plus: number }) {
-  return plus ? <RainbowText text={`Chromatique +${plus}`} /> : <Text style={{ color: RARITY_COLOR[6], fontWeight: '900' }}>Chromatique</Text>;
+  return plus ? <ChromaText plus={plus} text={`Chromatique +${plus}`} /> :<Text style={{ color: RARITY_COLOR[6], fontWeight: '900' }}>Chromatique</Text>;
 }
 
 /**
