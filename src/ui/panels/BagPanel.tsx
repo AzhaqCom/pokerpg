@@ -13,7 +13,6 @@ import { Button } from '../components/Button';
 import { Dialog, DialogSpec } from '../components/Dialog';
 import { ItemCard } from '../components/ItemCard';
 import { feedback } from '../components/feedback';
-import { monName } from '../helpers';
 import { runner } from '../battle/runner';
 import { C } from '../theme';
 
@@ -58,7 +57,7 @@ export function BagPanel() {
         columnWrapperStyle={{ gap: 8 }}
         renderItem={({ item: it }: { item: Item }) => {
           const w = held.get(it.uid);
-          return <View style={{ flex: 1 / 2 }}><ItemCard item={it} wornBy={w ? monName(w) : undefined} onPress={() => setSel(it.uid)} /></View>;
+          return <View style={{ flex: 1 / 2 }}><ItemCard item={it} wornBy={w} onPress={() => setSel(it.uid)} /></View>;
         }}
         ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
         style={{ flex: 1 }}

@@ -1,6 +1,8 @@
 > **Document historique.** Plan de conception initial des 10 biomes de Kanto (2026-09-21), puis notes par région
 > en bas de page. Pour l'état courant (difficulté, régions, poids des espèces), voir `CLAUDE.md` et `REGIONS.md`.
-> Les chiffres de `wildMult` par zone cités plus bas ont été remplacés par une courbe unique par région (`DIFFICULTY`).
+> Les chiffres de `wildMult` par zone cités plus bas ont été remplacés par une courbe unique par région (`DIFFICULTY`),
+> et les pools de Johto, Hoenn et Sinnoh ont été régénérés depuis les jeux officiels (`REGIONS.md`). Toujours valable :
+> la **courbe de niveau de Kanto** (§ « Courbe de niveau »), citée par `content.ts` et vérifiée par `game.test.ts`.
 
 # Plan des biomes — de la Forêt de Jade au Plateau Indigo
 

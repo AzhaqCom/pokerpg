@@ -151,3 +151,19 @@ test('esquive et vol de vie plafonnés à 50 % en combat', () => {
   const ev = bt.drain();
   expect(ev.some((e) => e.kind === 'damage' && e.target === 'b')).toBe(true); // 100 % d'esquive ne rend plus intouchable
 });
+
+test('attaques sans effet : un Pokémon ne lance jamais une capacité à ×0 contre sa cible (Ball’Ombre sur un Normal)', () => {
+  const shadowBall = 247; // Ball'Ombre (Spectre)
+  expect(move(shadowBall).type).toBe('ghost');
+  const ghost = makeMon(94, 50, seededRng(1), false, 15);
+  const normal = makeMon(143, 50, seededRng(2), false, 15);
+  const st = (m: typeof ghost) => finalStats(m, emptyBonuses());
+  const b = new Battle([
+    { id: 'g', side: 0, speciesId: 94, level: 50, stats: st(ghost), moves: [shadowBall] },
+    { id: 'n', side: 1, speciesId: 143, level: 50, stats: st(normal), moves: [] },
+  ], seededRng(3));
+  b.step(20);
+  const uses = b.drain().filter((e) => e.kind === 'use' && e.actor === 'g');
+  expect(uses.length).toBeGreaterThan(5);
+  expect(uses.every((e) => e.kind === 'use' && e.move === 'Attaque')).toBe(true); // attaque de base à la place
+});

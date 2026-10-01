@@ -17,11 +17,24 @@ export const LIFESTEAL_CAP = 50;
 const STATUS_TIME: Record<Ailment, number> = { burn: 5, poison: 6, paralysis: 5, sleep: 3, freeze: 3 };
 const BUFF_TIME = 6;
 
-/** Multiplicateur de temps de recharge (Vitesse + `cdrPct`, plafonné à 40 % de réduction) : appliqué à
- * TOUTES les capacités équipées (et à l'attaque de base), pas seulement en combat — exporté pour que
- * l'UI puisse afficher le vrai temps de recharge actuel sur la fiche d'un Pokémon (voir `MonSheet`). */
+/**
+ * Multiplicateur de temps de recharge : stat Vitesse × Recharge, toutes deux à rendement décroissant (×100/(100+x)),
+ * sans plafond. Appliqué à TOUTES les capacités équipées (et à l'attaque de base) — exporté pour que l'UI puisse
+ * afficher le vrai temps de recharge actuel sur la fiche d'un Pokémon (voir `MonSheet`). Avant le 2026-10-01, la
+ * Recharge était une réduction plafonnée à 40 %, atteinte par le seul talent Maîtrise : la stat ne servait plus à rien.
+ */
 export function cdFactor(spe: number, cdrPct: number): number {
-  return (100 / (100 + spe)) * (1 - Math.min(40, cdrPct) / 100);
+  return (100 / (100 + spe)) * (100 / (100 + Math.max(0, cdrPct)));
+}
+
+/**
+ * Temps entre deux actions (s) : `ACTION_LOCK` raccourci par les **bonus** de Vitesse (objets, auras, panoplies), à
+ * rendement décroissant (+100 % → 0,35 s). La Vitesse décide combien d'actions, la Recharge lesquelles (capacités
+ * prêtes plutôt qu'attaque de base). Les sauvages n'ont aucun bonus : leur cadence ne change pas (2026-10-01 ; avant,
+ * la Vitesse ne raccourcissait que les recharges et ne servait plus à rien une fois sous les 0,7 s).
+ */
+export function actionLock(spePct: number): number {
+  return ACTION_LOCK * (100 / (100 + Math.max(0, spePct)));
 }
 
 export interface FighterInit {
@@ -188,13 +201,19 @@ export class Battle {
     return foes[this.rng.int(foes.length)];
   }
 
-  /** Une capacité est-elle utile maintenant ? (évite les soins/buffs inutiles) */
+  /**
+   * Une capacité est-elle utile maintenant ? (évite les soins/buffs inutiles, et les attaques sans effet : avant le
+   * 2026-10-01, Ectoplasma enchaînait Ball'Ombre sur un Normal — plus il était rapide, plus il gâchait ses actions)
+   */
   private usable(f: Fighter, m: Move, target: Fighter): boolean {
     switch (m.kind) {
       case 'heal': return f.hp < f.maxHp * 0.6;
       case 'buff': return !f.buffs.some((b) => b.stat === m.stat && b.mult > 1);
       case 'debuff': return !target.buffs.some((b) => b.stat === m.stat && b.mult < 1);
       case 'status': return !target.status && !(target.boss && (m.ailment === 'sleep' || m.ailment === 'freeze') && target.hp > target.maxHp * 0.5);
+      case 'damage':
+        if (!m.aoe) return typeMultiplier(m.type, target.types) > 0;
+        return this.side(f.side === 0 ? 1 : 0).some((foe) => typeMultiplier(m.type, foe.types) > 0);
       default: return true;
     }
   }
@@ -217,7 +236,7 @@ export class Battle {
       chosen = basicAttack();
       f.basicReadyAt = this.t + 1.5 * cdf;
     }
-    f.lockUntil = this.t + ACTION_LOCK;
+    f.lockUntil = this.t + actionLock(f.bonuses.spePct);
     const foes = this.side(f.side === 0 ? 1 : 0);
     const targets = chosen.aoe && chosen.kind !== 'heal' && chosen.kind !== 'buff' ? foes : [chosen.kind === 'heal' || chosen.kind === 'buff' ? f : target];
     this.emit({ t: this.t, kind: 'use', actor: f.id, move: chosen.name, moveType: chosen.type, targets: targets.map((x) => x.id), aoe: chosen.aoe });

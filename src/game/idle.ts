@@ -30,7 +30,7 @@ export const IDLE_MIN_MS = 60_000;
 const SAMPLE_WAVES = 5;
 /**
  * Part de l'XP et du butin d'un vrai combat accordée hors ligne (1 = autant qu'en jouant, à vitesse ×1).
- * Le jeu actif garde déjà l'avantage (vitesse ×2 dès le 1er badge, offres de capture, boss) : pas de
+ * Le jeu actif garde déjà l'avantage (vitesse ×2 dès le 1er badge, ×3 dès le 4e, offres de capture, boss) : pas de
  * réduction pour l'instant (décision d'Arno, 2026-09-24). Passer à 0.8 pour réduire de 20 %.
  */
 export const IDLE_REWARD_MULT = 1;

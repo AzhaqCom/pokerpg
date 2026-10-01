@@ -1,23 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from './components/Text';
-import { cdFactor } from '../game/battle';
+import { actionLock, cdFactor } from '../game/battle';
 import { Move, learnedMoves, move, evolutionTargets, species } from '../game/data';
 import { regionOf } from '../game/content';
 import {
   CANDY_XP, GENE_MAX, GeneKey, MEGA_CANDY_COST, TEAM_SIZE, applyMegaCandy, autoEquipBest, canEvolve, craftMegaCandy, equip, isTargeted, toggleLock, toggleTarget,
   evolve, feedCandy, heldItems, holder, lineBase, rankUpTalent, autoTalents, autoMoves, equipGain, release, resetTalents, setMoves, setTeam, unequip,
 } from '../game/game';
-import { itemScore, slotOf, template } from '../game/items';
-import { BattleBonuses, ItemSlot, critOverflow } from '../game/model';
+import { itemScore, plusOf, slotOf, template } from '../game/items';
+import { BattleBonuses, ItemSlot, RARITY_COLOR, critOverflow } from '../game/model';
 import { TIER_REQ, eligibleAffinityTypes, spentPoints, talentPoints, talentTree } from '../game/talents';
+import { MAX_LEVEL } from '../game/stats';
 import { AnimatedSprite } from '../sprites/AnimatedSprite';
 import { useGame } from '../store/game';
 import { toast, useUi } from '../store/ui';
-import { Bar } from './components/Bar';
 import { Button } from './components/Button';
 import { Dialog, DialogSpec } from './components/Dialog';
-import { ItemCard } from './components/ItemCard';
+import { ItemCard, SLOT_ICON, SubChips, itemMainText } from './components/ItemCard';
+import { RainbowBorder, RainbowText } from './components/RainbowBorder';
 import { ItemDetail } from './ItemDetail';
 import { BallIcon } from './components/BallIcon';
 import { MonThumb } from './components/MonThumb';
@@ -34,19 +35,22 @@ const SLOTS: { slot: ItemSlot; label: string }[] = [
 const GENES: { key: GeneKey; label: string }[] = [
   { key: 'hp', label: 'PV' }, { key: 'atk', label: 'Atq' }, { key: 'def', label: 'Déf' }, { key: 'spe', label: 'Vit' },
 ];
-/** `cdf` : multiplicateur de recharge actuel du Pokémon (`cdFactor` dans `battle.ts`, dépend de sa
- * Vitesse et de son bonus `cdrPct`) — sans lui, `m.cd` n'est que le temps de base, jamais celui
- * réellement observé en combat. */
-function moveInfo(m: Move, cdf: number) {
-  const cd = Math.round(m.cd * cdf * 10) / 10;
+/** Capacité en une ligne (fiche compacte, sélecteur de capacité) : « 150 · 2,9 s · zone ». `cdf` : multiplicateur de
+ * recharge actuel du Pokémon (`cdFactor`, Vitesse et Recharge) — sans lui, `m.cd` n'est que le temps de base. */
+function moveShort(m: Move, cdf: number) {
+  const cd = (Math.round(m.cd * cdf * 10) / 10).toString().replace('.', ',');
   switch (m.kind) {
-    case 'damage': return `Puissance ${m.power} · ${cd} s${m.aoe ? ' · tous les ennemis' : ''}${m.ailment ? ` · ${m.chance} % ${AIL[m.ailment]}` : ''}`;
+    case 'damage': return `${m.power} · ${cd} s${m.aoe ? ' · zone' : ''}${m.drain ? ' · draine' : ''}`;
     case 'status': return `${AIL[m.ailment]} · ${cd} s`;
-    case 'heal': return `Soigne ${m.heal} % · ${cd} s`;
-    case 'buff': return `${STAT[m.stat]} +${25 * m.stages} % pendant 6 s`;
-    case 'debuff': return `${STAT[m.stat]} de la cible −${Math.abs(25 * m.stages)} %`;
+    case 'heal': return `soin ${m.heal} % · ${cd} s`;
+    case 'buff': return `${STAT[m.stat]} +${25 * m.stages} %`;
+    case 'debuff': return `${STAT[m.stat]} −${Math.abs(25 * m.stages)} %`;
   }
 }
+type SheetTab = 'combat' | 'talents' | 'candies';
+const TABS: { key: SheetTab; label: string }[] = [
+  { key: 'combat', label: 'Combat' }, { key: 'talents', label: 'Talents' }, { key: 'candies', label: 'Bonbons' },
+];
 const AIL: Record<string, string> = { burn: 'brûlure', poison: 'poison', paralysis: 'paralysie', sleep: 'sommeil', freeze: 'gel' };
 const STAT: Record<string, string> = { atk: 'Attaque', def: 'Défense', spe: 'Vitesse' };
 
@@ -56,7 +60,8 @@ const SUB_STAT_LABEL: [key: keyof BattleBonuses, label: string, fmt: (v: number)
   ['typeDmgPct', 'Dégâts de son type', (v) => `+${v} %`],
   ['lifestealPct', 'Vol de vie', (v) => `${v} %`],
   ['dodgePct', 'Esquive', (v) => `${v} %`],
-  ['cdrPct', 'Recharge', (v) => `−${v} %`],
+  ['spePct', 'Vitesse (bonus)', (v) => `+${v} % · une action toutes les ${actionLock(v).toFixed(2)} s`],
+  ['cdrPct', 'Recharge', (v) => `+${v} %`],
 ];
 
 export function MonSheet() {
@@ -72,6 +77,10 @@ export function MonSheet() {
   const [affinityPick, setAffinityPick] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogSpec | null>(null);
   const [showSubs, setShowSubs] = useState(false);
+  /** onglet affiché (retenu d'un Pokémon à l'autre : MonSheet est une instance unique) */
+  const [tab, setTab] = useState<SheetTab>('combat');
+  /** emplacement de capacité ouvert dans le sélecteur (= nombre de capacités : ajout) */
+  const [movePick, setMovePick] = useState<number | null>(null);
   /** objet porté ouvert dans la popup de gestion (améliorer, changer une sous-stat, fusionner…) */
   const [managed, setManaged] = useState<string | null>(null);
   const mon = uid && s ? s.mons[uid] : null;
@@ -80,7 +89,7 @@ export function MonSheet() {
   // les popups internes (objet, échange d'équipe, talent au choix, dialogue) restent ouvertes en
   // mémoire d'un Pokémon à l'autre — ex. le sélecteur « Qui remplacer ? » resté armé après un premier
   // échange se redéclenchait silencieusement sur le Pokémon suivant, sans jamais s'afficher.
-  const close = () => { setPicker(null); setSwapPicker(false); setAffinityPick(null); setDialog(null); setManaged(null); open(null); };
+  const close = () => { setPicker(null); setSwapPicker(false); setAffinityPick(null); setDialog(null); setManaged(null); setMovePick(null); open(null); };
   if (!s || !mon) return <Modal visible={false} transparent />;
 
   const sp = species(mon.speciesId);
@@ -103,7 +112,7 @@ export function MonSheet() {
   const idx = nav.indexOf(mon.uid);
   const go = (d: number) => {
     if (idx < 0 || nav.length < 2) return;
-    setPicker(null); setSwapPicker(false); setAffinityPick(null); setDialog(null); setEvolvePick(false);
+    setPicker(null); setSwapPicker(false); setAffinityPick(null); setDialog(null); setEvolvePick(false); setMovePick(null);
     open(nav[(idx + d + nav.length) % nav.length], list);
   };
 
@@ -113,33 +122,52 @@ export function MonSheet() {
     act((g) => setMoves(g, mon.uid, m));
   };
 
+  const evoTargets = canEvolve(mon, regionOf(s.prestige).dexMax) ? evolutionTargets(mon.speciesId, regionOf(s.prestige).dexMax) : [];
+  const doEvolve = (target: number) => {
+    feedback('evolve', true);
+    act((g) => evolve(g, mon.uid, target));
+    toast(`${sp.name} évolue en ${species(target).name} !`, '#ffb300');
+    setEvolvePick(false);
+    changed();
+  };
+  const evolveButton = evoTargets.length > 0 && (
+    <Button small label="Faire évoluer" color="#c0392b" onPress={() => (evoTargets.length > 1 ? setEvolvePick(true) : doEvolve(evoTargets[0]))} />
+  );
+  // arbre complet : tous les talents au rang maximum → une seule ligne de résumé (détail au toucher)
+  const treeDone = tree.every((t) => (mon.talents[t.id] ?? 0) >= t.maxRank);
+  const statMax = Math.max(st.hp, st.atk, st.def, st.spe, 1);
+  const lock = actionLock(st.bonuses?.spePct ?? 0);
+
   return (
     <Modal visible animationType="slide" onRequestClose={close}>
       <View style={styles.root}>
+        {/* en-tête sur une ligne : retour, navigation, cible, PC */}
         <View style={styles.top}>
           <Pressable onPress={close} hitSlop={12}><Text style={styles.close}>‹ Retour</Text></Pressable>
+          {idx >= 0 && nav.length > 1 && (
+            <View style={styles.navRow}>
+              <Pressable hitSlop={10} onPress={() => go(-1)} style={styles.navBtn}><Text style={styles.navTxt}>←</Text></Pressable>
+              <Text style={styles.navCount}>{idx + 1}/{nav.length}</Text>
+              <Pressable hitSlop={10} onPress={() => go(1)} style={styles.navBtn}><Text style={styles.navTxt}>→</Text></Pressable>
+            </View>
+          )}
+          <View style={{ flex: 1 }} />
           <Pressable hitSlop={8} style={[styles.targetBtn, isTargeted(s, mon.speciesId) && styles.targetBtnOn]} onPress={() => {
             feedback();
             const on = act((g) => { toggleTarget(g, mon.speciesId); return isTargeted(g, mon.speciesId); });
             toast(on ? '🎯 Lignée ciblée : capture auto, même déjà possédée' : 'Cible retirée', on ? '#69f0ae' : undefined);
           }}>
-            <Text style={styles.targetTxt}>{isTargeted(s, mon.speciesId) ? '🎯 Lignée ciblée' : '🎯 Cibler la lignée'}</Text>
+            <Text style={styles.targetTxt}>🎯</Text>
           </Pressable>
           <Text style={[styles.cp, { color: cpColor(st.cp) }]}>PC {st.cp}</Text>
         </View>
-        {idx >= 0 && nav.length > 1 && (
-          <View style={styles.navRow}>
-            <Pressable hitSlop={10} onPress={() => go(-1)} style={styles.navBtn}><Text style={styles.navTxt}>←</Text></Pressable>
-            <Text style={styles.navCount}>{idx + 1} / {nav.length}</Text>
-            <Pressable hitSlop={10} onPress={() => go(1)} style={styles.navBtn}><Text style={styles.navTxt}>→</Text></Pressable>
-          </View>
-        )}
+
         <ScrollView contentContainerStyle={styles.body}>
           <View style={styles.head}>
-            <View style={styles.stage}><AnimatedSprite species={mon.speciesId} shiny={mon.shiny} action="idle" width={130} height={110} /></View>
+            <View style={styles.stage}><AnimatedSprite species={mon.speciesId} shiny={mon.shiny} action="idle" width={84} height={72} /></View>
             <View style={{ flex: 1, gap: 4 }}>
               <View style={styles.row}>
-                <Text style={styles.name}>{monName(mon)}{mon.shiny ? ' ✨' : ''}</Text>
+                <Text style={styles.name} numberOfLines={1}>{monName(mon)}{mon.shiny ? ' ✨' : ''}</Text>
                 <Pressable hitSlop={10} onPress={() => {
                   const willLock = !mon.locked;
                   feedback();
@@ -149,215 +177,240 @@ export function MonSheet() {
                   <Text style={[styles.lock, !mon.locked && { opacity: 0.35 }]}>{mon.locked ? '🔒' : '🔓'}</Text>
                 </Pressable>
               </View>
-              <View style={styles.row}>{sp.types.map((t) => <TypeBadge key={t} type={t} />)}</View>
-              <View style={styles.row}>
-                <Text style={styles.sub}>Niveau {mon.level}</Text>
-                <Stars mon={mon} size={13} />
+              <View style={[styles.row, { flexWrap: 'wrap' }]}>
+                {sp.types.map((t) => <TypeBadge key={t} type={t} small />)}
+                <Text style={styles.sub}>Nv.{mon.level}</Text>
+                <Stars mon={mon} size={12} />
               </View>
               <View style={styles.xpTrack}><View style={[styles.xpFill, { width: `${xpProgress(mon) * 100}%` }]} /></View>
-              <Text style={styles.genes}>PV {mon.genes.hp}/15 · Atq {mon.genes.atk}/15 · Déf {mon.genes.def}/15 · Vit {mon.genes.spe}/15</Text>
+              {evolveButton}
             </View>
           </View>
 
-          {canEvolve(mon, regionOf(s.prestige).dexMax) && (() => {
-            const targets = evolutionTargets(mon.speciesId, regionOf(s.prestige).dexMax);
-            const doEvolve = (target: number) => {
-              feedback('evolve', true);
-              act((g) => evolve(g, mon.uid, target));
-              toast(`${sp.name} évolue en ${species(target).name} !`, '#ffb300');
-              setEvolvePick(false);
-              changed();
-            };
-            return (
-              <Button label="Faire évoluer" color="#c0392b"
-                onPress={() => (targets.length > 1 ? setEvolvePick(true) : doEvolve(targets[0]))} />
-            );
-          })()}
-          {evolvePick && (
-            <EvolvePicker speciesId={mon.speciesId} dexMax={regionOf(s.prestige).dexMax} shiny={mon.shiny}
-              // chromatique : Pokédex chromatique ; normal : exemplaires normaux possédés en ce moment (le Pokédex
-              // « capturés » compte aussi les chromatiques, il ne dit pas si on a la forme en normal)
-              owned={mon.shiny ? s.dex.shiny : Object.values(s.mons).filter((m) => !m.shiny).map((m) => m.speciesId)}
-              onClose={() => setEvolvePick(false)}
-              onPick={(target) => {
-                feedback('evolve', true);
-                act((g) => evolve(g, mon.uid, target));
-                toast(`${sp.name} évolue en ${species(target).name} !`, '#ffb300');
-                setEvolvePick(false);
-                changed();
-              }} />
-          )}
+          {/* onglets : la fiche n'affiche qu'une partie à la fois (retenu d'un Pokémon à l'autre) */}
+          <View style={styles.tabs}>
+            {TABS.map(({ key, label }) => (
+              <Pressable key={key} style={[styles.tab, tab === key && styles.tabOn]} onPress={() => { feedback(); setTab(key); }}>
+                <Text style={[styles.tabTxt, tab === key && styles.tabTxtOn]}>
+                  {label}{key === 'talents' && pts > 0 ? ` · ${pts}` : ''}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
 
-          <View style={styles.panel}>
-            <Bar label="PV" value={st.hp} max={Math.max(120, st.hp)} color="#4caf50" />
-            <Bar label="Attaque" value={st.atk} max={Math.max(120, st.atk)} color="#e53935" />
-            <Bar label="Défense" value={st.def} max={Math.max(120, st.def)} color="#1e88e5" />
-            <Bar label="Vitesse" value={st.spe} max={Math.max(120, st.spe)} color="#fdd835" />
-            <Text style={styles.sub}>
-              Critique {Math.min(100, st.crit).toFixed(1)} % · Dégâts critiques ×{(1.5 + ((st.bonuses?.critDmgPct ?? 0) + critOverflow(st.crit)) / 100).toFixed(2)}
-              {st.crit > 100 ? ` (surplus de ${(st.crit - 100).toFixed(1)} % de Critique converti)` : ''}
-            </Text>
-            <Pressable onPress={() => setShowSubs((v) => !v)}>
-              <Text style={styles.subsToggle}>{showSubs ? '▾' : '▸'} Sous-stats</Text>
-            </Pressable>
-            {showSubs && (() => {
-              const b = st.bonuses;
-              const rows = SUB_STAT_LABEL.filter(([key]) => b && b[key] !== 0);
-              const affinities = b?.affinities.filter((a) => a.pct !== 0) ?? [];
-              if (!rows.length && !affinities.length) return <Text style={styles.sub}>Aucune sous-stat active.</Text>;
-              return (
-                <View style={{ gap: 2 }}>
-                  {rows.map(([key, label, fmt]) => (
-                    <Text key={key} style={styles.sub}>{label} : {fmt(b![key] as number)}</Text>
-                  ))}
-                  {affinities.map((a, i) => (
-                    <Text key={i} style={styles.sub}>Dégâts {typeLabel(a.type)} (Affinité) : +{a.pct} %</Text>
+          {tab === 'combat' && (
+            <>
+              <View style={styles.panel}>
+                <View style={styles.statGrid}>
+                  {([['PV', st.hp, '#4caf50'], ['Atq', st.atk, '#e53935'], ['Déf', st.def, '#1e88e5'], ['Vit', st.spe, '#fdd835']] as const).map(([label, v, color]) => (
+                    <View key={label} style={styles.statCell}>
+                      <Text style={styles.sub}>{label} <Text style={styles.statVal}>{v}</Text></Text>
+                      <View style={styles.statTrack}><View style={[styles.statFill, { width: `${(v / statMax) * 100}%`, backgroundColor: color }]} /></View>
+                    </View>
                   ))}
                 </View>
-              );
-            })()}
-          </View>
-
-          <View style={[styles.row, { justifyContent: 'space-between' }]}>
-            <Text style={styles.section}>Capacités (ordre de priorité)</Text>
-            <Button small label="★ Auto" color="#3d5afe" onPress={() => {
-              if (act((g) => autoMoves(g, mon.uid))) { feedback(); toast('Meilleures capacités équipées', '#69f0ae'); }
-              else toast('Déjà les meilleures capacités');
-            }} />
-          </View>
-          <View style={styles.panel}>
-            {mon.moves.map((id, i) => {
-              const m = move(id);
-              return (
-                <View key={id} style={styles.moveRow}>
-                  <Text style={styles.moveIdx}>{i + 1}</Text>
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.row}><Text style={styles.moveName}>{m.name}</Text><TypeBadge type={m.type} small /></View>
-                    <Text style={styles.moveInfo}>{moveInfo(m, cdf)}</Text>
-                  </View>
-                  <Pressable onPress={() => moveUp(i)} hitSlop={6}><Text style={styles.icon}>▲</Text></Pressable>
-                  <Pressable onPress={() => act((g) => setMoves(g, mon.uid, mon.moves.filter((x) => x !== id)))} hitSlop={6}><Text style={styles.icon}>✕</Text></Pressable>
-                </View>
-              );
-            })}
-            {!mon.moves.length && <Text style={styles.sub}>Aucune capacité : attaque de base seulement.</Text>}
-            {learned.length > 0 && <Text style={[styles.sub, { marginTop: 6 }]}>Disponibles</Text>}
-            {learned.map((id) => {
-              const m = move(id);
-              return (
-                <View key={id} style={styles.moveRow}>
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.row}><Text style={styles.moveName}>{m.name}</Text><TypeBadge type={m.type} small /></View>
-                    <Text style={styles.moveInfo}>{moveInfo(m, cdf)}</Text>
-                  </View>
-                  <Button small label={mon.moves.length >= 4 ? 'Plein' : 'Équiper'} disabled={mon.moves.length >= 4}
-                    onPress={() => act((g) => setMoves(g, mon.uid, [...mon.moves, id]))} />
-                </View>
-              );
-            })}
-          </View>
-
-          <View style={[styles.row, { justifyContent: 'space-between' }]}>
-            <Text style={styles.section}>Objets tenus</Text>
-            <Button small label="★ Auto" color="#b8860b" onPress={() => {
-              const n = act((g) => autoEquipBest(g, mon.uid));
-              if (n) { feedback(); changed(); toast(`${n} objet${n > 1 ? 's' : ''} équipé${n > 1 ? 's' : ''}`, '#69f0ae'); }
-              else toast('Déjà équipé au mieux');
-            }} />
-          </View>
-          <View style={styles.panel}>
-            {SLOTS.map(({ slot, label }) => {
-              const it = mon.items[slot] ? s.items[mon.items[slot]!] : undefined;
-              return (
-                <Pressable key={slot} onPress={() => setPicker(slot)} style={styles.slotRow}>
-                  <Text style={styles.slotLabel}>{label}</Text>
-                  <View style={{ flex: 1 }}>{it ? <ItemCard item={it} onPress={() => setPicker(slot)} /> : <Text style={styles.empty}>Vide — toucher pour équiper</Text>}</View>
-                  {it && (
-                    <Pressable hitSlop={8} onPress={() => setManaged(it.uid)} style={styles.manageBtn}>
-                      <Text style={styles.manageTxt}>⚙</Text>
-                    </Pressable>
-                  )}
+                <Pressable onPress={() => setShowSubs((v) => !v)} style={styles.row}>
+                  <Text style={[styles.sub, { flex: 1 }]}>
+                    Crit {Math.round(Math.min(100, st.crit))} % · D.crit ×{(1.5 + ((st.bonuses?.critDmgPct ?? 0) + critOverflow(st.crit)) / 100).toFixed(1)} · 1 action / {lock.toFixed(2)} s
+                  </Text>
+                  <Text style={styles.subsToggle}>{showSubs ? '▾' : '▸'} détails</Text>
                 </Pressable>
-              );
-            })}
-          </View>
-
-          <View style={[styles.row, { justifyContent: 'space-between' }]}>
-            <Text style={styles.section}>Talents {sp.types[0] && `· ${pts} point${pts > 1 ? 's' : ''} disponible${pts > 1 ? 's' : ''}`}</Text>
-            {pts > 0 && (
-              <Button small label="★ Auto" color={C.accent}
-                onPress={() => { const n = act((g) => autoTalents(g, mon.uid)); if (n) feedback(); }} />
-            )}
-          </View>
-          <View style={styles.panel}>
-            {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((tier) => (
-              <View key={tier} style={{ gap: 6 }}>
-                {tree.filter((t) => t.tier === tier).map((t) => {
-                  const r = mon.talents[t.id] ?? 0;
-                  const chosenType = mon.talentTypeChoices[t.id];
-                  const needsChoice = !!t.chooseType && !chosenType;
-                  const can = pts > 0 && r < t.maxRank && spent >= TIER_REQ[tier];
-                  const label = chosenType ? `${t.name} (${typeLabel(chosenType)})` : t.name;
+                {showSubs && (() => {
+                  const b = st.bonuses;
+                  const rows = SUB_STAT_LABEL.filter(([key]) => b && b[key] !== 0);
+                  const affinities = b?.affinities.filter((a) => a.pct !== 0) ?? [];
                   return (
-                    <View key={t.id}>
-                      <View style={styles.talent}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.moveName}>{label} <Text style={styles.sub}>{r}/{t.maxRank}</Text></Text>
-                          <Text style={styles.moveInfo}>
-                            {needsChoice ? 'Choisis un type à booster (le sien, ou un type de son movepool)' : `${t.describe(Math.max(1, r) * t.perRank)}${r === 0 ? ' (rang 1)' : ''}`}
-                          </Text>
-                        </View>
-                        <TalentPlus can={can}
-                          onOne={() => {
-                            if (needsChoice) { setAffinityPick(affinityPick === t.id ? null : t.id); return; }
-                            feedback(); act((g) => rankUpTalent(g, mon.uid, t.id));
-                          }}
-                          onRepeat={() => !needsChoice && act((g) => rankUpTalent(g, mon.uid, t.id))} />
-                      </View>
-                      {affinityPick === t.id && (() => {
-                        const options = eligibleAffinityTypes(mon.speciesId);
-                        return (
-                          <View style={[styles.row, { flexWrap: 'wrap', marginTop: 4 }]}>
-                            {options.map((ty) => (
-                              <Pressable key={ty} style={styles.chip} onPress={() => {
-                                feedback(); act((g) => rankUpTalent(g, mon.uid, t.id, ty)); setAffinityPick(null);
-                              }}>
-                                <Text style={styles.chipTxt}>{typeLabel(ty)}</Text>
-                              </Pressable>
-                            ))}
-                            {!options.length && <Text style={styles.empty}>Aucun type disponible : son movepool ne sort pas de ses propres types.</Text>}
-                          </View>
-                        );
-                      })()}
+                    <View style={{ gap: 2 }}>
+                      {st.crit > 100 && <Text style={styles.sub}>Surplus de {(st.crit - 100).toFixed(1)} % de Critique converti en Dégâts critiques</Text>}
+                      {rows.map(([key, label, fmt]) => (
+                        <Text key={key} style={styles.sub}>{label} : {fmt(Math.round((b![key] as number) * 10) / 10)}</Text>
+                      ))}
+                      {affinities.map((a, i) => (
+                        <Text key={i} style={styles.sub}>Dégâts {typeLabel(a.type)} (Affinité) : +{Math.round(a.pct * 100) / 100} %</Text>
+                      ))}
+                      {!rows.length && !affinities.length && <Text style={styles.sub}>Aucune sous-stat active.</Text>}
                     </View>
                   );
-                })}
+                })()}
               </View>
-            ))}
-            {spent > 0 && <Button small label="Réinitialiser (50 éclats)" onPress={() => { if (!act((g) => resetTalents(g, mon.uid))) toast('Pas assez d’éclats'); }} />}
-          </View>
 
-          <Text style={styles.section}>Bonbons {sp.name} · {candies}</Text>
-          <Button small label={`Donner un bonbon (+${CANDY_XP} XP)`} disabled={!candies}
-            onPress={() => { const r = act((g) => feedCandy(g, mon.uid)); if (r?.levels) toast(`${sp.name} passe au niveau ${mon.level} !`); }} />
+              <View style={styles.panel}>
+                <View style={styles.sectionRow}>
+                  <Text style={styles.section}>Capacités</Text>
+                  <Button small label="★ Auto" color="#3d5afe" onPress={() => {
+                    if (act((g) => autoMoves(g, mon.uid))) { feedback(); toast('Meilleures capacités équipées', '#69f0ae'); }
+                    else toast('Déjà les meilleures capacités');
+                  }} />
+                </View>
+                {mon.moves.map((id, i) => {
+                  const m = move(id);
+                  return (
+                    <Pressable key={id} style={[styles.moveRow, styles.moveTap]} onPress={() => setMovePick(i)}>
+                      <Text style={styles.moveIdx}>{i + 1}</Text>
+                      <Text style={styles.moveName} numberOfLines={1}>{m.name}</Text>
+                      <TypeBadge type={m.type} small />
+                      <Text style={styles.moveInfo}>{moveShort(m, cdf)}</Text>
+                      <Text style={styles.chevron}>›</Text>
+                    </Pressable>
+                  );
+                })}
+                {mon.moves.length < 4 && learned.length > 0 && (
+                  <Pressable style={[styles.moveRow, styles.moveTap, styles.moveAdd]} onPress={() => setMovePick(mon.moves.length)}>
+                    <Text style={styles.moveIdx}>+</Text>
+                    <Text style={[styles.moveName, { color: C.accent }]}>Ajouter une capacité</Text>
+                    <Text style={styles.chevron}>›</Text>
+                  </Pressable>
+                )}
+                {/* la liste des capacités apprises n'est plus affichée en entier : le dire clairement */}
+                {learned.length > 0 && (
+                  <Text style={styles.moveHint}>
+                    ⇄ {learned.length} autre{learned.length > 1 ? 's' : ''} capacité{learned.length > 1 ? 's' : ''} apprise{learned.length > 1 ? 's' : ''} : touche une capacité pour l'échanger
+                  </Text>
+                )}
+                {!mon.moves.length && !learned.length && <Text style={styles.sub}>Aucune capacité : attaque de base seulement.</Text>}
+              </View>
 
-          <Text style={styles.section}>Méga bonbons · {megaCandies}{s.universalMega > 0 ? ` · universels ${s.universalMega}` : ''}</Text>
-          <Button small label={`Fabriquer 1 méga bonbon (${MEGA_CANDY_COST} bonbons)`} disabled={candies < MEGA_CANDY_COST}
-            onPress={() => { if (act((g) => craftMegaCandy(g, mon.speciesId))) feedback(); }} />
-          <Text style={styles.sub}>Améliorer un gène (1 méga bonbon{s.universalMega > 0 ? ' : ceux de la lignée d’abord, puis les universels' : ''})</Text>
-          <View style={styles.row}>
-            {GENES.map(({ key, label }) => {
-              const v = mon.genes[key];
-              const maxed = v >= GENE_MAX;
-              return (
-                <Button key={key} small style={{ flex: 1 }} disabled={maxed || megaCandies + (s.universalMega ?? 0) < 1}
-                  label={maxed ? `${label} max` : `${label} ${v}→${v + 1}`}
-                  onPress={() => { if (act((g) => applyMegaCandy(g, mon.uid, key))) feedback(); }} />
-              );
-            })}
-          </View>
+              <View style={styles.panel}>
+                <View style={styles.sectionRow}>
+                  <Text style={styles.section}>Objets</Text>
+                  <Button small label="★ Auto" color="#b8860b" onPress={() => {
+                    const n = act((g) => autoEquipBest(g, mon.uid));
+                    if (n) { feedback(); changed(); toast(`${n} objet${n > 1 ? 's' : ''} équipé${n > 1 ? 's' : ''}`, '#69f0ae'); }
+                    else toast('Déjà équipé au mieux');
+                  }} />
+                </View>
+                <View style={styles.itemRow}>
+                  {SLOTS.map(({ slot, label }) => {
+                    const it = mon.items[slot] ? s.items[mon.items[slot]!] : undefined;
+                    const t = it && template(it.templateId);
+                    return (
+                      <View key={slot} style={styles.miniCol}>
+                        <Pressable onPress={() => setPicker(slot)}
+                          style={[styles.miniItem, { borderColor: !it ? C.panel2 : plusOf(it) > 0 ? 'transparent' : RARITY_COLOR[it.rarity] }]}>
+                          {it && t ? (
+                            <>
+                              {/* Chromatique +N : bordure arc-en-ciel fixe, comme dans le Sac */}
+                              {plusOf(it) > 0 && <RainbowBorder radius={10} />}
+                              <Text style={[styles.miniName, { color: RARITY_COLOR[it.rarity] }]} numberOfLines={2}>{SLOT_ICON[slot]} {t.name}</Text>
+                              <Text style={styles.miniLv}>
+                                {plusOf(it) > 0 ? <><RainbowText text={`+${plusOf(it)}`} />{' · '}</> : null}Nv.{it.level}
+                              </Text>
+                              <Text style={styles.miniStat}>{itemMainText(it, true)}</Text>
+                              <SubChips item={it} />
+                            </>
+                          ) : (
+                            <Text style={styles.empty}>{SLOT_ICON[slot]} {label}{'\n'}+ équiper</Text>
+                          )}
+                        </Pressable>
+                        {/* gestion de l'objet (améliorer, sous-stats, fusion) : vrai bouton sous la carte, facile à toucher */}
+                        {it && <Button small label="⚙ Gérer" onPress={() => setManaged(it.uid)} />}
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            </>
+          )}
 
-          <View style={[styles.row, { marginTop: 12 }]}>
+          {tab === 'talents' && (
+            <View style={styles.panel}>
+              <View style={styles.sectionRow}>
+                <Text style={styles.section}>{pts > 0 ? `${pts} point${pts > 1 ? 's' : ''} à dépenser` : `${spent} / ${talentPoints(mon.level)} points`}</Text>
+                {pts > 0 && (
+                  <Button small label="★ Auto" color={C.accent} onPress={() => { const n = act((g) => autoTalents(g, mon.uid)); if (n) feedback(); }} />
+                )}
+              </View>
+              {treeDone && <Text style={styles.talentOn}>✔ Arbre complet</Text>}
+              {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((tier) => {
+                const tierLocked = spent < TIER_REQ[tier];
+                return (
+                  <View key={tier} style={[{ gap: 2 }, tierLocked && { opacity: 0.45 }]}>
+                    {tierLocked && <Text style={styles.tierReq}>Palier {tier + 1} : {TIER_REQ[tier]} points dépensés nécessaires</Text>}
+                    {tree.filter((t) => t.tier === tier).map((t) => {
+                      const r = mon.talents[t.id] ?? 0;
+                      const chosenType = mon.talentTypeChoices[t.id];
+                      const needsChoice = !!t.chooseType && !chosenType;
+                      const can = pts > 0 && r < t.maxRank && !tierLocked;
+                      const label = chosenType ? `${t.name} (${typeLabel(chosenType)})` : t.name;
+                      // effet toujours affiché (retour d'Arno : replié, on ne savait plus ce que faisaient les talents)
+                      const effect = needsChoice ? 'Choisis un type à booster (le sien, ou un type de son movepool)'
+                        : r > 0 ? `${t.describe(r * t.perRank)}${r < t.maxRank ? ` · max ${t.describe(t.maxRank * t.perRank).replace(/^.*?([+−-]?[\d.,]+ %.*)$/, '$1')}` : ''}`
+                          : `Rang 1 : ${t.describe(t.perRank)}`;
+                      return (
+                        <View key={t.id}>
+                          <View style={styles.talent}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.moveName} numberOfLines={1}>{label} <Text style={styles.sub}>{r}/{t.maxRank}</Text></Text>
+                              <Text style={[styles.moveInfo, r > 0 && styles.talentOn]}>{effect}</Text>
+                            </View>
+                            {r < t.maxRank && (
+                              <TalentPlus can={can}
+                                onOne={() => {
+                                  if (needsChoice) { setAffinityPick(affinityPick === t.id ? null : t.id); return; }
+                                  feedback(); act((g) => rankUpTalent(g, mon.uid, t.id));
+                                }}
+                                onRepeat={() => !needsChoice && act((g) => rankUpTalent(g, mon.uid, t.id))} />
+                            )}
+                          </View>
+                          {affinityPick === t.id && (() => {
+                            const options = eligibleAffinityTypes(mon.speciesId);
+                            return (
+                              <View style={[styles.row, { flexWrap: 'wrap', marginTop: 4 }]}>
+                                {options.map((ty) => (
+                                  <Pressable key={ty} style={styles.chip} onPress={() => {
+                                    feedback(); act((g) => rankUpTalent(g, mon.uid, t.id, ty)); setAffinityPick(null);
+                                  }}>
+                                    <Text style={styles.chipTxt}>{typeLabel(ty)}</Text>
+                                  </Pressable>
+                                ))}
+                                {!options.length && <Text style={styles.empty}>Aucun type disponible : son movepool ne sort pas de ses propres types.</Text>}
+                              </View>
+                            );
+                          })()}
+                        </View>
+                      );
+                    })}
+                  </View>
+                );
+              })}
+              {!treeDone && <Text style={styles.tierReq}>Maintenir « + » pour dépenser plusieurs points d’un coup.</Text>}
+              {spent > 0 && <Button small label="Réinitialiser (50 éclats)" onPress={() => { if (!act((g) => resetTalents(g, mon.uid))) toast('Pas assez d’éclats'); }} />}
+            </View>
+          )}
+
+          {tab === 'candies' && (
+            <>
+              {evoTargets.length > 0 && <View style={styles.panel}>{evolveButton}</View>}
+              <View style={styles.panel}>
+                <Text style={styles.section}>Gènes <Text style={styles.sub}>(méga bonbons : {megaCandies}{s.universalMega > 0 ? ` · universels ${s.universalMega}` : ''})</Text></Text>
+                <View style={styles.row}>
+                  {GENES.map(({ key, label }) => {
+                    const v = mon.genes[key];
+                    const maxed = v >= GENE_MAX;
+                    return (
+                      <Pressable key={key} disabled={maxed || megaCandies + (s.universalMega ?? 0) < 1}
+                        onPress={() => { if (act((g) => applyMegaCandy(g, mon.uid, key))) feedback(); }}
+                        style={({ pressed }) => [styles.geneBtn, maxed && styles.geneMax,
+                          { opacity: !maxed && megaCandies + (s.universalMega ?? 0) < 1 ? 0.4 : pressed ? 0.75 : 1 }]}>
+                        <Text style={styles.geneLabel}>{label}</Text>
+                        <Text style={[styles.geneVal, maxed && { color: '#69f0ae' }]}>{maxed ? '15 ✓' : `${v} → ${v + 1}`}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                <Button small label={`Fabriquer 1 méga bonbon (${MEGA_CANDY_COST} bonbons)`} disabled={candies < MEGA_CANDY_COST}
+                  onPress={() => { if (act((g) => craftMegaCandy(g, mon.speciesId))) feedback(); }} />
+              </View>
+              <View style={styles.panel}>
+                <Text style={styles.section}>Bonbons {sp.name} · {candies}</Text>
+                <Button small label={mon.level >= MAX_LEVEL ? 'Niveau maximum : plus besoin de bonbons' : `Donner un bonbon (+${CANDY_XP} XP)`}
+                  disabled={!candies || mon.level >= MAX_LEVEL}
+                  onPress={() => { const r = act((g) => feedCandy(g, mon.uid)); if (r?.levels) toast(`${sp.name} passe au niveau ${mon.level} !`); }} />
+              </View>
+            </>
+          )}
+
+          <View style={[styles.row, { marginTop: 6 }]}>
             {inTeam ? (
               <Button label="Retirer de l'équipe" disabled={validTeamCount <= 1} onPress={() => { act((g) => setTeam(g, g.team.filter((u) => u !== mon.uid))); changed(); }} style={{ flex: 1 }} />
             ) : (
@@ -367,7 +420,7 @@ export function MonSheet() {
                   else setSwapPicker(true);
                 }} style={{ flex: 1 }} />
             )}
-            <Button label={mon.locked ? '🔒 Verrouillé' : 'Relâcher'} color="#5a2020" disabled={!!mon.locked || (inTeam && s.team.length <= 1)} onPress={() => setDialog({
+            <Button label={mon.locked ? '🔒' : 'Relâcher'} color="#5a2020" disabled={!!mon.locked || (inTeam && s.team.length <= 1)} onPress={() => setDialog({
               title: `Relâcher ${sp.name} ?`, message: 'Tu recevras 3 bonbons de sa lignée. Ses objets retournent dans le sac.',
               primary: { label: 'Relâcher', onPress: () => { act((g) => release(g, mon.uid)); close(); changed(); } },
               secondary: { label: 'Annuler', onPress: () => {} },
@@ -375,15 +428,78 @@ export function MonSheet() {
           </View>
         </ScrollView>
 
+        {evolvePick && (
+          <EvolvePicker speciesId={mon.speciesId} dexMax={regionOf(s.prestige).dexMax} shiny={mon.shiny}
+            // chromatique : Pokédex chromatique ; normal : exemplaires normaux possédés en ce moment (le Pokédex
+            // « capturés » compte aussi les chromatiques, il ne dit pas si on a la forme en normal)
+            owned={mon.shiny ? s.dex.shiny : Object.values(s.mons).filter((m) => !m.shiny).map((m) => m.speciesId)}
+            onClose={() => setEvolvePick(false)}
+            onPick={doEvolve} />
+        )}
         <ItemDetail item={managed ? s.items[managed] ?? null : null} onClose={() => setManaged(null)} onSelect={setManaged} />
         {picker && (
           <ItemPicker slot={picker} monUid={mon.uid} onClose={() => setPicker(null)} onChanged={changed} />
+        )}
+        {movePick !== null && (
+          <MovePicker monUid={mon.uid} index={movePick} cdf={cdf} onClose={() => setMovePick(null)} onUp={() => { moveUp(movePick); setMovePick(null); }} />
         )}
         {swapPicker && (
           <TeamSwapPicker newUid={mon.uid} onClose={() => setSwapPicker(false)} onChanged={() => { changed(); close(); }} />
         )}
         <Dialog spec={dialog} onClose={() => setDialog(null)} />
       </View>
+    </Modal>
+  );
+}
+
+/**
+ * Sélecteur de capacité (2026-10-01 : remplace la longue liste « Disponibles » de la fiche) : pour l'emplacement
+ * `index`, monter en priorité, retirer, ou remplacer par une capacité apprise (une ligne chacune, recharge réelle).
+ * `index` = nombre de capacités équipées : ajout d'une nouvelle.
+ */
+function MovePicker({ monUid, index, cdf, onClose, onUp }: { monUid: string; index: number; cdf: number; onClose: () => void; onUp: () => void }) {
+  const s = useGame((g) => g.s)!;
+  const act = useGame((g) => g.act);
+  const mon = s.mons[monUid];
+  if (!mon) return null;
+  const current = mon.moves[index];
+  const learned = learnedMoves(species(mon.speciesId), mon.level).filter((id) => !mon.moves.includes(id));
+  const pick = (id: number) => {
+    const m = mon.moves.slice();
+    if (current === undefined) m.push(id); else m[index] = id;
+    act((g) => setMoves(g, monUid, m));
+    feedback();
+    onClose();
+  };
+  return (
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={styles.backdrop} onPress={onClose}>
+        <Pressable style={styles.sheet} onPress={() => {}}>
+          <Text style={styles.section}>{current !== undefined ? `Capacité ${index + 1} : ${move(current).name}` : 'Ajouter une capacité'}</Text>
+          {current !== undefined && (
+            <View style={styles.row}>
+              {index > 0 && <Button small label="▲ Plus prioritaire" onPress={onUp} style={{ flex: 1 }} />}
+              <Button small label="Retirer" color="#5a2020" style={{ flex: 1 }} onPress={() => {
+                act((g) => setMoves(g, monUid, mon.moves.filter((x) => x !== current)));
+                onClose();
+              }} />
+            </View>
+          )}
+          <Text style={styles.sub}>{learned.length ? (current !== undefined ? 'Remplacer par :' : 'Choisir :') : 'Aucune autre capacité apprise pour l’instant.'}</Text>
+          <ScrollView style={{ maxHeight: 400 }} contentContainerStyle={{ gap: 4 }}>
+            {learned.map((id) => {
+              const m = move(id);
+              return (
+                <Pressable key={id} style={[styles.moveRow, styles.pickRow]} onPress={() => pick(id)}>
+                  <Text style={styles.moveName} numberOfLines={1}>{m.name}</Text>
+                  <TypeBadge type={m.type} small />
+                  <Text style={styles.moveInfo}>{moveShort(m, cdf)}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 }
@@ -407,7 +523,7 @@ function ItemPicker({ slot, monUid, onClose, onChanged }: { slot: ItemSlot; monU
             {current && <Button small label="Retirer l'objet" onPress={() => { act((g) => unequip(g, monUid, slot)); onChanged(); onClose(); }} />}
             {list.map((it) => {
               const w = holder(s, it.uid);
-              const wornByOther = w && w.uid !== monUid ? monName(w) : undefined;
+              const wornByOther = w && w.uid !== monUid ? w : undefined;
               const g = gains.get(it.uid)!;
               const cmp = current ? (g > 0.05 ? 'up' : g < -0.05 ? 'down' : null) : 'up';
               return (
@@ -416,7 +532,7 @@ function ItemPicker({ slot, monUid, onClose, onChanged }: { slot: ItemSlot; monU
                   onPress={() => {
                     if (wornByOther) {
                       setDialog({
-                        title: 'Objet déjà équipé', message: `${wornByOther} porte cet objet. Le lui retirer pour l'équiper ici ?`,
+                        title: 'Objet déjà équipé', message: `${monName(wornByOther)} porte cet objet. Le lui retirer pour l'équiper ici ?`,
                         primary: { label: 'Transférer', onPress: () => doEquip(it.uid) },
                         secondary: { label: 'Annuler', onPress: () => {} },
                       });
@@ -512,38 +628,61 @@ const styles = StyleSheet.create({
   evoName: { fontSize: 15, fontWeight: '800' },
   evoTypes: { fontSize: 11, fontWeight: '700', opacity: 0.85 },
   root: { flex: 1, backgroundColor: C.bg, paddingTop: 40 },
-  manageBtn: { backgroundColor: C.panel2, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, alignSelf: 'center' },
-  manageTxt: { color: C.text, fontSize: 16 },
-  navRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 18, paddingBottom: 6 },
-  navBtn: { backgroundColor: C.panel2, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 4 },
-  navTxt: { color: C.text, fontSize: 18, fontWeight: '800' },
+  manageTxt: { color: C.text, fontSize: 13 },
+  navRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  navBtn: { backgroundColor: C.panel2, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 2 },
+  navTxt: { color: C.text, fontSize: 16, fontWeight: '800' },
   navCount: { color: C.sub, fontSize: 12, fontWeight: '700' },
-  top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 8 },
+  top: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingBottom: 8 },
   lock: { fontSize: 18 },
   targetBtn: { backgroundColor: C.panel2, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
   targetBtnOn: { backgroundColor: '#2e7d32' },
-  targetTxt: { color: C.text, fontSize: 12, fontWeight: '700' },
+  targetTxt: { color: C.text, fontSize: 14 },
   close: { color: C.sub, fontSize: 16, fontWeight: '700' },
   cp: { color: C.gold, fontSize: 16, fontWeight: '900' },
-  body: { padding: 16, gap: 10, paddingBottom: 60 },
+  body: { padding: 14, gap: 10, paddingBottom: 60 },
   head: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   stage: { backgroundColor: C.panel, borderRadius: 16 },
-  name: { color: C.text, fontSize: 24, fontWeight: '900' },
+  name: { color: C.text, fontSize: 20, fontWeight: '900', flexShrink: 1 },
   row: { flexDirection: 'row', gap: 6, alignItems: 'center' },
   sub: { color: C.sub, fontSize: 12 },
   subsToggle: { color: C.accent, fontSize: 12, fontWeight: '700', marginTop: 4 },
-  genes: { color: C.dim, fontSize: 11 },
   xpTrack: { height: 6, backgroundColor: C.panel2, borderRadius: 3, overflow: 'hidden' },
   xpFill: { height: '100%', backgroundColor: '#42a5f5' },
   panel: { backgroundColor: C.panel, borderRadius: 14, padding: 12, gap: 8 },
-  section: { color: C.text, fontSize: 16, fontWeight: '800', marginTop: 6 },
-  moveRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  section: { color: C.text, fontSize: 15, fontWeight: '800' },
+  sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  tabs: { flexDirection: 'row', backgroundColor: C.panel, borderRadius: 12, padding: 3, gap: 3 },
+  tab: { flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 9 },
+  tabOn: { backgroundColor: C.panel2 },
+  tabTxt: { color: C.sub, fontSize: 13, fontWeight: '700' },
+  tabTxtOn: { color: C.text, fontWeight: '900' },
+  statGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 6, columnGap: 14 },
+  statCell: { width: '46%', gap: 2 },
+  statVal: { color: C.text, fontWeight: '800' },
+  statTrack: { height: 4, backgroundColor: C.panel2, borderRadius: 2, overflow: 'hidden' },
+  statFill: { height: '100%' },
+  itemRow: { flexDirection: 'row', gap: 6 },
+  miniCol: { flex: 1, gap: 4 },
+  miniItem: { flex: 1, minHeight: 64, borderWidth: 1.5, borderRadius: 10, padding: 6, backgroundColor: C.bg, gap: 2 },
+  miniName: { fontSize: 11, fontWeight: '800' },
+  miniLv: { color: C.dim, fontSize: 10, fontWeight: '700' },
+  miniStat: { color: C.sub, fontSize: 10, fontWeight: '700' },
+  geneBtn: { flex: 1, alignItems: 'center', backgroundColor: C.panel2, borderRadius: 10, paddingVertical: 6 },
+  geneMax: { backgroundColor: '#1b3a2a' },
+  geneLabel: { color: C.sub, fontSize: 11, fontWeight: '700' },
+  geneVal: { color: C.text, fontSize: 13, fontWeight: '800' },
+  talentOn: { color: '#69f0ae', fontSize: 11, fontWeight: '700' },
+  tierReq: { color: C.dim, fontSize: 11, fontStyle: 'italic' },
+  pickRow: { backgroundColor: C.panel, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 },
+  moveRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 3 },
+  moveTap: { backgroundColor: C.bg, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 6 },
+  moveAdd: { borderWidth: 1, borderColor: C.accent, borderStyle: 'dashed' },
+  chevron: { color: C.sub, fontSize: 18, fontWeight: '800', marginLeft: 2 },
+  moveHint: { color: C.accent, fontSize: 12, fontWeight: '700' },
   moveIdx: { color: C.gold, fontWeight: '900', width: 14 },
-  moveName: { color: C.text, fontWeight: '700', fontSize: 14 },
+  moveName: { color: C.text, fontWeight: '700', fontSize: 13, flexShrink: 1, flexGrow: 1 },
   moveInfo: { color: C.sub, fontSize: 11 },
-  icon: { color: C.sub, fontSize: 16, paddingHorizontal: 4 },
-  slotRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  slotLabel: { color: C.sub, width: 62, fontSize: 12, fontWeight: '700' },
   empty: { color: C.dim, fontSize: 13, paddingVertical: 8 },
   talent: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   chip: { backgroundColor: C.panel2, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 },

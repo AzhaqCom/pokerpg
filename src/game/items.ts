@@ -20,6 +20,19 @@ import { Rng } from './rng';
  * pour un Pokémon à ~30 % de Critique. Les objets déjà possédés suivent (valeur recalculée depuis le modèle).
  */
 export const CRIT_BY_RARITY = [8, 10, 12, 15, 18, 21, 25];
+
+/**
+ * Vitesse et Recharge (2026-10-01) : depuis que la Vitesse raccourcit le temps entre deux actions et que la Recharge
+ * n'a plus de plafond (rendement décroissant, voir `battle.ts`), leur valeur juste grimpe bien moins vite que les
+ * autres stats avec le niveau, à peu près comme sa racine carrée (`tools/scratch/calib_speed.ts`). Elles suivent donc
+ * `slowLvlMult` au lieu de `lvlMult`, dans les sous-stats comme dans le bonus des objets mixtes.
+ * Objets mixtes : un objet entièrement Vitesse saturait le rendement décroissant et vidait un emplacement défensif de
+ * toute défense → stat principale réduite (`HYBRID_MAIN_SHARE`) + bonus de Vitesse / Recharge (`FLAT_HYBRID_BASE`
+ * × `slowLvlMult` × rareté), calé pour valoir la part de stat principale retirée.
+ */
+export const FLAT_HYBRID_BASE: Record<'spePct' | 'cdrPct', number> = { spePct: 4.5, cdrPct: 11 };
+/** Part de la stat principale d'un objet mixte Vitesse / Recharge (le reste de sa valeur est dans le bonus fixe). */
+export const HYBRID_MAIN_SHARE = 0.6;
 const CRIT_HYBRID_BASE = { brume: 15.1, oeil: 15.7, ciel: 13.6, brume2: 17.7, givre: 20.2 };
 
 export const TEMPLATES: ItemTemplate[] = [
@@ -28,12 +41,12 @@ export const TEMPLATES: ItemTemplate[] = [
   { id: 'cape-sylve', name: 'Cape Sylvestre', slot: 'defense', main: 'hpPct', base: 5.3, set: 'sylve' },
   { id: 'baie-sylve', name: 'Baie Sylvestre', slot: 'berry', main: 'hpPct', base: 0, set: 'sylve', berry: { heal: 25 } },
   // biome 2 — Biome Aquatique
-  { id: 'nageoire-maree', name: 'Nageoire Rapide', slot: 'offense', main: 'spePct', base: 44, set: 'maree' },
+  { id: 'nageoire-maree', name: 'Nageoire Rapide', slot: 'offense', main: 'atkPct', base: 6.3 * HYBRID_MAIN_SHARE, flat: 'spePct', set: 'maree' },
   { id: 'ecaille-maree', name: 'Écaille Robuste', slot: 'defense', main: 'defPct', base: 4.6, set: 'maree' },
   { id: 'baie-maree', name: 'Baie Aquatique', slot: 'berry', main: 'hpPct', base: 0, set: 'maree', berry: { heal: 25 } },
   // biome 3 — Biome Électrique
   { id: 'bobine-circuit', name: 'Bobine Tesla', slot: 'offense', main: 'critDmgPct', base: 17.5, set: 'circuit' },
-  { id: 'semelle-circuit', name: 'Semelle Isolante', slot: 'defense', main: 'spePct', base: 34.9, set: 'circuit' },
+  { id: 'semelle-circuit', name: 'Semelle Isolante', slot: 'defense', main: 'defPct', base: 4.6 * HYBRID_MAIN_SHARE, flat: 'spePct', set: 'circuit' },
   { id: 'ceriz', name: 'Baie Ceriz', slot: 'berry', main: 'hpPct', base: 0, set: 'circuit', berry: { heal: 25, cures: 'paralysis' } },
   // biome 4 — Biome Verdoyant
   { id: 'feuille-chloro', name: 'Feuille Tranchante', slot: 'offense', main: 'typeDmgPct', base: 10.1, set: 'chloro' },
@@ -45,7 +58,7 @@ export const TEMPLATES: ItemTemplate[] = [
   { id: 'pecha', name: 'Baie Pêcha', slot: 'berry', main: 'hpPct', base: 0, set: 'brume', berry: { heal: 25, cures: 'poison' } },
   // biome 6 — Sanctuaire Psy
   { id: 'amulette-oeil', name: 'Amulette Prescience', slot: 'offense', main: 'critDmgPct', base: CRIT_HYBRID_BASE.oeil, bonusCrit: true, set: 'oeil' },
-  { id: 'voile-oeil', name: 'Voile Mental', slot: 'defense', main: 'cdrPct', base: 16, set: 'oeil' },
+  { id: 'voile-oeil', name: 'Voile Mental', slot: 'defense', main: 'hpPct', base: 4.6 * HYBRID_MAIN_SHARE, flat: 'cdrPct', set: 'oeil' },
   { id: 'maron', name: 'Baie Maron', slot: 'berry', main: 'hpPct', base: 0, set: 'oeil', berry: { heal: 25 } },
   // biome 7 — Terres de Feu
   { id: 'griffe-cendres', name: 'Griffe Incandescente', slot: 'offense', main: 'atkPct', base: 7, set: 'cendres' },
@@ -65,7 +78,7 @@ export const TEMPLATES: ItemTemplate[] = [
   { id: 'baie-champion', name: 'Baie du Sacre', slot: 'berry', main: 'hpPct', base: 0, set: 'champion', berry: { heal: 25 } },
   // biome 11 — Route des Cieux (Johto)
   { id: 'bec-ciel', name: 'Bec Acéré', slot: 'offense', main: 'critDmgPct', base: CRIT_HYBRID_BASE.ciel, bonusCrit: true, set: 'ciel' },
-  { id: 'plume-ciel', name: 'Plume Véloce', slot: 'defense', main: 'spePct', base: 40, set: 'ciel' },
+  { id: 'plume-ciel', name: 'Plume Véloce', slot: 'defense', main: 'hpPct', base: 4.6 * HYBRID_MAIN_SHARE, flat: 'spePct', set: 'ciel' },
   { id: 'baie-ciel', name: 'Baie des Cieux', slot: 'berry', main: 'hpPct', base: 0, set: 'ciel', berry: { heal: 25 } },
   // biome 12 — Forêt Fourmillante (Johto)
   { id: 'mandibule-ruche', name: 'Mandibule Acérée', slot: 'offense', main: 'atkPct', base: 7, set: 'ruche' },
@@ -77,7 +90,7 @@ export const TEMPLATES: ItemTemplate[] = [
   { id: 'baie-prairie', name: 'Baie des Prairies', slot: 'berry', main: 'hpPct', base: 0, set: 'prairie', berry: { heal: 25 } },
   // biome 14 — Tour Hantée (Johto)
   { id: 'griffe-brume', name: 'Griffe Spectrale', slot: 'offense', main: 'critDmgPct', base: CRIT_HYBRID_BASE.brume2, bonusCrit: true, set: 'brume2' },
-  { id: 'voile-brume', name: 'Voile Brumeux', slot: 'defense', main: 'cdrPct', base: 16, set: 'brume2' },
+  { id: 'voile-brume', name: 'Voile Brumeux', slot: 'defense', main: 'defPct', base: 4.6 * HYBRID_MAIN_SHARE, flat: 'cdrPct', set: 'brume2' },
   { id: 'baie-brume', name: 'Baie Fantomatique', slot: 'berry', main: 'hpPct', base: 0, set: 'brume2', berry: { heal: 25 } },
   // biome 15 — Dojo d'Ébène (Johto)
   { id: 'poing-dojo', name: 'Poing de Fer', slot: 'offense', main: 'critDmgPct', base: 20, set: 'dojo' },
@@ -121,7 +134,7 @@ export const SETS: Record<string, {
   },
   circuit: {
     name: 'Circuit Survolté', biome: 2,
-    two: { stat: 'spePct', value: 34, label: 'Vitesse +34 %' },
+    two: { stat: 'spePct', value: 10, label: 'Vitesse +10 %' },
     three: { stat: 'critDmgPct', value: 17, label: 'Dégâts critiques +17 %' },
   },
   chloro: {
@@ -136,7 +149,7 @@ export const SETS: Record<string, {
   },
   oeil: {
     name: 'Troisième Œil', biome: 5,
-    two: { stat: 'cdrPct', value: 27, label: 'Recharge −27 %' },
+    two: { stat: 'cdrPct', value: 24, label: 'Recharge +24 %' },
     three: { stat: 'critPct', value: 22, label: 'Critique +22 %' },
   },
   cendres: {
@@ -161,7 +174,7 @@ export const SETS: Record<string, {
   },
   ciel: {
     name: 'Ailes du Zéphyr', biome: 10,
-    two: { stat: 'spePct', value: 34, label: 'Vitesse +34 %' },
+    two: { stat: 'spePct', value: 10, label: 'Vitesse +10 %' },
     three: { stat: 'dodgePct', value: 9, label: 'Esquive +9 %' },
   },
   ruche: {
@@ -176,7 +189,7 @@ export const SETS: Record<string, {
   },
   brume2: {
     name: 'Voile de la Tour', biome: 13,
-    two: { stat: 'cdrPct', value: 27, label: 'Recharge −27 %' },
+    two: { stat: 'cdrPct', value: 24, label: 'Recharge +24 %' },
     three: { stat: 'dodgePct', value: 9, label: 'Esquive +9 %' },
   },
   dojo: {
@@ -212,8 +225,80 @@ export const SETS: Record<string, {
 };
 
 const SUB_BASE: Record<BonusStat, number> = {
-  atkPct: 3, defPct: 2.3, hpPct: 2.6, spePct: 17.1, critPct: 5.6, critDmgPct: 10, typeDmgPct: 5, cdrPct: 10,
+  atkPct: 3, defPct: 2.3, hpPct: 2.6, spePct: 7, critPct: 5.6, critDmgPct: 10, typeDmgPct: 5, cdrPct: 17,
 };
+/**
+ * Sous-stats à croissance lente (`slowLvlMult`, 2026-10-01) : Vitesse et Recharge. Avant : 17,1 et 10 × `lvlMult`,
+ * soit +130 % de Vitesse ou −76 % de Recharge par jet sur un Chromatique Nv.120 (aujourd'hui ~+19 % et ~+47).
+ */
+export const FLAT_SUBS: BonusStat[] = ['spePct', 'cdrPct'];
+const subLvlMult = (stat: BonusStat, level: number) => (FLAT_SUBS.includes(stat) ? slowLvlMult(level) : lvlMult(level));
+
+/**
+ * Valeur **mesurée** d'un jet moyen de chaque sous-stat, en points de victoire (équipe de Tour à l'étage ~100,
+ * Chromatique +2 Nv.200, `tools/scratch/tower100.ts`, 2026-10-01). Sert à la fusion (quelles sous-stats garder), à
+ * l'équipement Auto (3e candidat) et aux couleurs des sous-stats. Avant : la fusion gardait les plus gros chiffres
+ * (Dégâts critiques +199 passait devant PV +46, qui vaut bien plus).
+ */
+export const SUB_WORTH: Record<BonusStat, number> = {
+  hpPct: 11.5, spePct: 11.1, atkPct: 10.2, typeDmgPct: 8.8, critDmgPct: 7.4, defPct: 6.5, critPct: 4.1, cdrPct: 1.2,
+};
+
+/** Jet moyen (85 %) d'une sous-stat à ce niveau : l'unité de `SUB_WORTH`. */
+export function subRollRef(stat: BonusStat, level: number): number {
+  return SUB_BASE[stat] * subLvlMult(stat, level) * 0.85;
+}
+
+/** Valeur d'une sous-stat (ou d'un bonus de cette stat) d'un objet de ce niveau, en points de victoire mesurés. */
+export function subScore(stat: BonusStat, value: number, level: number): number {
+  return (value / subRollRef(stat, level)) * SUB_WORTH[stat];
+}
+
+/** Couleur d'une sous-stat : 'top' (≥ 10 : PV, Vitesse, Attaque), 'good' (≥ 8 : Dégâts de son type), sinon 'low'. */
+export function subTier(stat: BonusStat): 'top' | 'good' | 'low' {
+  const w = SUB_WORTH[stat];
+  return w >= 10 ? 'top' : w >= 8 ? 'good' : 'low';
+}
+
+/**
+ * Bonus de panoplie qui grimpent avec le niveau (2026-10-01) : 2 pièces = 1 jet moyen de sous-stat de la stat
+ * (`subRollRef`) au niveau de la pièce la plus basse portée, 3 pièces = 2 jets. Vol de vie et Esquive (pas de
+ * sous-stat) : la valeur de `SETS` × croissance lente (`slowLvlMult`) depuis le Nv.20, plafonnés en combat. Jamais
+ * moins que la valeur fixe de `SETS` (plancher, début de partie inchangé). Avant :
+ * des valeurs fixes (Attaque +8 %), qui ne valaient plus rien en fin de jeu face à un seul jet de sous-stat (+54 % au
+ * Nv.200) — les équipes de Tour ne portaient plus de panoplie. Prototype `tools/scratch/proto_sets.ts` : début et milieu
+ * de partie inchangés (±1 %), Tour +6 à +9 %, panoplies de nouveau portées.
+ */
+export const SET_ROLLS = { two: 1, three: 2 } as const;
+const SUB_STAT_SET = new Set<string>(['atkPct', 'defPct', 'hpPct', 'spePct', 'critPct', 'critDmgPct', 'typeDmgPct', 'cdrPct']);
+export function setBonusValue(setKey: string, part: 'two' | 'three', level: number): number {
+  const p = SETS[setKey][part];
+  // la valeur d'avant (`SETS`) reste un plancher : aux tout premiers niveaux, un jet de sous-stat vaut moins
+  // (Attaque +2,6 % au Nv.1 contre +8 %) — le début de partie ne doit pas s'affaiblir
+  const scaled = SUB_STAT_SET.has(p.stat) ? subRollRef(p.stat as BonusStat, level) * SET_ROLLS[part] : p.value * (slowLvlMult(level) / slowLvlMult(20));
+  return round1(Math.max(p.value, scaled));
+}
+const BONUS_LABEL: Partial<Record<NumericBonusStat, string>> = { lifestealPct: 'Vol de vie', dodgePct: 'Esquive' };
+/** « Attaque +15 % » : bonus d'une panoplie à ce niveau (Carte, fiche d'un objet). */
+export function setBonusText(setKey: string, part: 'two' | 'three', level: number): string {
+  const stat = SETS[setKey][part].stat;
+  const label = SUB_STAT_SET.has(stat) ? STAT_LABEL[stat as BonusStat] : BONUS_LABEL[stat] ?? stat;
+  return `${label} +${setBonusValue(setKey, part, level)} %`;
+}
+/** Base d'une sous-stat Vitesse / Recharge d'avant le 2026-10-01 (conversion des anciennes sauvegardes). */
+export const OLD_FLAT_SUB_BASE: Partial<Record<BonusStat, number>> = { spePct: 17.1, cdrPct: 10 };
+
+/**
+ * Conversion d'une sous-stat Vitesse / Recharge d'avant le 2026-10-01 : même qualité de jet (70-100 %, crans +N
+ * compris), nouvelle échelle (`slowLvlMult`). Les autres sous-stats ne changent pas.
+ */
+export function convertFlatSub(stat: BonusStat, value: number, level: number, plus = 0): number {
+  const old = OLD_FLAT_SUB_BASE[stat];
+  if (!old) return value;
+  const plusMult = 1 + PLUS_SUB_STEP * plus;
+  const roll = Math.min(1, Math.max(0.7, value / (old * lvlMult(level) * plusMult)));
+  return round1(SUB_BASE[stat] * slowLvlMult(level) * roll * plusMult);
+}
 const SUB_POOL: BonusStat[] = ['atkPct', 'defPct', 'hpPct', 'spePct', 'critPct', 'critDmgPct', 'typeDmgPct', 'cdrPct'];
 
 export const STAT_LABEL: Record<BonusStat, string> = {
@@ -221,9 +306,9 @@ export const STAT_LABEL: Record<BonusStat, string> = {
   critDmgPct: 'Dégâts critiques', typeDmgPct: 'Dégâts de son type', cdrPct: 'Recharge',
 };
 
-/** « Attaque +12 % », mais « Recharge −12 % » (la Recharge est une réduction). */
+/** « Attaque +12 % », « Recharge +30 % » (depuis le 2026-10-01, la Recharge n'est plus une réduction plafonnée). */
 export function statText(stat: BonusStat, value: number): string {
-  return `${STAT_LABEL[stat]} ${stat === 'cdrPct' ? '−' : '+'}${value} %`;
+  return `${STAT_LABEL[stat]} +${value} %`;
 }
 
 export function template(id: string): ItemTemplate {
@@ -233,6 +318,8 @@ export function template(id: string): ItemTemplate {
 }
 
 const lvlMult = (level: number) => 1 + 0.08 * (level - 1);
+/** Croissance lente avec le niveau (Vitesse, Recharge) : racine de `lvlMult` (×1 au Nv.1, ×2,4 au Nv.62, ×3,2 au Nv.120). */
+const slowLvlMult = (level: number) => Math.sqrt(lvlMult(level));
 const round1 = (v: number) => Math.round(v * 10) / 10;
 
 /** Chance de critique fixe d'un objet Critique mixte (0 pour les autres). */
@@ -240,9 +327,15 @@ export function bonusCritValue(item: Item): number {
   return template(item.templateId).bonusCrit ? CRIT_BY_RARITY[item.rarity] : 0;
 }
 
-/** Stats exclues des secondaires d'un objet : sa stat principale (et la Critique d'un objet mixte). */
+/** Bonus fixe d'un objet mixte Vitesse / Recharge (`null` pour les autres). */
+export function flatBonus(item: Item): { stat: 'spePct' | 'cdrPct'; value: number } | null {
+  const t = template(item.templateId);
+  return t.flat ? { stat: t.flat, value: round1(FLAT_HYBRID_BASE[t.flat] * slowLvlMult(item.level) * rarityMult(item)) } : null;
+}
+
+/** Stats exclues des secondaires d'un objet : sa stat principale (et le bonus fixe d'un objet mixte). */
 function mainStats(t: ItemTemplate): BonusStat[] {
-  return t.bonusCrit ? [t.main, 'critPct'] : [t.main];
+  return t.bonusCrit ? [t.main, 'critPct'] : t.flat ? [t.main, t.flat] : [t.main];
 }
 
 /**
@@ -282,7 +375,7 @@ function rollSub(rng: Rng, level: number, exclude: BonusStat[]): { stat: BonusSt
   const pool = SUB_POOL.filter((s) => !exclude.includes(s));
   const stat = pool[rng.int(pool.length)];
   const roll = 0.7 + rng.int(31) / 100; // 70–100 %
-  return { stat, value: round1(SUB_BASE[stat] * lvlMult(level) * roll) };
+  return { stat, value: round1(SUB_BASE[stat] * subLvlMult(stat, level) * roll) };
 }
 
 let seq = 0;
@@ -379,14 +472,34 @@ export function biomeTier(biome: number, t: ItemTemplate): number {
   const start = REGIONS[ri].start;
   const size = (REGIONS[ri + 1]?.start ?? BIOMES.length) - start;
   const pos = size > 1 ? (biome - start) / (size - 1) : 0;
-  const target = (START_SCORE[t.slot] ?? t.base * STAT_WEIGHT[t.main]) * (1 + REGION_SLOPE * pos);
+  // objet mixte Vitesse / Recharge : sa stat principale ne porte qu'une part de sa valeur (le reste : bonus fixe)
+  const target = (START_SCORE[t.slot] ?? t.base * STAT_WEIGHT[t.main]) * (1 + REGION_SLOPE * pos) * (t.flat ? HYBRID_MAIN_SHARE : 1);
   return Math.round((target / (t.base * STAT_WEIGHT[t.main])) * 1000) / 1000;
 }
 
-/** Éclats obtenus en recyclant. */
-export function recycleValue(item: Item): number {
+/** Part du coût d'un niveau d'amélioration que vaut au moins un objet recyclé (`recycleBase`). */
+export const RECYCLE_UPGRADE_SHARE = 0.1;
+/** Part des éclats dépensés en améliorations manuelles (`Item.invested`) rendue au recyclage. */
+export const RECYCLE_REFUND_SHARE = 0.5;
+
+/**
+ * Valeur de recyclage de l'objet lui-même : la plus grande entre l'ancienne formule (rareté et niveau) et 10 % du coût
+ * d'un niveau d'amélioration (2026-10-01 : un Chromatique Nv.200 rendait 298 éclats, à peine 4 % d'une amélioration ;
+ * aujourd'hui 700). Début de partie inchangé : l'ancienne formule y reste la plus grande.
+ */
+export function recycleBase(item: Item): number {
   const r = item.rarity + 1 + plusOf(item);
-  return 2 * r * r + item.level;
+  return Math.max(2 * r * r + item.level, Math.round(upgradeCost(item) * RECYCLE_UPGRADE_SHARE));
+}
+
+/** Éclats rendus au recyclage pour les améliorations faites à la main : 50 % de `Item.invested`. */
+export function recycleRefund(item: Item): number {
+  return Math.floor((item.invested ?? 0) * RECYCLE_REFUND_SHARE);
+}
+
+/** Éclats obtenus en recyclant : valeur de l'objet + remboursement des améliorations manuelles. */
+export function recycleValue(item: Item): number {
+  return recycleBase(item) + recycleRefund(item);
 }
 
 /** Coût en éclats pour monter l'objet d'un niveau. */
@@ -399,8 +512,8 @@ export function upgradeCost(item: Item): number {
 export const MAX_ITEM_LEVEL = 100;
 
 export function upgrade(item: Item): Item {
-  const scale = lvlMult(item.level + 1) / lvlMult(item.level);
-  return { ...item, level: item.level + 1, subs: item.subs.map((s) => ({ ...s, value: round1(s.value * scale) })) };
+  const scale = (stat: BonusStat) => subLvlMult(stat, item.level + 1) / subLvlMult(stat, item.level);
+  return { ...item, level: item.level + 1, subs: item.subs.map((s) => ({ ...s, value: round1(s.value * scale(s.stat)) })) };
 }
 
 export function rerollCost(item: Item): number {
@@ -411,7 +524,7 @@ export function rerollSub(item: Item, index: number, rng: Rng): Item {
   const t = template(item.templateId);
   const others = item.subs.filter((_, i) => i !== index).map((s) => s.stat);
   const subs = item.subs.slice();
-  subs[index] = rollSub(rng, item.level, [t.main, ...others]);
+  subs[index] = rollSub(rng, item.level, [...mainStats(t), ...others]);
   return { ...item, subs };
 }
 
@@ -435,34 +548,46 @@ export function fuse(items: Item[], rng: Rng, endgame = false): Item {
   const subScale = ascend ? (1 + PLUS_SUB_STEP * plus) / (1 + PLUS_SUB_STEP * (plus - 1)) : 1;
   const level = Math.max(...items.map((i) => i.level));
   const t = template(items[0].templateId);
-  // garde les meilleurs bonus existants, complète jusqu'au nombre de la rareté
+  // garde les meilleurs bonus existants (par valeur mesurée, `subScore`, pas par la taille du chiffre), complète
+  // jusqu'au nombre de la rareté
   const best = new Map<BonusStat, number>();
   for (const it of items) for (const s of it.subs) best.set(s.stat, Math.max(best.get(s.stat) ?? 0, s.value));
-  const subs = [...best.entries()].sort((a, b) => b[1] - a[1]).slice(0, RARITY_SUBS[rarity])
+  const subs = [...best.entries()].sort((a, b) => subScore(b[0], b[1], level) - subScore(a[0], a[1], level)).slice(0, RARITY_SUBS[rarity])
     .map(([stat, value]) => ({ stat, value: round1(value * subScale) }));
   while (subs.length < RARITY_SUBS[rarity]) subs.push(rollSub(rng, level, [...mainStats(t), ...subs.map((s) => s.stat)]));
   const tier = Math.max(...items.map((i) => i.tier ?? 1));
   const out: Item = { uid: newUid('i'), templateId: t.id, rarity, level, subs };
   if (tier !== 1) out.tier = tier;
   if (plus) out.plus = plus;
+  // les éclats investis dans les 3 objets suivent l'objet obtenu (remboursés à moitié s'il est recyclé un jour)
+  const invested = items.reduce((a, i) => a + (i.invested ?? 0), 0);
+  if (invested > 0) out.invested = invested;
+  // un objet verrouillé 🔒 fusionné (depuis sa fiche) transmet son cadenas : avant le 2026-10-01, le résultat le perdait
+  if (items.some((i) => i.locked)) out.locked = true;
   return out;
 }
 
 /** Ajoute les bonus d'objets tenus (stat principale, secondaires, panoplie). */
 export function addItemBonuses(b: BattleBonuses, held: Item[]) {
   const setCount: Record<string, number> = {};
+  const setLevel: Record<string, number> = {};
   for (const it of held) {
     const t = template(it.templateId);
     if (t.base > 0) b[t.main] += mainValue(it);
     b.critPct += bonusCritValue(it);
+    const flat = flatBonus(it);
+    if (flat) b[flat.stat] += flat.value;
     for (const s of it.subs) b[s.stat] += s.value;
-    if (t.set) setCount[t.set] = (setCount[t.set] ?? 0) + 1;
+    if (t.set) {
+      setCount[t.set] = (setCount[t.set] ?? 0) + 1;
+      setLevel[t.set] = Math.min(setLevel[t.set] ?? Infinity, it.level); // la pièce la plus basse fixe le bonus
+    }
   }
   for (const [id, n] of Object.entries(setCount)) {
     const set = SETS[id];
     if (!set) continue;
-    if (n >= 2) b[set.two.stat] += set.two.value;
-    if (n >= 3) b[set.three.stat] += set.three.value;
+    if (n >= 2) b[set.two.stat] += setBonusValue(id, 'two', setLevel[id]);
+    if (n >= 3) b[set.three.stat] += setBonusValue(id, 'three', setLevel[id]);
   }
 }
 
@@ -473,15 +598,16 @@ export function addItemBonuses(b: BattleBonuses, held: Item[]) {
  * `combatValue` (modèle multiplicatif où Critique et Dégâts critiques se renforcent).
  */
 export const STAT_WEIGHT: Record<NumericBonusStat, number> = {
-  atkPct: 1, defPct: 1.05, hpPct: 1.06, spePct: 0.14, critPct: 0.54, critDmgPct: 0.3, typeDmgPct: 0.64, cdrPct: 0.3,
+  // Vitesse et Recharge : mesurées à nouveau le 2026-10-01 (cadence, Recharge sans plafond), à faible dose
+  atkPct: 1, defPct: 1.05, hpPct: 1.06, spePct: 0.9, critPct: 0.54, critDmgPct: 0.3, typeDmgPct: 0.64, cdrPct: 0.37,
   lifestealPct: 0.73, dodgePct: 1.34,
 };
 
 /**
  * Valeur de combat d'un ensemble de bonus, en « % d'Attaque équivalent » (modèle multiplicatif calé sur les mesures
  * 3 contre 3). Critique et Dégâts critiques y sont liés : le gain d'un critique = chance × (0,5 + dégâts critiques),
- * donc des Dégâts critiques ne valent presque rien sans Critique, et beaucoup avec. La Recharge est plafonnée à 40 %
- * comme en combat, et la Vitesse a un rendement décroissant.
+ * donc des Dégâts critiques ne valent presque rien sans Critique, et beaucoup avec. Recharge et Vitesse (cadence) :
+ * sans plafond, à rendement décroissant, comme en combat.
  */
 export function combatValue(b: BattleBonuses): number {
   const crit = Math.min(1, (6 + b.critPct) / 100);
@@ -492,9 +618,10 @@ export function combatValue(b: BattleBonuses): number {
     * (1 + (0.64 * b.typeDmgPct) / 100)
     * Math.pow(1 / (1 - dodge), 1.1)
     * (1 + (0.73 * Math.min(50, b.lifestealPct)) / 100)
-    * (1 + (0.3 * Math.min(40, b.cdrPct)) / 100)
-    // Vitesse à rendement décroissant (mesuré : +20 % ≈ 2,8, +100 % ≈ 10,5, +300 % ≈ 20 « % d'Attaque »)
-    * (1 + (13 * Math.log(1 + Math.max(0, b.spePct) / 80)) / 100);
+    // Recharge et Vitesse (cadence) sans plafond, à rendement décroissant, calées le 2026-10-01
+    // (`tools/scratch/calib_speed.ts` : +15 % de Vitesse ≈ +13 % d'Attaque, +30 de Recharge ≈ +11 %, en moyenne)
+    * (1 + (40 * Math.log(1 + Math.max(0, b.cdrPct) / 100)) / 100)
+    * (1 + (250 * Math.log(1 + Math.max(0, b.spePct) / 350)) / 100);
   return (f - 1) * 100;
 }
 

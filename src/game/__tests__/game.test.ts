@@ -1,16 +1,18 @@
 import { BIOMES, REGION_START, REGIONS, STAGES_PER_ZONE, regionLastBiome } from '../content';
 import { ALL_SPECIES, EVOLUTION_CHOICES, evolutionTargets, species } from '../data';
 import {
-  GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, applyMegaCandy, craftMegaCandy, lineBase, arenaAvailable, assignExploration, assignPension, autoCaptureBall, autoEquipBest, bestStarsOf, biomeAvailable, bossAvailable,
+  GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, applyMegaCandy, craftMegaCandy, lineBase, arenaAvailable, assignExploration, assignPension, autoCaptureBall, autoEquipBest, towerRetryFloor, bestEquipCombo, measuredEquipValue, maxBattleSpeed, monPower, equipGain, quickEquipValue, allyFighter, setMoves, bestStarsOf, biomeAvailable, bossAvailable,
   lineChain, equipValue, towerLootTemplates, towerSpecies, towerStart, enterTower, towerRewardPlus, claimTowerReward, TOWER_LEVEL, setRecycleCandidates, endgameUnlocked, fusableRarity, itemLevelCap, upgradeItem, hasShinyCharm, shinyCharmToAnnounce, shinyOdds, BOOSTS, BOOST_MS, UNIVERSAL_MEGA_PRICE, boostActive, boostCoverage, buyBoost, buyUniversalMega, endingReady, autoTalents, canCompleteDex, whereToFind, canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
   harvestExploration, harvestPension, holder, isRareInZone, makeMon, addMon, makeWaves, migrateSave, monsBelowStars, monsNotShiny, newGame, pickSpecies, rankUpTalent, recycle, release, releaseBelowStars, SHARDS_PER_MIN,
   releaseExcess, releaseNotShiny, remainingEvolutions, removePension, selectStage, setAutoAdvance, START_BALLS, startPrestige,
   CAPTURE_PITY, RELEASE_CANDIES, applyMegaCandy as applyMega, lineForms, BALL_PRICE, buyBalls, autoMoves, captureTarget, setTeam, toggleLock, challengesReady, postponePrestige, idleFarmTarget, isTargeted, toggleTarget, zoneHasTarget, teamMaxLevel, tryCapture, unequipBox, xpGapMult,
+  removeExploration, feedCandy,
 } from '../game';
 import { SETS, TEMPLATES, makeItem, statText, mainValue, rarityName, recycleValue } from '../items';
-import { emptyBonuses } from '../model';
+import { Item, emptyBonuses } from '../model';
+import { cadence, kitContext, kitRate } from '../optimize';
 import { Rng, seededRng } from '../rng';
-import { spentPoints, talentPoints } from '../talents';
+import { eligibleAffinityTypes, spentPoints, talentPoints, talentTree } from '../talents';
 import { combatPower, finalStats, monStars, xpForLevel } from '../stats';
 
 const H = 3600_000;
@@ -129,17 +131,54 @@ describe('réglage « Avancer dans les étapes » (étape fixée)', () => {
   });
 });
 
-test('capacités « Équiper le meilleur » : même kit qu’une capture au même niveau, puis plus rien à changer', () => {
+test('capacités « ★ Auto » : kit au moins aussi fort que celui d’une capture (modèle des recharges), puis plus rien à changer', () => {
   const s = newGame();
   chooseStarter(s, 4, seededRng(1));
   const uid = s.team[0];
   giveXp(s.mons[uid], 30 * 40 * 40); // Nv.40 : beaucoup de capacités apprises depuis la capture
   s.mons[uid].moves = [s.mons[uid].moves[0]];
   expect(autoMoves(s, uid)).toBe(true);
-  const expected = makeMon(4, s.mons[uid].level, seededRng(2)).moves;
-  expect(s.mons[uid].moves).toEqual(expected);
-  expect(s.mons[uid].moves.length).toBe(4);
+  const mon = s.mons[uid];
+  expect(mon.moves.length).toBe(4);
+  const f = allyFighter(s, uid);
+  const ctx = kitContext(species(mon.speciesId).types, f.bonuses!);
+  const cdf = cadence(f.stats.spe, f.bonuses!);
+  const capture = makeMon(4, mon.level, seededRng(2)).moves;
+  expect(kitRate(mon.moves, cdf, ctx)).toBeGreaterThanOrEqual(kitRate(capture, cdf, ctx));
   expect(autoMoves(s, uid)).toBe(false); // déjà au mieux
+});
+
+test('talents « Auto » : les Affinités vont au type qui porte les dégâts, jamais à celui d’une capacité de statut', () => {
+  const s = newGame();
+  const m = makeMon(131, 100, seededRng(3), false, 15); // Lokhlass : Berceuse (Normal, statut) + Glaciation, Hydrocanon, Plaquage
+  addMon(s, m);
+  setMoves(s, m.uid, [47, 329, 56, 34]);
+  autoTalents(s, m.uid);
+  expect(m.talentTypeChoices.affinity1).not.toBe('normal');
+  expect(m.talentTypeChoices.affinity1).toBe(m.talentTypeChoices.affinity2);
+  expect(['ice', 'water']).toContain(m.talentTypeChoices.affinity1);
+});
+
+test('talents : les descriptions arrondissent les pourcentages (4,7 × 3 = 14,1, pas 14.100000000000001)', () => {
+  const tree = talentTree(['water']);
+  const spec2 = tree.find((t) => t.id === 'spec2')!;
+  expect(spec2.describe(spec2.perRank * 3)).toBe('Dégâts de son type +14.1 %');
+});
+
+test('autoEquipBest : choisit l’un des trois candidats (duel, ancien calcul ou valeurs mesurées), de façon déterministe', () => {
+  const s = newGame();
+  chooseStarter(s, 4, seededRng(1));
+  const uid = s.team[0];
+  giveXp(s.mons[uid], 30 * 50 * 50);
+  const rng = seededRng(9);
+  for (const t of towerLootTemplates().slice(0, 18)) { const it = makeItem(t.id, 4, 50, rng); s.items[it.uid] = it; }
+  const ids = (c: (Item | undefined)[]) => c.map((it) => it?.uid);
+  const candidates = [ids(bestEquipCombo(s, uid, equipValue)), ids(bestEquipCombo(s, uid, quickEquipValue)), ids(bestEquipCombo(s, uid, measuredEquipValue))];
+  autoEquipBest(s, uid);
+  const worn = (['offense', 'defense', 'berry'] as const).map((sl) => s.mons[uid].items[sl]);
+  expect(candidates).toContainEqual(worn);
+  const again = JSON.parse(JSON.stringify(s));
+  expect(autoEquipBest(again, uid)).toBe(0); // même résultat au 2e appui
 });
 
 test('prestige reporté (« Plus tard ») : reste disponible, et le récap de la région suivante s’affichera à nouveau', () => {
@@ -791,8 +830,7 @@ test('autoEquipBest : privilégie une panoplie complète si son total (objets + 
     s.items[it.uid] = it;
   }
 
-  autoEquipBest(s, lone.uid);
-  const wornSets = Object.values(lone.items).map((u) => TEMPLATES.find((t) => t.id === s.items[u!].templateId)?.set);
+  const wornSets = bestEquipCombo(s, lone.uid, quickEquipValue).map((it) => TEMPLATES.find((t) => t.id === it!.templateId)?.set);
   expect(wornSets).toEqual(['sylve', 'sylve', 'sylve']);
 });
 
@@ -1190,7 +1228,7 @@ test('pension : XP passive plafonnée à 8 h, jamais un membre de l’équipe', 
   expect(s.mons[extra.uid].xp).toBe(before + 8 * rate);
   expect(harvestPension(s, rate, 24 * H).gains).toHaveLength(0); // rien de plus juste après
   expect(assignPension(s, extra.uid, rate, 0)).toBe(true); // déjà en pension : no-op, pas d'erreur
-  expect(removePension(s, extra.uid) === undefined).toBe(true);
+  expect(removePension(s, extra.uid, 24 * H)).toBe(0); // XP déjà récoltée : rien de plus à encaisser
   expect(s.pension.length).toBe(0);
 });
 
@@ -1387,8 +1425,8 @@ test('chargement : le Pokédex ne garde que les espèces de la région en cours 
   expect((johto.dex as GameState['dex']).seen).toEqual([200]);
 });
 
-test('libellé des objets : la Recharge s\'affiche en réduction', () => {
-  expect(statText('cdrPct', 30)).toBe('Recharge −30 %');
+test('libellé des objets : la Recharge s\'affiche en bonus (plus de réduction plafonnée depuis le 2026-10-01)', () => {
+  expect(statText('cdrPct', 30)).toBe('Recharge +30 %');
   expect(statText('atkPct', 12)).toBe('Attaque +12 %');
 });
 
@@ -1621,8 +1659,7 @@ test('Équiper le meilleur : trouve la meilleure combinaison (comparée à une r
     const of = (slot: string) => items.filter((it) => TEMPLATES.find((t) => t.id === it.templateId)!.slot === slot);
     let brute = -Infinity;
     for (const o of of('offense')) for (const d of of('defense')) for (const b of of('berry')) brute = Math.max(brute, equipValue(s, uid, [o, d, b]));
-    autoEquipBest(s, uid);
-    const worn = Object.values(s.mons[uid].items).map((u) => s.items[u]);
+    const worn = bestEquipCombo(s, uid, equipValue).filter((it): it is NonNullable<typeof it> => !!it);
     expect(worn).toHaveLength(3);
     expect(equipValue(s, uid, worn)).toBeCloseTo(brute, 6);
   }
@@ -1635,4 +1672,154 @@ test('Tour : butin limité aux panoplies de Sinnoh (moins d\'objets différents,
   expect(pool).toHaveLength(45);
   expect(sets.has('champion')).toBe(true);
   expect(sets.has('prairie')).toBe(false); // panoplie de Hoenn seulement
+});
+
+test('vitesse de combat : ×2 dès le 1er badge, ×3 dès le 4e, retour à ×1 après un Nouveau départ', () => {
+  const s = newGame();
+  expect(maxBattleSpeed(s)).toBe(1);
+  s.badges = 1;
+  expect(maxBattleSpeed(s)).toBe(2);
+  s.badges = 3;
+  expect(maxBattleSpeed(s)).toBe(2);
+  s.badges = 4;
+  expect(maxBattleSpeed(s)).toBe(3);
+  s.badges = 8;
+  expect(maxBattleSpeed(s)).toBe(3);
+  s.badges = 0; // ce que fait startPrestige
+  expect(maxBattleSpeed(s)).toBe(1);
+});
+
+test('PC affichés (monPower) : ne bougent pas quand on change d’équipe ou de pension, montent avec un méga bonbon', () => {
+  const s = newGame();
+  chooseStarter(s, 4, seededRng(1));
+  const a = makeMon(6, 50, seededRng(2)); addMon(s, a);
+  const b = makeMon(149, 50, seededRng(3)); addMon(s, b); // Dracolosse : aura Dragon (Attaque) pour l'équipe
+  const c = makeMon(130, 50, seededRng(4)); addMon(s, c);
+  const before = monPower(s, a.uid);
+  setTeam(s, [a.uid]);
+  expect(monPower(s, a.uid)).toBe(before);
+  expect(assignPension(s, b.uid, 100, 0)).toBe(true);
+  expect(monPower(s, a.uid)).toBe(before);
+  setTeam(s, [a.uid, c.uid]);
+  expect(monPower(s, a.uid)).toBe(before);
+  s.universalMega = 1;
+  a.genes.atk = Math.min(a.genes.atk, 14);
+  const low = monPower(s, a.uid);
+  applyMegaCandy(s, a.uid, 'atk');
+  expect(monPower(s, a.uid)).toBeGreaterThanOrEqual(low);
+});
+
+test('flèches du sélecteur d’objets : après « Équiper le meilleur », plus aucun objet libre n’est marqué meilleur', () => {
+  for (const seed of [1, 2, 3, 4, 5, 6]) {
+    const s = newGame();
+    chooseStarter(s, [4, 7, 1, 25, 133, 147][seed - 1], seededRng(seed));
+    const uid = s.team[0];
+    giveXp(s.mons[uid], 30 * 60 * 60);
+    const rng = seededRng(seed * 11);
+    for (const t of towerLootTemplates()) { const it = makeItem(t.id, rng.int(7), 40 + rng.int(40), rng); s.items[it.uid] = it; }
+    autoEquipBest(s, uid);
+    for (const it of Object.values(s.items)) expect(equipGain(s, uid, it)).toBeLessThanOrEqual(0.05);
+  }
+});
+
+test('sauvegarde d’avant le 2026-10-01 : sous-stats Vitesse / Recharge converties une seule fois, les autres intactes', () => {
+  const s = newGame();
+  const it = makeItem('griffe-sylve', 6, 100, seededRng(1));
+  it.subs = [{ stat: 'spePct', value: 17.1 * (1 + 0.08 * 99) }, { stat: 'cdrPct', value: 10 * (1 + 0.08 * 99) * 0.7 }, { stat: 'atkPct', value: 20 }];
+  s.items[it.uid] = it;
+  const raw = JSON.parse(JSON.stringify({ ...s, balanceVersion: 2 }));
+  const out = migrateSave(raw) as unknown as GameState;
+  const subs = out.items[it.uid].subs;
+  expect(subs[0].value).toBeLessThan(30); // ~+130 % → ~+21 %
+  expect(subs[0].value).toBeGreaterThan(subs[1].value / 17 * 7); // jet max contre jet à 70 %
+  expect(subs[2].value).toBe(20);
+  expect(out.balanceVersion).toBe(3);
+  const again = migrateSave(JSON.parse(JSON.stringify(out))) as unknown as GameState;
+  expect(again.items[it.uid].subs[0].value).toBe(subs[0].value); // pas de double conversion
+});
+
+test('pension et exploration : retirer un Pokémon encaisse d’abord ce qu’il a accumulé (2026-10-01)', () => {
+  const s = newGame();
+  chooseStarter(s, 4, seededRng(1));
+  const a = makeMon(1, 10, seededRng(2)); addMon(s, a);
+  const b = makeMon(7, 10, seededRng(3)); addMon(s, b);
+  const c = makeMon(16, 10, seededRng(4)); addMon(s, c);
+  setTeam(s, [s.team[0]]);
+  const t0 = 1_000_000;
+  expect(assignPension(s, a.uid, 600, t0)).toBe(true);
+  expect(assignExploration(s, b.uid, t0)).toBe(true);
+  const xpBefore = a.xp;
+  expect(removePension(s, a.uid, t0 + 3600_000)).toBe(600); // 1 h à 600 XP/h
+  expect(a.xp).toBe(xpBefore + 600);
+  const shardsBefore = s.shards;
+  expect(removeExploration(s, b.uid, t0 + 10 * 60_000)).toBe(10 * SHARDS_PER_MIN);
+  expect(s.shards).toBe(shardsBefore + 10 * SHARDS_PER_MIN);
+  // mise en équipe depuis la pension : XP encaissée aussi
+  expect(assignPension(s, c.uid, 300, t0)).toBe(true);
+  const cXp = c.xp;
+  setTeam(s, [...s.team, c.uid]);
+  expect(c.xp).toBeGreaterThan(cXp);
+  expect(s.pension.some((p) => p.uid === c.uid)).toBe(false);
+});
+
+test('évolution qui change le type principal : talents ET Affinités remis à zéro (Évoli → Givrali)', () => {
+  const s = newGame();
+  s.prestige = 3;
+  const ev = makeMon(133, 60, seededRng(1)); addMon(s, ev);
+  autoTalents(s, ev.uid);
+  expect(ev.talentTypeChoices.affinity1).toBeDefined();
+  evolve(s, ev.uid, 471);
+  expect(ev.talents).toEqual({});
+  expect(ev.talentTypeChoices).toEqual({});
+  autoTalents(s, ev.uid);
+  // de nouveau choisi (pour le kit de Givrali), parmi ses types éligibles, et les points dépensés
+  expect(eligibleAffinityTypes(471)).toContain(ev.talentTypeChoices.affinity1);
+  expect(ev.talents.affinity1 ?? 0).toBeGreaterThan(0);
+});
+
+test('bonbon : refusé au niveau maximum (il était consommé pour rien)', () => {
+  const s = newGame();
+  const m = makeMon(25, 100, seededRng(2)); addMon(s, m);
+  s.candies[lineBase(25)] = 5;
+  expect(feedCandy(s, m.uid)).toBeNull();
+  expect(s.candies[lineBase(25)]).toBe(5);
+});
+
+test('Tour, combat continu : une défaite fait reprendre au début du palier (ou du précédent sur son 1er étage), sinon sortie', () => {
+  expect(towerRetryFloor(48)).toBe(41);
+  expect(towerRetryFloor(50)).toBe(41);
+  expect(towerRetryFloor(51)).toBe(41); // 1er étage du palier : un palier plus bas
+  expect(towerRetryFloor(5)).toBe(1);
+  expect(towerRetryFloor(1)).toBe(1);
+  for (const auto of [true, false]) {
+    const s = newGame();
+    chooseStarter(s, 4, seededRng(1));
+    s.towerAuto = auto;
+    s.towerFloor = 48;
+    const run = new StageRun(s, 'tower', seededRng(2));
+    run.battle.result = 'lose';
+    run.finishWave();
+    expect(s.towerFloor).toBe(auto ? 41 : null);
+  }
+});
+
+test('Tour : coffre de palier au premier passage seulement ; rejouer le palier rapporte éclats et Chromatique, pas de coffre', () => {
+  const s = endgameState();
+  chooseStarter(s, 387, seededRng(1));
+  s.towerBest = 120; // palier 120 déjà franchi
+  s.towerFloor = 120;
+  const shards = s.shards;
+  const run = new StageRun(s, 'tower', seededRng(2));
+  run.battle.result = 'win';
+  const r = run.finishWave()!;
+  expect(r.towerReward).toBeUndefined();
+  expect(s.towerRewards).toHaveLength(0);
+  expect(r.loot).toHaveLength(1);
+  expect(s.shards).toBeGreaterThan(shards);
+  // nouveau record sur un palier : le coffre tombe
+  s.towerFloor = 130;
+  const next = new StageRun(s, 'tower', seededRng(3));
+  next.battle.result = 'win';
+  expect(next.finishWave()!.towerReward?.floor).toBe(130);
+  expect(s.towerRewards).toHaveLength(1);
 });

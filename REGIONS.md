@@ -7,7 +7,8 @@ Quatre régions sont codées : Kanto (biomes 0-9), Johto (10-19), Hoenn (20-31),
   espèce du Pokédex cumulé). Aides : `regionOf(prestige)`, `regionLastBiome(prestige)`, `REGION_START`.
 - `GameState.prestige` = index de la région en cours. Le **prestige** (`canPrestige`/`startPrestige` dans `game.ts`)
   se débloque avec le Champion de la région + le Pokédex cumulé complet : équipe, boîte, objets, badges, Pokédex
-  repartent à zéro (Balls de départ `START_BALLS`, compteur de temps `startedAt` remis à zéro) ; les bonbons, la
+  repartent à zéro (Balls de départ `START_BALLS`, compteur de temps `startedAt` remis à zéro, bonus de la boutique
+  perdus, vitesse de combat ramenée à ×1 jusqu'au 1er badge) ; les bonbons, méga bonbons (de lignée et universels), la
   progression de zone des régions précédentes et les totaux sont conservés.
 - **Régions autonomes** : après un prestige on ne revient pas en arrière, donc tout le Pokédex jusqu'à `dexMax` doit
   être obtenable dans les seuls biomes de la région (capture ou évolution). Test de couverture par région dans
@@ -30,7 +31,9 @@ Quatre régions sont codées : Kanto (biomes 0-9), Johto (10-19), Hoenn (20-31),
 - **Évolutions à choix** : `EVOLUTION_CHOICES` (`data.ts`), filtrées par `dexMax`. Les formes alternatives n'ont pas à
   être placées en sauvage (le test de couverture les accepte via l'évolution).
 - **Panoplies** : `BIOME_SET` (`items.ts`) associe chaque biome des régions 3+ à une panoplie existante ;
-  `biomeTier()` recale la puissance sur la région (1er biome = Kanto 1, dernier ≈ +60 %).
+  `biomeTier()` recale la puissance sur la région (1er biome = Kanto 1, dernier ≈ +60 %). Les bonus de panoplie
+  grimpent avec le niveau des pièces (`setBonusValue`) ; la Carte affiche la panoplie de chaque biome (accordéon).
+  La Tour de Combat (fin de jeu) fait tomber les panoplies de la dernière région (`towerLootTemplates`).
 - **Difficulté** : `DIFFICULTY.end[région]` (`game.ts`), voir `CLAUDE.md`.
 
 ## Répartition des sauvages (Johto, Hoenn, Sinnoh — 2026-09-29)

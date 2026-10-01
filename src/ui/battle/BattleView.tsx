@@ -169,7 +169,7 @@ export function BattleView({ width }: { width: number }) {
           }]}>{fl.text}</Text>
         );
       })}
-      {runner.banner && runner.clock < runner.banner.until && (
+      {runner.banner && runner.realClock < runner.banner.until && (
         <View pointerEvents="none" style={styles.bannerWrap}>
           <Text style={[styles.banner, { borderColor: runner.banner.color }]}>{runner.banner.text}</Text>
         </View>

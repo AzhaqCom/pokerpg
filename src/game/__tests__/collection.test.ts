@@ -59,3 +59,16 @@ describe('collection « boîte complète »', () => {
     expect(p.normal).toBe(3); // Salamèche, Roucool, Rattata
   });
 });
+
+test('objectif « boîte » : garde le meilleur en gènes, même plus bas niveau (même règle que « Nettoyer les doublons »)', () => {
+  // Tauros : sans évolution, aucun exemplaire n'est gardé comme matière d'évolution
+  const s = newGame();
+  chooseStarter(s, 4, seededRng(1));
+  const good = makeMon(128, 10, seededRng(2)); good.genes = { hp: 15, atk: 15, def: 14, spe: 15 }; // 59/60, 3★
+  const meh = makeMon(128, 40, seededRng(3)); meh.genes = { hp: 12, atk: 12, def: 12, spe: 12 }; // 48/60, 3★, plus haut niveau
+  addMon(s, good); addMon(s, meh);
+  s.team = [s.team[0]];
+  const excess = boxExcess(s, 'box');
+  expect(excess.map((m) => m.uid)).toContain(meh.uid);
+  expect(excess.map((m) => m.uid)).not.toContain(good.uid);
+});

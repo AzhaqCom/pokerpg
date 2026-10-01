@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../components/Text';
 import { BIOMES, BiomeDef, REGIONS, REGION_START, STAGES_PER_ZONE, ZoneDef } from '../../game/content';
 import { species } from '../../game/data';
+import { SETS, TEMPLATES, setBonusText, setOfBiome } from '../../game/items';
 import { GameState, arenaAvailable, biomeAvailable, bossAvailable, canPrestige, endgameUnlocked, selectStage, startPrestige, zoneHasTarget } from '../../game/game';
 import { useGame } from '../../store/game';
 import { Button } from '../components/Button';
@@ -15,6 +16,7 @@ import { runner } from '../battle/runner';
 import { C } from '../theme';
 import { ZoneDex, zoneSpecies } from '../ZoneDex';
 import { TowerSection } from '../TowerSection';
+import { SLOT_ICON, templateStatText } from '../components/ItemCard';
 
 /** Valeur de `sel` pour l'onglet de la Tour de Combat (les biomes sont numérotés à partir de 0). */
 const TOWER_TAB = -1;
@@ -36,8 +38,15 @@ export function MapPanel() {
   const bi = sel >= regionStart && sel < regionEnd ? sel : s.biome;
   const showTower = endgame && sel === TOWER_TAB;
   const tab = showTower ? TOWER_TAB : bi;
-  // suit le biome en cours : après une victoire d'arène, la Carte affiche directement le nouveau biome
-  useEffect(() => { setSel(s.biome); }, [s.biome]);
+  // suit le biome en cours : après une victoire d'arène, la Carte affiche directement le nouveau biome. Seulement sur un
+  // vrai changement de biome, et jamais pendant un combat dans la Tour : avant le 2026-10-01, cet effet tournait aussi à
+  // l'ouverture de la Carte et remplaçait l'onglet de la Tour par le biome (Boutique → Carte en pleine Tour).
+  const lastBiome = useRef(s.biome);
+  useEffect(() => {
+    if (lastBiome.current === s.biome) return;
+    lastBiome.current = s.biome;
+    if (s.towerFloor === null) setSel(s.biome);
+  }, [s.biome, s.towerFloor]);
   // la barre des biomes défile jusqu'à l'onglet affiché (sinon il peut être hors de l'écran, à droite)
   const tabsRef = useRef<ScrollView>(null);
   const tabX = useRef<Record<number, number>>({});
@@ -121,6 +130,38 @@ function ZoneMon({ id, s, col }: { id: number; s: GameState; col: ReturnType<typ
   );
 }
 
+/** Panoplie dont tombent les objets du biome (sauvages et boss) et ses bonus : le joueur sait quoi farmer où. */
+function BiomeSetCard({ bi }: { bi: number }) {
+  // accordéon : une ligne fermée (pas de place perdue au-dessus des zones), le détail au toucher
+  const [open, setOpen] = useState(false);
+  const key = setOfBiome(bi);
+  const set = key ? SETS[key] : undefined;
+  if (!key || !set) return null;
+  const zones = BIOMES[bi].zones;
+  const lvl = zones[zones.length - 1].maxLv;
+  const order = { offense: 0, defense: 1, berry: 2 };
+  const pieces = TEMPLATES.filter((t) => t.set === key).sort((a, b) => order[a.slot] - order[b.slot]);
+  return (
+    <Pressable onPress={() => { feedback(); setOpen((v) => !v); }} style={[styles.zone, styles.setCard]}>
+      <View style={styles.row}>
+        <Text style={[styles.zoneName, { flex: 1 }]}>🎒 Panoplie : {set.name}</Text>
+        <Text style={styles.sub}>{open ? '▾' : '▸'}</Text>
+      </View>
+      {open && (
+        <>
+          {pieces.map((p) => (
+            <Text key={p.id} style={styles.sub}>{SLOT_ICON[p.slot]} {p.name} — <Text style={styles.setStat}>{templateStatText(p)}</Text></Text>
+          ))}
+          {/* bonus au niveau des objets du biome (ils grimpent avec le niveau de la pièce la plus basse portée) */}
+          <Text style={styles.setBonus}>2 pièces : {setBonusText(key, 'two', lvl)}</Text>
+          <Text style={styles.setBonus}>3 pièces : {setBonusText(key, 'three', lvl)}</Text>
+          <Text style={styles.sub}>Valeurs pour des objets Nv.{lvl} : les bonus grimpent avec le niveau des pièces (la plus basse compte).</Text>
+        </>
+      )}
+    </Pressable>
+  );
+}
+
 function BiomeSection({ biome, bi, s, act, onOpenZone }: {
   biome: BiomeDef; bi: number; s: GameState; act: <T>(fn: (g: GameState) => T) => T | undefined;
   onOpenZone: (z: ZoneDef) => void;
@@ -128,6 +169,7 @@ function BiomeSection({ biome, bi, s, act, onOpenZone }: {
   const col = collectionState(s);
   return (
     <View style={{ gap: 10 }}>
+      <BiomeSetCard key={bi} bi={bi} />
       {biome.zones.map((z, zi) => {
         const zoneUnlocked = s.unlocked[bi][zi] ?? 0;
         const locked = zoneUnlocked < 1;
@@ -196,6 +238,9 @@ const styles = StyleSheet.create({
   tabTxt: { color: C.sub, fontWeight: '700', fontSize: 13 },
   tabTxtOn: { color: C.text },
   zone: { backgroundColor: C.panel, borderRadius: 14, padding: 12, gap: 8 },
+  setCard: { gap: 3, borderWidth: 1, borderColor: '#ffb30055' },
+  setBonus: { color: '#ffcc80', fontSize: 12, fontWeight: '700' },
+  setStat: { color: C.text, fontWeight: '700' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   zoneName: { color: C.text, fontWeight: '800', fontSize: 15 },
   sub: { color: C.sub, fontSize: 12 },

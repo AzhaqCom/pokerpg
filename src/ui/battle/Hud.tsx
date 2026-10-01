@@ -3,7 +3,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-na
 import { Text } from '../components/Text';
 import { BIOMES, STAGES_PER_ZONE, regionLastBiome, regionOf } from '../../game/content';
 import { species } from '../../game/data';
-import { BOOST_KINDS, BOOSTS, addMon, boostRemaining, equip, makeMon, setAutoAdvance, setTeam, toggleTarget } from '../../game/game';
+import { BOOST_KINDS, BOOSTS, addMon, boostRemaining, equip, makeMon, maxBattleSpeed, setAutoAdvance, setTeam, toggleTarget } from '../../game/game';
 import { makeItem } from '../../game/items';
 import { MAX_RARITY, RARITIES, RARITY_COLOR } from '../../game/model';
 import { rng, useGame } from '../../store/game';
@@ -41,6 +41,8 @@ export function HudTop() {
     : run?.kind === 'arena' ? `${biome.arena.name}` : run?.kind === 'boss' ? `${zone.name} · Boss` : `${zone.name} · Étape ${s.stage}/${STAGES_PER_ZONE}`;
   const wave = run?.kind === 'tower' ? `Record : étage ${s.towerBest}` : run ? `Vague ${run.waveIndex + 1}/${run.waves.length}` : '';
   const boosts = BOOST_KINDS.filter((k) => boostRemaining(s, k) > 0);
+  const maxSpeed = maxBattleSpeed(s);
+  const speed = Math.min(settings.speed, maxSpeed);
   return (
     <View>
       <View style={styles.top}>
@@ -48,9 +50,10 @@ export function HudTop() {
           <Text style={styles.zone} numberOfLines={1}>{label}</Text>
           <Text style={styles.wave}>{wave}</Text>
         </View>
-        {s.badges > 0 && (
-          <Pressable onPress={() => settings.set({ fast: !settings.fast })} style={[styles.speed, settings.fast && styles.speedOn]}>
-            <Text style={styles.speedTxt}>×{settings.fast ? 2 : 1}</Text>
+        {maxSpeed > 1 && (
+          // ×1 → ×2 → ×3 (si débloquée) → ×1
+          <Pressable onPress={() => settings.set({ speed: speed >= maxSpeed ? 1 : ((speed + 1) as 2 | 3) })} style={[styles.speed, speed > 1 && styles.speedOn]}>
+            <Text style={styles.speedTxt}>×{speed}</Text>
           </Pressable>
         )}
         <Pressable onPress={() => setOpen(true)} hitSlop={10}><Text style={styles.gear}>⚙</Text></Pressable>
@@ -137,6 +140,7 @@ function SettingsModal({ open, onClose }: { open: boolean; onClose: () => void }
             {st.collectionGoal !== 'box' && st.collectionGoal !== 'boxShiny' && (
               <Row label="Collectionneur hardcore" value={st.keepEvolutionMaterial} onChange={(v) => st.set({ keepEvolutionMaterial: v })} />
             )}
+            <Row label="Masquer « Ne garder que 3★+ »" value={st.hideStarsOnlyButton} onChange={(v) => st.set({ hideStarsOnlyButton: v })} />
             <Row label="Masquer « Ne garder que les chromatiques »" value={st.hideShinyOnlyButton} onChange={(v) => st.set({ hideShinyOnlyButton: v })} />
             <View style={{ gap: 6 }}>
               <Text style={styles.setLabel}>Recycler : jusqu'à</Text>

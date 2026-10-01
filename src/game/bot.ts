@@ -79,7 +79,7 @@ function manage(s: GameState, rng: Rng, threat: PType[] = []) {
   // fusions
   for (let g = fusionCandidates(s); g.length; g = fusionCandidates(s)) fuseItems(s, g[0].map((i) => i.uid), rng);
   // le bouton « Équiper le meilleur » pour chaque membre (équipement évalué pour ce Pokémon, panoplies comprises)
-  for (const uid of s.team) autoEquipBest(s, uid);
+  for (const uid of s.team) autoEquipBest(s, uid, 'quick');
   // recyclage : garde les objets portés et 2 exemplaires de chaque (fusion future)
   const keep = new Set<string>();
   for (const m of Object.values(s.mons)) for (const it of heldItems(s, m)) keep.add(it.uid);

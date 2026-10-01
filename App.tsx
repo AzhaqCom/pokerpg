@@ -2,7 +2,7 @@ import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { loadAsync } from 'expo-font';
 import { useKeepAwake } from 'expo-keep-awake';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AppState, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { FONT, Text } from './src/ui/components/Text';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,6 +24,7 @@ import { runner } from './src/ui/battle/runner';
 import { MonSheet } from './src/ui/MonSheet';
 import { StarterScreen } from './src/ui/StarterScreen';
 import { Toasts } from './src/ui/components/Toasts';
+import { Dialog } from './src/ui/components/Dialog';
 import { BagPanel } from './src/ui/panels/BagPanel';
 import { DexPanel } from './src/ui/panels/DexPanel';
 import { ExplorationPanel } from './src/ui/panels/ExplorationPanel';
@@ -65,7 +66,12 @@ function checkIdle(onGains: (g: IdleGains) => void) {
   if (gains) { runner.restart(); runner.paused = true; onGains(gains); }
 }
 
-function useBoot(onIdleGains: (g: IdleGains) => void) {
+/**
+ * `holdPause` : une fenêtre qui met le combat en pause est ouverte (résumé hors ligne, Charme Chroma, récap de fin de
+ * région, écran de fin). Au retour au premier plan, la pause est alors gardée — avant le 2026-10-01, revenir dans l'appli
+ * relançait le combat derrière la fenêtre.
+ */
+function useBoot(onIdleGains: (g: IdleGains) => void, holdPause: { current: boolean }) {
   useEffect(() => {
     (async () => {
       try {
@@ -82,7 +88,7 @@ function useBoot(onIdleGains: (g: IdleGains) => void) {
     const unsubMusic = useSettings.subscribe((st) => setMusicEnabled(st.music));
     let wasActive = true;
     const sub = AppState.addEventListener('change', (st) => {
-      runner.paused = st !== 'active';
+      runner.paused = st !== 'active' || holdPause.current;
       if (st === 'active') {
         if (!wasActive) checkIdle(onIdleGains);
       } else if (wasActive) {
@@ -165,7 +171,8 @@ function useGameFont(): boolean {
 function Root() {
   const fontReady = useGameFont();
   const [idleGains, setIdleGains] = useState<IdleGains | null>(null);
-  useBoot(setIdleGains);
+  const holdPause = useRef(false);
+  useBoot(setIdleGains, holdPause);
   const insets = useSafeAreaInsets();
   const s = useGame((g) => g.s);
   useGame((g) => g.rev);
@@ -182,6 +189,10 @@ function Root() {
   // fin de l'aventure (Champion de la dernière région) : écran « Maître Pokémon », combat en pause le temps de le lire
   const ending = !!s && s.starterChosen && !charm && endingReady(s);
   useEffect(() => { if (ending) runner.paused = true; }, [ending]);
+  holdPause.current = !!idleGains || charm || offerPrestige || ending;
+  // problème de sauvegarde (illisible, mise de côté, écriture refusée, trop volumineuse) : toujours signalé
+  const saveIssue = useGame((g) => g.saveIssue);
+  const clearSaveIssue = useGame((g) => g.clearSaveIssue);
   return (
     <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <StatusBar style="light" />
@@ -191,6 +202,8 @@ function Root() {
       {offerPrestige && <PrestigeOffer onClose={() => {}} />}
       {ending && <EndingScreen />}
       {charm && <ShinyCharmScreen />}
+      <Dialog spec={saveIssue ? { title: '⚠ Sauvegarde', message: saveIssue, primary: { label: 'Compris', onPress: () => {} } } : null}
+        onClose={clearSaveIssue} />
     </View>
   );
 }

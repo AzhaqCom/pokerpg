@@ -77,7 +77,11 @@ export function ExplorationPanel() {
               <Text style={styles.sub}>{full ? 'Plein : récolte !' : `+${readyShards} éclats prêts · plein dans ${fmt(PENSION_CAP_MS - elapsed)}`}</Text>
               <Text style={styles.aura}>Aura : {auras.map((a) => `${a.label} +${a.value} %`).join(' · ')}</Text>
             </View>
-            <Button small label="Retirer" onPress={() => act((g) => removeExploration(g, p.uid))} />
+            <Button small label="Retirer" onPress={() => {
+              // les éclats prêts sont encaissés avant le retrait (voir `removeExploration`)
+              const shards = act((g) => removeExploration(g, p.uid)) ?? 0;
+              if (shards > 0) toast(`+${shards} 💎 rapportés par ${monName(m)}`, '#69f0ae');
+            }} />
           </View>
         );
       })}

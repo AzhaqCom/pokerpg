@@ -100,7 +100,11 @@ export function PensionPanel() {
               <View style={styles.xpTrack}><View style={[styles.xpFill, { width: `${xpProgress(m) * 100}%` }]} /></View>
               <Text style={styles.sub}>{full ? 'Plein : récolte !' : `+${xp} XP prête (${Math.round(p.xpPerHour)}/h) · plein dans ${fmt(PENSION_CAP_MS - elapsed)}`}</Text>
             </View>
-            <Button small label="Retirer" onPress={() => act((g) => removePension(g, p.uid))} />
+            <Button small label="Retirer" onPress={() => {
+              // l'XP accumulée est donnée avant le retrait (voir `removePension`)
+              const xp = act((g) => removePension(g, p.uid)) ?? 0;
+              if (xp > 0) toast(`${monName(m)} récupère +${xp} XP`, '#69f0ae');
+            }} />
           </View>
         );
       })}

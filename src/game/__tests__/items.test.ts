@@ -1,7 +1,8 @@
-import { BIOME_SET, CRIT_BY_RARITY, SETS, bonusCritValue, combatValue, TEMPLATES, addItemBonuses, canFuse, fuse, itemScore, makeItem, mainValue, recycleValue, rollLoot, setOfBiome, template, upgrade } from '../items';
+import { BIOME_SET, CRIT_BY_RARITY, SETS, bonusCritValue, combatValue, TEMPLATES, addItemBonuses, canFuse, convertFlatSub, flatBonus, recycleRefund, upgradeCost, SUB_WORTH, setBonusText, subRollRef, subScore, subTier, fuse, itemScore, makeItem, mainValue, recycleValue, rollLoot, setOfBiome, template, upgrade } from '../items';
 import { critOverflow, emptyBonuses } from '../model';
 import { seededRng } from '../rng';
 import { newGame, upgradeItem } from '../game';
+import { ACTION_LOCK, actionLock, cdFactor } from '../battle';
 
 const rng = seededRng(7);
 
@@ -95,15 +96,20 @@ describe('valeur de combat des équipements (poids mesurés)', () => {
     expect(sansCrit).toBeLessThan(2);
     expect(avecCrit).toBeGreaterThan(sansCrit * 5);
   });
-  test('ordre des stats conforme aux mesures : Attaque ≈ Défense ≈ PV > Critique > Recharge > Vitesse', () => {
-    const v = (k: string) => combatValue(b({ [k]: 20 }));
+  test('ordre des stats conforme aux mesures : Attaque ≈ Défense ≈ PV, Vitesse forte à faible dose, Recharge plus faible', () => {
+    const v = (k: string, x = 20) => combatValue(b({ [k]: x }));
     expect(Math.abs(v('atkPct') - v('defPct'))).toBeLessThan(2);
     expect(v('atkPct')).toBeGreaterThan(v('critPct'));
-    expect(v('critPct')).toBeGreaterThan(v('cdrPct'));
-    expect(v('cdrPct')).toBeGreaterThan(v('spePct'));
+    expect(v('spePct', 15)).toBeGreaterThan(v('cdrPct', 15));
+    expect(v('spePct', 15)).toBeLessThan(v('atkPct', 15) * 1.5);
   });
-  test('Recharge plafonnée à 40 % comme en combat', () => {
-    expect(combatValue(b({ cdrPct: 60 }))).toBeCloseTo(combatValue(b({ cdrPct: 40 })), 5);
+  test('Vitesse et Recharge : sans plafond, mais à rendement décroissant (2026-10-01)', () => {
+    for (const k of ['spePct', 'cdrPct']) {
+      const at = (x: number) => combatValue(b({ [k]: x }));
+      expect(at(60)).toBeGreaterThan(at(40));
+      expect(at(200)).toBeGreaterThan(at(100));
+      expect(at(40) - at(20)).toBeGreaterThan(at(220) - at(200));
+    }
   });
 });
 
@@ -155,4 +161,103 @@ test('amélioration plafonnée au niveau 100', () => {
   expect(s.items[it.uid].level).toBe(100);
   expect(upgradeItem(s, it.uid)).toBe(false);
   expect(s.items[it.uid].level).toBe(100);
+});
+
+describe('Vitesse = cadence, Recharge sans plafond (2026-10-01)', () => {
+  test('cdFactor : Recharge à rendement décroissant, sans plafond ; actionLock : les bonus de Vitesse raccourcissent l’action', () => {
+    expect(cdFactor(0, 100)).toBeCloseTo(0.5, 6);
+    expect(cdFactor(0, 300)).toBeCloseTo(0.25, 6); // plus de plafond à 40 %
+    expect(cdFactor(100, 0)).toBeCloseTo(0.5, 6);
+    expect(actionLock(0)).toBeCloseTo(ACTION_LOCK, 6); // sauvages : aucun bonus, cadence inchangée
+    expect(actionLock(100)).toBeCloseTo(ACTION_LOCK / 2, 6);
+    expect(actionLock(-50)).toBeCloseTo(ACTION_LOCK, 6);
+  });
+  test('objets mixtes : stat principale réduite + bonus de Vitesse / Recharge qui grimpe lentement, exclu des secondaires', () => {
+    for (const [id, stat] of [['nageoire-maree', 'spePct'], ['semelle-circuit', 'spePct'], ['plume-ciel', 'spePct'], ['voile-oeil', 'cdrPct'], ['voile-brume', 'cdrPct']] as const) {
+      const low = makeItem(id, 4, 10, seededRng(1));
+      const high = makeItem(id, 4, 100, seededRng(1));
+      expect(flatBonus(low)!.stat).toBe(stat);
+      expect(flatBonus(high)!.value).toBeGreaterThan(flatBonus(low)!.value);
+      expect(flatBonus(high)!.value / flatBonus(low)!.value).toBeLessThan(mainValue(high) / mainValue(low)); // plus lent
+      for (let seed = 0; seed < 20; seed++) expect(makeItem(id, 6, 50, seededRng(seed)).subs.some((s) => s.stat === stat)).toBe(false);
+      const b = emptyBonuses();
+      addItemBonuses(b, [{ ...high, subs: [] }]);
+      expect(b[stat]).toBe(flatBonus(high)!.value);
+    }
+  });
+  test('sous-stats Vitesse / Recharge : croissance lente avec le niveau ; anciennes valeurs converties en gardant la qualité du jet', () => {
+    const lv = (stat: string, level: number) => {
+      for (let seed = 0; seed < 400; seed++) { const s = makeItem('griffe-sylve', 6, level, seededRng(seed)).subs.find((x) => x.stat === stat); if (s) return s.value; }
+      return NaN;
+    };
+    expect(lv('spePct', 120)).toBeLessThan(30); // avant : ~+130 %
+    expect(convertFlatSub('spePct', 17.1 * (1 + 0.08 * 119), 120)).toBeCloseTo(convertFlatSub('spePct', 1e9, 120), 6); // jet max → jet max
+    expect(convertFlatSub('cdrPct', 7 * (1 + 0.08 * 49), 50)).toBeLessThan(convertFlatSub('cdrPct', 10 * (1 + 0.08 * 49), 50));
+    expect(convertFlatSub('atkPct', 12.3, 50)).toBe(12.3); // les autres sous-stats ne bougent pas
+  });
+});
+
+describe('valeurs mesurées des sous-stats (2026-10-01)', () => {
+  test('fusion : garde les sous-stats qui valent le plus, pas les plus gros chiffres', () => {
+    const mk = (subs: { stat: any; value: number }[]) => ({ ...makeItem('griffe-sylve', 4, 100, seededRng(1)), subs });
+    const lvl = 1 + 0.08 * 99;
+    // Dégâts critiques : gros chiffre mais jet moyen ; PV : petit chiffre mais jet moyen d'une stat qui vaut plus
+    const a = mk([{ stat: 'critDmgPct', value: 10 * lvl * 0.85 }, { stat: 'critPct', value: 5.6 * lvl * 0.85 }]);
+    const b = mk([{ stat: 'hpPct', value: 2.6 * lvl * 0.85 }, { stat: 'cdrPct', value: 30 }]);
+    const c = mk([{ stat: 'spePct', value: 7 * Math.sqrt(lvl) * 0.85 }]);
+    const out = fuse([a, b, c], seededRng(2));
+    expect(out.subs.map((s) => s.stat).sort()).toEqual(['critDmgPct', 'hpPct', 'spePct']); // pas la Critique ni la Recharge
+  });
+  test('couleurs : vert ≥ 10 (PV, Vitesse, Attaque), jaune ≥ 8 (Dégâts de son type), gris sinon', () => {
+    expect(['hpPct', 'spePct', 'atkPct'].map((k) => subTier(k as any))).toEqual(['top', 'top', 'top']);
+    expect(subTier('typeDmgPct')).toBe('good');
+    expect(['critDmgPct', 'defPct', 'critPct', 'cdrPct'].every((k) => subTier(k as any) === 'low')).toBe(true);
+    expect(subScore('hpPct', 2 * subRollRef('hpPct', 50), 50)).toBeCloseTo(2 * SUB_WORTH.hpPct, 6);
+  });
+});
+
+test('bonus de panoplie : grimpent avec le niveau de la pièce la plus basse, jamais sous la valeur fixe d’avant (2026-10-01)', () => {
+  const at = (level: number, lowest = level) => {
+    const b = emptyBonuses();
+    addItemBonuses(b, [{ ...makeItem('griffe-sylve', 0, lowest, rng), subs: [] }, { ...makeItem('cape-sylve', 0, level, rng), subs: [] }]);
+    return b.atkPct - mainValue(makeItem('griffe-sylve', 0, lowest, rng));
+  };
+  expect(at(1)).toBe(8); // plancher
+  expect(at(100)).toBeGreaterThan(20);
+  expect(at(200)).toBeGreaterThan(at(100));
+  expect(at(200, 10)).toBeLessThan(at(200)); // une vieille pièce basse bride le bonus
+  expect(setBonusText('sylve', 'two', 100)).toMatch(/^Attaque \+[\d.]+ %$/);
+});
+
+describe('recyclage revalorisé et remboursement des améliorations (2026-10-01)', () => {
+  const at = (rarity: number, level: number, plus = 0) => ({ ...makeItem('griffe-sylve', rarity, level, rng), ...(plus ? { plus } : {}) });
+  test('valeur : la plus grande entre l’ancienne formule et 10 % d’un niveau d’amélioration (début de partie inchangé)', () => {
+    expect(recycleValue(at(0, 20))).toBe(22);
+    expect(recycleValue(at(3, 50))).toBe(100);
+    expect(recycleValue(at(6, 200))).toBe(700);
+    expect(recycleValue(at(6, 400, 4))).toBe(2200);
+  });
+  test('améliorer à la main : 50 % des éclats rendus au recyclage, jamais plus que dépensé ; la fusion additionne', () => {
+    const s = newGame();
+    const it = at(6, 80); // sous le niveau maximum (100) d'une partie sans fin de jeu
+    s.items[it.uid] = it;
+    s.shards = 1e9;
+    const before = recycleValue(it);
+    let spent = 0;
+    for (let i = 0; i < 10; i++) { const c = upgradeCost(s.items[it.uid]); expect(upgradeItem(s, it.uid)).toBe(true); spent += c; }
+    const up = s.items[it.uid];
+    expect(up.invested).toBe(spent);
+    expect(recycleRefund(up)).toBe(Math.floor(spent / 2));
+    expect(recycleValue(up) - before).toBeLessThan(spent); // améliorer pour recycler fait toujours perdre
+    const mates = [1, 2].map(() => ({ ...at(6, 80), invested: 1000 }));
+    const out = fuse([up, ...mates], seededRng(3), true); // Chromatique → +1 : fin de jeu
+    expect(out.invested).toBe(spent + 2000);
+  });
+});
+
+test('fusion : le cadenas d’un objet verrouillé est conservé sur le résultat', () => {
+  const items = [1, 2, 3].map((i) => makeItem('griffe-sylve', 2, 20, seededRng(i)));
+  items[1].locked = true;
+  expect(fuse(items, seededRng(9)).locked).toBe(true);
+  expect(fuse([1, 2, 3].map((i) => makeItem('griffe-sylve', 2, 20, seededRng(i))), seededRng(9)).locked).toBeUndefined();
 });

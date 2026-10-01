@@ -9,7 +9,7 @@ import { BIOMES, REGION_START } from '../../game/content';
 import { move, species } from '../../game/data';
 import {
   BETWEEN_WAVES_MS, CaptureOffer, GameState, StageKind, StageRun, WaveRewards, arenaAvailable, autoCaptureBall, bestStarsOf, bossAvailable,
-  canPrestige, captureTarget, exitTower, isTargeted, touchLastActive, tryCapture,
+  canPrestige, captureTarget, exitTower, isTargeted, maxBattleSpeed, SPEED_UNLOCKS, touchLastActive, tryCapture,
 } from '../../game/game';
 import { RARITIES, RARITY_COLOR } from '../../game/model';
 import { template } from '../../game/items';
@@ -41,8 +41,10 @@ function wantedByGoal(s: GameState, speciesId: number, goal: CollectionGoal): bo
 
 class Runner {
   run: StageRun | null = null;
-  /** horloge d'affichage du combat (ms), avance plus vite en ×2 */
+  /** horloge d'affichage du combat (ms), avance plus vite en ×2 / ×3 */
   clock = 0;
+  /** horloge en temps réel (ms), indépendante de la vitesse : bandeaux d'annonce */
+  realClock = 0;
   anims: Record<string, FighterAnim> = {};
   floaters: Floater[] = [];
   phase: 'fight' | 'between' | 'stageEnd' = 'fight';
@@ -111,7 +113,7 @@ class Runner {
   }
 
   private showBanner(text: string, color: string) {
-    this.banner = { text, color, until: this.clock + 2200 };
+    this.banner = { text, color, until: this.realClock + 2200 }; // temps réel : lisible même en ×3
   }
 
   private float(fighter: string, text: string, color: string, big = false) {
@@ -121,7 +123,9 @@ class Runner {
   /** Avance de dtMs (temps réel). */
   update(dtMs: number) {
     if (this.paused) return;
-    const speed = useSettings.getState().fast ? 2 : 1;
+    const s = useGame.getState().s;
+    const speed = s ? Math.min(useSettings.getState().speed, maxBattleSpeed(s)) : 1;
+    this.realClock += Math.min(100, dtMs);
     const dt = Math.min(100, dtMs) * speed;
     this.clock += dt;
     this.floaters = this.floaters.filter((f) => this.clock - f.t0 < 1000);
@@ -157,11 +161,14 @@ class Runner {
           // Champion d'une région, Pokédex complet : pause le temps du récap (voir App.tsx/PrestigeOffer), le
           // joueur choisit « Nouveau départ » ou « Plus tard ». Pokédex incomplet : pas de récap, on continue.
           if (REGION_START.includes(run.biome + 1)) { if (canPrestige(s) && !s.prestigeOffered) this.paused = true; }
-          else if (s.badges === 1) {
-            // 1er vrai badge de la partie : la vitesse ×2 n'a de sens qu'ici, on l'active d'office plutôt
-            // que de laisser le joueur découvrir un bouton caché dans le HUD.
-            useSettings.getState().set({ fast: true });
-            toast(`${BIOMES[run.biome].arena.badge} obtenu ! Vitesse ×2 débloquée et activée`, '#ffb300');
+          // seulement si l'arène donne vraiment un badge : une arène sans badge (Route des Marais…) laisse le total
+          // inchangé et relançait le déblocage, forçant ×3 même si le joueur avait baissé la vitesse
+          else if (BIOMES[run.biome].arena.grantsBadge !== false && SPEED_UNLOCKS.some(([badges]) => badges === s.badges)) {
+            // 1er badge de la région : ×2, 4e : ×3 (voir `maxBattleSpeed`) — activée d'office plutôt que de laisser
+            // le joueur découvrir un bouton caché dans le HUD.
+            const speed = maxBattleSpeed(s);
+            useSettings.getState().set({ speed });
+            toast(`${BIOMES[run.biome].arena.badge} obtenu ! Vitesse ×${speed} débloquée et activée`, '#ffb300');
           } else {
             toast(`${BIOMES[run.biome].arena.badge} obtenu !`, '#ffb300');
           }
@@ -169,7 +176,9 @@ class Runner {
       } else if (lost) {
         sfx('deny');
         toast(run.kind === 'stage' ? `Défaite… retour à ${BIOMES[s.biome].zones[s.zone].name} ${s.stage}`
-          : run.kind === 'tower' ? `🗼 Tour : arrêt à l'étage ${run.floor} (record : étage ${s.towerBest})`
+          : run.kind === 'tower' ? (s.towerFloor !== null
+            ? `🗼 Défaite à l'étage ${run.floor} : reprise à l'étage ${s.towerFloor}` // combat continu
+            : `🗼 Tour : arrêt à l'étage ${run.floor} (record : étage ${s.towerBest})`)
           : 'Défaite… entraîne-toi et réessaie', '#ff5252');
       }
       this.run = null;

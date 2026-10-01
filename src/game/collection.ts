@@ -14,9 +14,8 @@
  */
 import { regionOf } from './content';
 import { ALL_SPECIES, evolutionTargets, species } from './data';
-import { GameState, evolve } from './game';
+import { GameState, byQuality, evolve } from './game';
 import { Mon } from './model';
-import { monStars } from './stats';
 
 export type CollectionGoal = 'off' | 'dex' | 'box' | 'boxShiny';
 
@@ -102,9 +101,14 @@ export function boxProgress(s: GameState): { normal: number; shiny: number; tota
 const isPosted = (s: GameState, m: Mon) => s.team.includes(m.uid) || s.pension.some((p) => p.uid === m.uid) || s.exploration.some((p) => p.uid === m.uid);
 
 /** Exemplaires d'une espèce, dans l'ordre où on les garde : équipe/pension/exploration d'abord, puis étoiles, niveau. */
+/**
+ * Exemplaires d'une espèce, à garder d'abord : ceux en équipe/pension/exploration, puis le meilleur en gènes puis en PC
+ * (`byQuality`, même règle que « Nettoyer les doublons »). Avant le 2026-10-01 : étoiles puis niveau, qui pouvait garder
+ * un exemplaire moins bon en gènes (deux 3★ : le plus haut niveau restait, même à 48/60 contre 59/60).
+ */
 function ranked(s: GameState, id: number, shiny: boolean): Mon[] {
   return Object.values(s.mons).filter((m) => m.speciesId === id && m.shiny === shiny)
-    .sort((a, b) => Number(isPosted(s, b)) - Number(isPosted(s, a)) || monStars(b) - monStars(a) || b.level - a.level);
+    .sort((a, b) => Number(isPosted(s, b)) - Number(isPosted(s, a)) || byQuality(a, b));
 }
 
 /**

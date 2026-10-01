@@ -9,8 +9,9 @@ export interface Settings {
   /** musique de fond en boucle (indépendant des bruitages) */
   music: boolean;
   haptics: boolean;
-  /** vitesse de combat ×2 (débloquée au 1er badge) */
-  fast: boolean;
+  /** vitesse de combat choisie (×2 dès le 1er badge, ×3 dès le 4e badge de la région : plafonnée par
+   *  `maxBattleSpeed`, donc ×1 après un Nouveau départ tant qu'aucun badge n'est regagné) */
+  speed: 1 | 2 | 3;
   /** ancien réglage (capture auto des espèces jamais capturées) : remplacé par `collectionGoal`, lu une fois pour migrer */
   autoCapture: boolean;
   /** objectif de collection, qui pilote la capture automatique, le nettoyage des doublons et « Compléter » :
@@ -43,13 +44,15 @@ export interface Settings {
   keepAwake: boolean;
   /** masque le bouton « Ne garder que les chromatiques » de la boîte (évite un relâcher massif par erreur) */
   hideShinyOnlyButton: boolean;
+  /** masque le bouton « Ne garder que 3★+ » de la boîte (même raison) */
+  hideStarsOnlyButton: boolean;
 }
 
 const DEFAULTS: Settings = {
-  sound: true, music: true, haptics: true, fast: false,
+  sound: true, music: true, haptics: true, speed: 1,
   autoCapture: false, autoCaptureBestBall: false, autoCaptureUpgrade: false, hideOwnedOffers: false,
   recycleMaxRarity: 1, idleAutoRecycle: true, idleRecycleMaxRarity: 1, skipOwnedShiny: false,
-  keepEvolutionMaterial: true, convertTargets: true, keepAwake: false, hideShinyOnlyButton: false, collectionGoal: 'off',
+  keepEvolutionMaterial: true, convertTargets: true, keepAwake: false, hideShinyOnlyButton: false, hideStarsOnlyButton: false, collectionGoal: 'off',
 };
 
 interface Store extends Settings {
@@ -65,20 +68,23 @@ export const useSettings = create<Store>((set, get) => ({
       const saved = raw ? JSON.parse(raw) : {};
       // migration : l'ancienne capture auto des espèces manquantes devient l'objectif « Pokédex »
       if (!saved.collectionGoal) saved.collectionGoal = saved.autoCapture ? 'dex' : 'off';
+      // migration : l'ancien interrupteur ×2 (`fast`) devient la vitesse choisie
+      if (saved.speed === undefined) saved.speed = saved.fast ? 2 : 1;
+      delete saved.fast;
       set({ ...DEFAULTS, ...saved });
     } catch { /* défauts */ }
   },
   set: (patch) => {
     set(patch);
     const {
-      sound, music, haptics, fast, autoCapture, autoCaptureBestBall, autoCaptureUpgrade, hideOwnedOffers,
+      sound, music, haptics, speed, autoCapture, autoCaptureBestBall, autoCaptureUpgrade, hideOwnedOffers,
       recycleMaxRarity, idleAutoRecycle, idleRecycleMaxRarity, skipOwnedShiny, keepEvolutionMaterial, convertTargets, keepAwake,
-      hideShinyOnlyButton, collectionGoal,
+      hideShinyOnlyButton, hideStarsOnlyButton, collectionGoal,
     } = { ...get(), ...patch };
     AsyncStorage.setItem(KEY, JSON.stringify({
-      sound, music, haptics, fast, autoCapture, autoCaptureBestBall, autoCaptureUpgrade, hideOwnedOffers,
+      sound, music, haptics, speed, autoCapture, autoCaptureBestBall, autoCaptureUpgrade, hideOwnedOffers,
       recycleMaxRarity, idleAutoRecycle, idleRecycleMaxRarity, skipOwnedShiny, keepEvolutionMaterial, convertTargets, keepAwake,
-      hideShinyOnlyButton, collectionGoal,
+      hideShinyOnlyButton, hideStarsOnlyButton, collectionGoal,
     })).catch(() => {});
   },
 }));

@@ -101,13 +101,13 @@ export function talentTree(types: PType[]): TalentDef[] {
   const sp3: Specialty = secondary ? SPECIALTY[secondary]
     : sp2.stat === 'critPct' ? { name: 'Frappe précise', stat: 'critDmgPct', perRank: 6, describe: (v) => `Dégâts critiques +${v} %` } : sp2;
   const typeLabel = types.map((t) => TYPE_NAME[t]).join(' et ');
-  return [
+  const defs: TalentDef[] = [
     { id: 'power', name: `Puissance ${TYPE_NAME[primary]}`, tier: 0, stat: 'typeDmgPct', perRank: 6, maxRank: MAX_RANK, describe: pct(`Dégâts ${typeLabel}`) },
     { id: 'vigor', name: 'Vigueur', tier: 0, stat: 'hpPct', perRank: 4, maxRank: MAX_RANK, describe: pct('PV') },
     { id: 'guard', name: 'Garde', tier: 1, stat: 'defPct', perRank: 4, maxRank: MAX_RANK, describe: pct('Défense') },
     { id: 'reflex', name: 'Réflexes', tier: 1, stat: 'dodgePct', perRank: 3, maxRank: MAX_RANK, describe: (v) => `${v} % d'esquive` },
     { id: 'spec', name: sp.name, tier: 2, stat: sp.stat, perRank: sp.perRank, maxRank: MAX_RANK, describe: sp.describe },
-    { id: 'mastery', name: 'Maîtrise', tier: 2, stat: 'cdrPct', perRank: 8, maxRank: MAX_RANK, describe: (v) => `Recharge −${v} %` },
+    { id: 'mastery', name: 'Maîtrise', tier: 2, stat: 'cdrPct', perRank: 8, maxRank: MAX_RANK, describe: (v) => `Recharge +${v} %` },
     { id: 'affinity1', name: 'Affinité I', tier: 3, stat: 'typeDmgPct', perRank: 3, maxRank: AFFINITY_MAX_RANK, describe: pct('Dégâts du type choisi'), chooseType: true },
     { id: 'affinity2', name: 'Affinité II', tier: 4, stat: 'typeDmgPct', perRank: 3, maxRank: AFFINITY_MAX_RANK, describe: pct('Dégâts du type choisi'), chooseType: true },
     { id: 'spec2', name: sp2.name, tier: 5, stat: sp2.stat, perRank: sp2.perRank, maxRank: TIER2_MAX_RANK, describe: sp2.describe },
@@ -115,6 +115,13 @@ export function talentTree(types: PType[]): TalentDef[] {
     { id: 'fury', name: 'Fureur', tier: 7, stat: 'atkPct', perRank: 2, maxRank: TIER2_MAX_RANK, describe: pct('Attaque') },
     { id: 'deadly', name: 'Précision mortelle', tier: 8, stat: 'critPct', perRank: 3.5, maxRank: TIER2_MAX_RANK, describe: pct('Critique') },
   ];
+  // rang × valeur par rang en virgule flottante : 4,7 × 3 affichait « 14.100000000000001 % »
+  return defs.map((d) => ({ ...d, describe: (v: number) => d.describe(roundPct(v)) }));
+}
+
+/** Arrondi d'affichage d'un pourcentage de talent (2 décimales au plus, sans zéros inutiles). */
+export function roundPct(v: number): number {
+  return Math.round(v * 100) / 100;
 }
 
 /**

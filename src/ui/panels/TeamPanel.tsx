@@ -93,6 +93,7 @@ export function TeamPanel() {
   const cellWidth = (width - SCREEN_PADDING - BOX_GAP * (BOX_COLS - 1)) / BOX_COLS;
   const keepEvolutionMaterial = useSettings((st) => st.keepEvolutionMaterial);
   const hideShinyOnlyButton = useSettings((st) => st.hideShinyOnlyButton);
+  const hideStarsOnlyButton = useSettings((st) => st.hideStarsOnlyButton);
   // objectif « boîte » : doublons et « Compléter » suivent le calcul de collection (matière d'évolution comprise)
   const sig = boxSignature(s);
   const { xpSet, excess, belowStars, notShiny, dexCompletable, progress } = useMemo(() => ({
@@ -114,7 +115,7 @@ export function TeamPanel() {
   const boxEquippedCount = Object.values(s.mons)
     .filter((m) => !s.team.includes(m.uid))
     .reduce((a, m) => a + Object.keys(m.items).length, 0);
-  const hasActions = dexCompletable || excess.length > 0 || boxEquippedCount > 0 || belowStars.length > 0 || (notShiny.length > 0 && !hideShinyOnlyButton);
+  const hasActions = dexCompletable || excess.length > 0 || boxEquippedCount > 0 || (belowStars.length > 0 && !hideStarsOnlyButton) || (notShiny.length > 0 && !hideShinyOnlyButton);
 
   return (
     <>
@@ -214,7 +215,7 @@ export function TeamPanel() {
                   if (n) { feedback(); toast(`${n} objet${n > 1 ? 's' : ''} retiré${n > 1 ? 's' : ''}, de retour dans le sac`, '#69f0ae'); }
                 }} />
               )}
-              {belowStars.length > 0 && (
+              {belowStars.length > 0 && !hideStarsOnlyButton && (
                 <Button small label={`Ne garder que 3★+ (−${belowStars.length})`} color="#5d4037" onPress={() => {
                   const candies = belowStars.length * 3;
                   setCleanup({
@@ -231,7 +232,7 @@ export function TeamPanel() {
                 }} />
               )}
               {notShiny.length > 0 && !hideShinyOnlyButton && (
-                <Button small label={`Ne garder que les Shiney (−${notShiny.length})`} color="#6a1b9a" onPress={() => {
+                <Button small label={`Ne garder que les chromatiques (−${notShiny.length})`} color="#6a1b9a" onPress={() => {
                   const candies = notShiny.length * 3;
                   setCleanup({
                     title: 'Relâcher tous les Pokémon non chromatiques de la boîte ?',

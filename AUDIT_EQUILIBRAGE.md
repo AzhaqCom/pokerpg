@@ -1,5 +1,16 @@
 # Audit d'équilibrage des Pokémon (2026-09-24)
 
+> **Mis à jour le 2026-10-01 — ce qui a changé depuis cet audit** (détail dans `CLAUDE.md`) :
+> - **Vitesse et Recharge** : la Vitesse raccourcit le temps entre deux actions, la Recharge n'a plus de plafond. Leurs
+>   poids (0,14 et 0,30 ci-dessous) ne valent plus : nouveaux calages dans `tools/scratch/calib_speed.ts`
+>   (`STAT_WEIGHT`, `combatValue`).
+> - **Valeur des sous-stats en fin de jeu** (Tour, `SUB_WORTH`) : PV 11,5 · Vitesse 11,1 · Attaque 10,2 · Type 8,8 ·
+>   Dégâts critiques 7,4 · Défense 6,5 · Critique 4,1 · Recharge 1,2 (points de victoire par jet moyen).
+> - **Kits** : le bouton « ★ Auto » choisit le kit au plus de dégâts par seconde (`bestMoves`, `optimize.ts`) ; le
+>   « kit joueur » ci-dessous n'est plus celui de l'Auto.
+> - **Propositions** en bas de page : 1 à 6 appliquées ; 7 (formule de recharge) toujours ouverte, voir `IDEES.md`.
+> - Les mesures du tournoi et la valeur relative des talents restent la référence.
+
 Méthode : tournoi 1 contre 1 entre toutes les formes finales avec le vrai moteur (`tools/scratch/duels.ts`, non versionné),
 Nv.100, gènes parfaits, sans objets ni talents, chaque paire jouée dans les deux sens (~70 000 à 83 000 combats par
 passe). Deux kits : « par défaut » (4 dernières capacités apprises, celui des captures) et « joueur » (meilleures

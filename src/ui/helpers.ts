@@ -1,7 +1,6 @@
 import { species, TYPE_NAME, PType } from '../game/data';
-import { GameState, allyFighter } from '../game/game';
+import { GameState, allyFighter, monPower } from '../game/game';
 import { Mon } from '../game/model';
-import { combatPower } from '../game/stats';
 import { xpForLevel } from '../game/stats';
 import { AURA } from '../game/talents';
 
@@ -34,7 +33,7 @@ export const cpColor = (cp: number) => (CP_TIERS.find(([min]) => cp >= min) ?? C
 
 export function monStats(s: GameState, uid: string) {
   const f = allyFighter(s, uid);
-  return { ...f.stats, cp: combatPower(f.stats), bonuses: f.bonuses };
+  return { ...f.stats, cp: monPower(s, uid), bonuses: f.bonuses };
 }
 
 export function xpProgress(m: Mon) {

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { Text } from './components/Text';
 import {
-  GameState, TOWER_IDLE_ITEM_EVERY, claimTowerReward, enterTower, exitTower, setTowerIdle, setTowerIdlePick, towerIdleFloor,
+  GameState, TOWER_IDLE_ITEM_EVERY, claimTowerReward, enterTower, exitTower, setTowerAuto, setTowerIdle, setTowerIdlePick, towerIdleFloor,
   towerRewardPlus, towerShards, towerStart, towerWildMult,
 } from '../game/game';
 import { SETS, TEMPLATES, rarityName, template } from '../game/items';
@@ -34,7 +34,8 @@ export function TowerSection() {
   const inTower = s.towerFloor !== null;
   const start = towerStart(s);
   const floor = s.towerFloor ?? start; // étage en cours, ou celui de la prochaine entrée
-  const nextChest = Math.ceil(floor / 10) * 10;
+  // coffre de palier : seulement au premier passage, donc le 1er palier au-delà du record
+  const nextChest = (Math.floor(s.towerBest / 10) + 1) * 10;
   return (
     <View style={{ gap: 10 }}>
       <View style={styles.card}>
@@ -45,7 +46,7 @@ export function TowerSection() {
         <Text style={styles.sub}>
           Étages infinis contre 3 Pokémon Nv.100 aux gènes parfaits, de plus en plus forts. Chaque étage donne un Chromatique
           d'une panoplie de Sinnoh : fusionne les identiques pour monter en +N. Une défaite te ramène à ta zone, sans
-          pénalité ; tu reprends ensuite au dernier palier de 10.
+          pénalité (sauf en combat continu) ; tu reprends ensuite au dernier palier de 10.
         </Text>
         {inTower ? (
           <Button label={`Quitter la Tour (étage ${s.towerFloor} en cours)`} onPress={() => { act(exitTower); runner.restart(); feedback(); }} />
@@ -59,7 +60,19 @@ export function TowerSection() {
         <Text style={styles.line}>⚔ Adversaires : PV et Attaque ×{Math.round(towerWildMult(floor))}</Text>
         <Text style={styles.line}>💎 {towerShards(floor)} éclats et 1 <ChromaLabel plus={0} /> Nv.{100 + floor} (panoplies de Sinnoh)</Text>
         <Text style={styles.line}>
-          🎁 Étage {nextChest} : <ChromaLabel plus={towerRewardPlus(nextChest)} /> de l'objet de ton choix
+          🎁 Étage {nextChest} (1er passage) : <ChromaLabel plus={towerRewardPlus(nextChest)} /> de l'objet de ton choix
+        </Text>
+      </View>
+
+      <View style={styles.card}>
+        <View style={styles.row}>
+          <Text style={[styles.name, { flex: 1 }]}>🔁 Combat continu</Text>
+          <Switch value={s.towerAuto} onValueChange={(v) => { act((g) => setTowerAuto(g, v)); feedback(); }} />
+        </View>
+        <Text style={styles.sub}>
+          {s.towerAuto
+            ? 'Une défaite ne te fait plus sortir de la Tour : tu reprends au début du palier de 10 en cours (ou du précédent si tu tombes sur son 1er étage), et ton équipe continue à grimper.'
+            : 'Désactivé : une défaite te ramène à ta zone.'}
         </Text>
       </View>
 

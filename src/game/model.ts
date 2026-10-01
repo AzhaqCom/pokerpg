@@ -18,6 +18,9 @@ export interface Mon {
   talentTypeChoices: Record<string, PType>;
   /** objets tenus : emplacement → uid d'objet */
   items: Partial<Record<ItemSlot, string>>;
+  /** calcul de valeur retenu par le dernier « Équiper le meilleur » (départage par combats) ; les flèches du sélecteur
+   *  d'objets suivent le même, pour ne pas contredire le bouton. Absent = ancien calcul (`quickEquipValue`). */
+  equipModel?: 'duel' | 'quick' | 'measured';
   /** verrouillé 🔒 : jamais relâché ni utilisé par les nettoyages de boîte / « Compléter le Pokédex ».
    *  Posé d'office sur un 4★ (capture, méga bonbon, anciennes sauvegardes) ; absent = jamais décidé. */
   locked?: boolean;
@@ -59,6 +62,9 @@ export interface ItemTemplate {
   /** objet Critique « mixte » : en plus de sa stat principale (Dégâts critiques, qui grimpe avec le niveau), une
    *  chance de critique fixée par la rareté (`CRIT_BY_RARITY`), qui ne grimpe pas avec le niveau */
   bonusCrit?: boolean;
+  /** objet Vitesse ou Recharge « mixte » (2026-10-01) : stat principale réduite (Attaque, PV ou Défense, qui grimpe avec
+   *  le niveau) + un bonus fixe de Vitesse ou de Recharge selon la rareté (`FLAT_BY_RARITY`), qui ne grimpe pas */
+  flat?: 'spePct' | 'cdrPct';
 }
 
 export interface Item {
@@ -72,6 +78,9 @@ export interface Item {
   tier?: number;
   /** Chromatique +N (fin de jeu, après le dernier Champion) : 3 Chromatiques +N identiques → +N+1. Absent = +0. */
   plus?: number;
+  /** Éclats dépensés à la main pour l'améliorer (« Améliorer »), additionnés à la fusion ; 50 % rendus au recyclage
+   *  (`recycleRefund`). Compté depuis le 2026-10-01 : absent = rien d'enregistré (objet tombé tel quel ou plus ancien). */
+  invested?: number;
 }
 
 export interface BattleBonuses {
