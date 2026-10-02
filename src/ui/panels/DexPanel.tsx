@@ -10,6 +10,7 @@ import { runner } from '../battle/runner';
 import { feedback } from '../components/feedback';
 import { Button } from '../components/Button';
 import { MonThumb } from '../components/MonThumb';
+import { ModalBackdrop } from '../components/ModalBackdrop';
 import { TypeBadge } from '../components/TypeBadge';
 import { C } from '../theme';
 
@@ -156,8 +157,8 @@ function WhereModal({ id, prestige, onClose }: { id: number; prestige: number; o
   const targeted = isTargeted(s, id);
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.box} onPress={() => {}}>
+      <ModalBackdrop style={styles.backdrop} onClose={onClose}>
+        <View style={styles.box}>
           <View style={styles.head}>
             <MonThumb speciesId={id} size={56} />
             <View style={{ flex: 1, gap: 4 }}>
@@ -196,8 +197,8 @@ function WhereModal({ id, prestige, onClose }: { id: number; prestige: number; o
               label={targeted ? '🎯 Lignée ciblée : capture auto (toucher pour arrêter)' : '🎯 Cibler la lignée (capture auto, farm de bonbons)'}
               onPress={() => act((g) => toggleTarget(g, id))} />
           )}
-        </Pressable>
-      </Pressable>
+        </View>
+      </ModalBackdrop>
     </Modal>
   );
 }

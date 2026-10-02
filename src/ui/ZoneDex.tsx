@@ -1,4 +1,4 @@
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from './components/Text';
 import { collectionNeeds, missingForms, ownedCounts } from '../game/collection';
 import { ZoneDef } from '../game/content';
@@ -7,6 +7,7 @@ import { GameState } from '../game/game';
 import { useSettings } from '../store/settings';
 import { MonThumb } from './components/MonThumb';
 import { Button } from './components/Button';
+import { ModalBackdrop } from './components/ModalBackdrop';
 import { C } from './theme';
 
 /**
@@ -75,8 +76,8 @@ export function ZoneDex({ zone, s, onClose }: { zone: ZoneDef | null; s: GameSta
   };
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.box} onPress={() => {}}>
+      <ModalBackdrop style={styles.backdrop} onClose={onClose}>
+        <View style={styles.box}>
           <Text style={styles.title}>{zone.name}</Text>
           <ScrollView style={{ maxHeight: 440 }}>
             <Text style={styles.section}>Pokédex — {ids.length - missing.length}/{ids.length}</Text>
@@ -105,8 +106,8 @@ export function ZoneDex({ zone, s, onClose }: { zone: ZoneDef | null; s: GameSta
             {goal === 'boxShiny' && boxSection(true)}
           </ScrollView>
           <Button label="Fermer" color={C.panel2} onPress={onClose} />
-        </Pressable>
-      </Pressable>
+        </View>
+      </ModalBackdrop>
     </Modal>
   );
 }

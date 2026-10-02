@@ -17,6 +17,7 @@ import { useGame } from '../store/game';
 import { toast, useUi } from '../store/ui';
 import { Button } from './components/Button';
 import { Dialog, DialogSpec } from './components/Dialog';
+import { ModalBackdrop } from './components/ModalBackdrop';
 import { ItemCard, SLOT_ICON, SubChips, itemMainText, setHintFor } from './components/ItemCard';
 import { ChromaPill, RainbowBorder } from './components/RainbowBorder';
 import { ItemDetail } from './ItemDetail';
@@ -483,8 +484,8 @@ function MovePicker({ monUid, index, cdf, onClose, onUp }: { monUid: string; ind
   };
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={() => {}}>
+      <ModalBackdrop style={styles.backdrop} onClose={onClose}>
+        <View style={styles.sheet}>
           <Text style={styles.section}>{current !== undefined ? `Capacité ${index + 1} : ${move(current).name}` : 'Ajouter une capacité'}</Text>
           {current !== undefined && (
             <View style={styles.row}>
@@ -508,8 +509,8 @@ function MovePicker({ monUid, index, cdf, onClose, onUp }: { monUid: string; ind
               );
             })}
           </ScrollView>
-        </Pressable>
-      </Pressable>
+        </View>
+      </ModalBackdrop>
     </Modal>
   );
 }
@@ -528,8 +529,8 @@ function ItemPicker({ slot, monUid, onClose, onChanged }: { slot: ItemSlot; monU
   const doEquip = (uid: string) => { feedback(); act((g) => equip(g, monUid, uid)); onChanged(); onClose(); };
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={() => {}}>
+      <ModalBackdrop style={styles.backdrop} onClose={onClose}>
+        <View style={styles.sheet}>
           <Text style={styles.section}>Choisir un objet</Text>
           <ScrollView style={{ maxHeight: 440 }} contentContainerStyle={{ gap: 8 }}>
             {current && <Button small label="Retirer l'objet" onPress={() => { act((g) => unequip(g, monUid, slot)); onChanged(); onClose(); }} />}
@@ -554,8 +555,8 @@ function ItemPicker({ slot, monUid, onClose, onChanged }: { slot: ItemSlot; monU
             })}
             {!list.length && <Text style={styles.empty}>Aucun objet de ce type pour l'instant : il en tombe en combat.</Text>}
           </ScrollView>
-        </Pressable>
-      </Pressable>
+        </View>
+      </ModalBackdrop>
       <Dialog spec={dialog} onClose={() => setDialog(null)} />
     </Modal>
   );
@@ -569,8 +570,8 @@ function EvolvePicker({ speciesId, dexMax, shiny, owned, onClose, onPick }: {
   const targets = evolutionTargets(speciesId, dexMax);
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.evoBackdrop} onPress={onClose}>
-        <Pressable style={styles.evoBox} onPress={() => {}}>
+      <ModalBackdrop style={styles.evoBackdrop} onClose={onClose}>
+        <View style={styles.evoBox}>
           <Text style={styles.evoTitle}>{species(speciesId).name} peut évoluer en…</Text>
           <ScrollView contentContainerStyle={{ gap: 8 }}>
           {targets.map((t) => {
@@ -590,8 +591,8 @@ function EvolvePicker({ speciesId, dexMax, shiny, owned, onClose, onPick }: {
           })}
           </ScrollView>
           <Button label="Annuler" onPress={onClose} />
-        </Pressable>
-      </Pressable>
+        </View>
+      </ModalBackdrop>
     </Modal>
   );
 }
@@ -601,8 +602,8 @@ function TeamSwapPicker({ newUid, onClose, onChanged }: { newUid: string; onClos
   const act = useGame((g) => g.act);
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={() => {}}>
+      <ModalBackdrop style={styles.backdrop} onClose={onClose}>
+        <View style={styles.sheet}>
           <Text style={styles.section}>Qui remplacer ?</Text>
           <ScrollView style={{ maxHeight: 440 }} contentContainerStyle={{ gap: 8 }}>
             {s.team.map((uid, i) => {
@@ -626,8 +627,8 @@ function TeamSwapPicker({ newUid, onClose, onChanged }: { newUid: string; onClos
               );
             })}
           </ScrollView>
-        </Pressable>
-      </Pressable>
+        </View>
+      </ModalBackdrop>
     </Modal>
   );
 }

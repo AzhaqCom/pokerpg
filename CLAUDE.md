@@ -67,6 +67,11 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   `MovePicker`, objets en 3 mini-cartes avec sous-stats et bouton « ⚙ Gérer », effet de chaque talent toujours affiché,
   gènes en colonnes), `ItemDetail.tsx` (fiche d'un objet), `HelpScreen.tsx`, `IdleSummary.tsx`, `PrestigeOffer.tsx`.
   Les listes longues (`TeamPanel`, `BagPanel`, `DexPanel`) sont des `FlatList` rendues **hors** du `ScrollView` de `App.tsx`.
+  **Fenêtres (`Modal`)** : fond qui ferme au toucher posé derrière le contenu (`components/ModalBackdrop.tsx`, ou
+  `backdrop` + `centerWrap` comme l'aide), **jamais** un `Pressable` autour d'une liste défilante : sur Android, un geste
+  commencé sur un endroit non tactile de la liste était capté et le défilement passait mal (corrigé le 2026-10-02 dans
+  9 fenêtres : zone de la Carte, fiche d'un objet, choix d'une capacité / d'un objet / d'une évolution / d'un échange,
+  « où le trouver », Pension, Exploration).
   PC affichés = `monPower` (le Pokémon seul : objets, talents, badges, **sans les auras** de l'équipe/pension, pour
   qu'ils ne bougent pas quand on change d'équipe). PC colorés par palier (`CP_TIERS`/`cpColor` dans `ui/helpers.ts` : gris < 250, vert, bleu 600, violet 1 200, orange
   2 000, rouge 3 000, doré ≥ 4 000) sur la fiche, les cartes d'équipe et la liste d'échange.

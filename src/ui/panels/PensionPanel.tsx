@@ -10,6 +10,7 @@ import { rng, useGame } from '../../store/game';
 import { useSettings } from '../../store/settings';
 import { toast } from '../../store/ui';
 import { Button } from '../components/Button';
+import { ModalBackdrop } from '../components/ModalBackdrop';
 import { MonThumb } from '../components/MonThumb';
 import { Stars } from '../components/Stars';
 import { feedback } from '../components/feedback';
@@ -81,9 +82,11 @@ export function PensionPanel() {
       }} />
       <Text style={styles.title}>Pension · {s.pension.length}/{pensionSlots(s)}</Text>
       {s.pension.length < pensionSlots(s) && (
-        <Button small label="+ Poster un Pokémon" disabled={!free.length} onPress={() => setPick(true)} />
+        // sans les filtres de la fenêtre : ils restent actifs une fois fermée, et « Besoin d'XP » n'y est calculé qu'ouverte
+        // (avant le 2026-10-02, le bouton restait grisé tant que ce filtre était coché)
+        <Button small label="+ Poster un Pokémon" disabled={!candidates.length} onPress={() => setPick(true)} />
       )}
-      {!free.length && <Text style={styles.hint}>Capture d'autres Pokémon : ceux qui ne sont pas dans l'équipe (ni déjà en Exploration) peuvent gagner de l'XP ici.</Text>}
+      {!candidates.length && <Text style={styles.hint}>Capture d'autres Pokémon : ceux qui ne sont pas dans l'équipe (ni déjà en Exploration) peuvent gagner de l'XP ici.</Text>}
       {posted.map((p) => {
         const m = s.mons[p.uid];
         if (!m) return null;
@@ -111,8 +114,8 @@ export function PensionPanel() {
       })}
 
       <Modal visible={pick} transparent animationType="slide" onRequestClose={() => setPick(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setPick(false)}>
-          <Pressable style={styles.sheet} onPress={() => {}}>
+        <ModalBackdrop style={styles.backdrop} onClose={() => setPick(false)}>
+          <View style={styles.sheet}>
             <Text style={styles.title}>Qui envoyer en pension ? <Text style={styles.sub}>({pensionSlots(s) - s.pension.length} place{pensionSlots(s) - s.pension.length > 1 ? 's' : ''} libre{pensionSlots(s) - s.pension.length > 1 ? 's' : ''})</Text></Text>
             <TextInput
               value={query}
@@ -170,8 +173,8 @@ export function PensionPanel() {
                 </Pressable>
               )}
             />
-          </Pressable>
-        </Pressable>
+          </View>
+        </ModalBackdrop>
       </Modal>
     </View>
   );

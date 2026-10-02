@@ -6,6 +6,7 @@ import { monStars } from '../../game/stats';
 import { useGame } from '../../store/game';
 import { toast } from '../../store/ui';
 import { Button } from '../components/Button';
+import { ModalBackdrop } from '../components/ModalBackdrop';
 import { MonThumb } from '../components/MonThumb';
 import { Stars } from '../components/Stars';
 import { feedback } from '../components/feedback';
@@ -87,8 +88,8 @@ export function ExplorationPanel() {
       })}
 
       <Modal visible={pick} transparent animationType="slide" onRequestClose={() => setPick(false)}>
-        <Pressable style={styles.backdrop} onPress={() => setPick(false)}>
-          <Pressable style={styles.sheet} onPress={() => {}}>
+        <ModalBackdrop style={styles.backdrop} onClose={() => setPick(false)}>
+          <View style={styles.sheet}>
             <Text style={styles.title}>Qui envoyer explorer ? <Text style={styles.sub}>({explorationSlots(s) - s.exploration.length} place{explorationSlots(s) - s.exploration.length > 1 ? 's' : ''} libre{explorationSlots(s) - s.exploration.length > 1 ? 's' : ''})</Text></Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }} style={{ flexGrow: 0 }}>
               <Pressable onPress={() => setAuraFilter(null)} style={[styles.chip, !activeAura && styles.chipOn]}>
@@ -127,8 +128,8 @@ export function ExplorationPanel() {
                 );
               }}
             />
-          </Pressable>
-        </Pressable>
+          </View>
+        </ModalBackdrop>
       </Modal>
     </View>
   );

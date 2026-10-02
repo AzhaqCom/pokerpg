@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from './components/Text';
 import {
   GameState, endgameUnlocked, fusableRarity, fuseItems, heldBy, heldItems, holder, itemLevelCap, recycle, rerollItemSub, upgradeItem, upgradeItemTimes,
@@ -14,6 +14,7 @@ import { toast } from '../store/ui';
 import { runner } from './battle/runner';
 import { Button } from './components/Button';
 import { ItemCard, SLOT_ICON } from './components/ItemCard';
+import { ModalBackdrop } from './components/ModalBackdrop';
 import { QuantityModal } from './components/QuantityModal';
 import { feedback } from './components/feedback';
 import { fmtNum, itemColor, itemDisplayName } from './helpers';
@@ -48,8 +49,8 @@ export function ItemDetail({ item, onClose, onSelect }: { item: Item | null; onC
   const fuseTarget = item.rarity < MAX_RARITY ? '' : ` (Chromatique +${plusOf(item) + 1})`;
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.box} onPress={() => {}}>
+      <ModalBackdrop style={styles.backdrop} onClose={onClose}>
+        <View style={styles.box}>
           <ScrollView contentContainerStyle={{ gap: 10 }}>
           <ItemCard item={item} wornBy={w} animated full setWorn={setWorn} />
           <Text style={styles.shards}>💎 {fmtNum(s.shards)} éclats</Text>
@@ -91,8 +92,8 @@ export function ItemDetail({ item, onClose, onSelect }: { item: Item | null; onC
             onPress={() => { act((g) => recycle(g, [item.uid])); onClose(); }} />
           <Button label="Fermer" color={C.panel2} onPress={onClose} />
           </ScrollView>
-        </Pressable>
-      </Pressable>
+        </View>
+      </ModalBackdrop>
       {bulkUid === item.uid && <UpgradeModal item={item} onClose={() => setBulkUid(null)} />}
     </Modal>
   );
