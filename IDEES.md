@@ -35,7 +35,20 @@ Ce qui reste à faire ou à envisager (ce qui est fait est dans `CLAUDE.md` et l
   y valent plus). Sans effet notable aujourd'hui (fusions de début de partie à 1-2 sous-stats).
 - En fin de jeu, un jet de Vitesse vaut encore un peu moins qu'un jet d'Attaque (Tour, Chromatique Nv.120) : à monter
   d'un cran (`SUB_BASE.spePct`) si ça se ressent en jouant.
-- Tour : le duo Giratina + Kyogre domine (tous les meilleurs trios l'incluent, `tools/scratch/tower100.ts`).
+- Tour : le duo Giratina + Kyogre domine (tous les meilleurs trios l'incluent, `tools/scratch/tower100.ts`, confirmé le
+  2026-10-02 par `tools/scratch/tower_meta.ts trios` : Giratina devant, Kyogre derrière, Heatran, Dialga, Blizzaroi ou
+  Ho-Oh au milieu, à 1 point près).
+- **Panoplies de fin de jeu à rééquilibrer** (mesure du 2026-10-02, `tools/scratch/tower_meta.ts sets`, Giratina →
+  Heatran → Kyogre en Chromatique +4 Nv.200, étage 134, même panoplie pour les 3) : Brume Toxique 45 % de victoires,
+  Voile des Ombres 36 %, mais les panoplies dont l'objet offensif est un objet **Attaque** (Tenue Sylvestre, Cendres
+  Ardentes, Poussière Aride, Titre de Champion, Essaim Fourmillant, Alliage du Phare, Écailles de la Tanière, Titre de
+  Champion Johto) entre 0 et 2 % (Marée Vivante 9 %, grâce au Vol de vie). Cause : les dégâts multiplient l'Attaque par
+  le bonus des critiques ; le bonus d'Attaque est déjà énorme en fin de jeu (talents, badges, auras), un objet Attaque de
+  plus n'ajoute presque rien, alors que les Dégâts critiques (multiplicateur à part, peu rempli) et le Vol de vie pèsent
+  beaucoup. Pistes : baisser les Dégâts critiques des objets Critique de fin de jeu, ou donner aux panoplies Attaque un
+  bonus qui multiplie les dégâts à part. Objectif : chaque panoplie offensive à quelques étages de la meilleure.
+  Méthode : mesurer avec le script (`sets`, `policy`), puis simulation longue (la progression en région ne doit pas
+  bouger). À traiter dans une session dédiée : ça touche l'équilibrage de tout l'équipement.
 
 ## Contenu
 - Sinnoh est la dernière région codée. Ajouter une région : voir `REGIONS.md`.

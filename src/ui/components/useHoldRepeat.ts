@@ -8,7 +8,8 @@ const SPEEDUP = 0.8;
 const MAX_BATCH = 256;
 
 /**
- * Répétition **accélérée** tant qu'un bouton est maintenu (« Améliorer » d'un objet) : les tics se rapprochent
+ * Répétition **accélérée** tant qu'un bouton est maintenu (« +1 » de la fenêtre d'achat en quantité de la Boutique ;
+ * « Améliorer » d'un objet ouvre une fenêtre +1 / +10 depuis le 2026-10-02) : les tics se rapprochent
  * (260 ms → 80 ms : une sauvegarde par tic au plus), puis chaque tic fait 2, 4, 8… actions d'un coup — vitesse exponentielle, sans un état de jeu
  * sauvegardé par action. `step(n)` tente `n` actions et renvoie combien ont réussi (moins que `n` = arrêt : plus
  * d'éclats, niveau maximum). `onEnd` est appelé une fois au relâchement s'il y a eu au moins une action.

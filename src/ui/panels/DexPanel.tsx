@@ -18,14 +18,19 @@ const GRID_GAP = 8;
 /** Padding horizontal du conteneur scrollable (`App.tsx` styles.panel) : 12 de chaque côté. */
 const SCREEN_PADDING = 24;
 
-/** Case du Pokédex, mémoïsée : ne se redessine que si SON état (vu/capturé/chromatique) change, pas à chaque
- * mise à jour du store. */
-const DexCell = memo(function DexCell({ id, name, got, saw, shiny, width, onOpen }: {
-  id: number; name: string; got: boolean; saw: boolean; shiny: boolean; width: number; onOpen: (id: number) => void;
+/** Case du Pokédex, mémoïsée : ne se redessine que si SON état (vu/capturé/chromatique, en boîte) change, pas à chaque
+ * mise à jour du store. `inBox` (2026-10-02) : 📦 en haut à gauche du sprite si on possède l'espèce dans la version de
+ * l'onglet (un normal dans « Normaux », un chromatique dans « Chromatiques »), en boîte, en équipe, en pension ou en
+ * exploration. */
+const DexCell = memo(function DexCell({ id, name, got, saw, shiny, inBox, width, onOpen }: {
+  id: number; name: string; got: boolean; saw: boolean; shiny: boolean; inBox: boolean; width: number; onOpen: (id: number) => void;
 }) {
   return (
     <Pressable style={[styles.cell, { width }]} onPress={() => { if (saw || got) onOpen(id); }}>
-      <MonThumb speciesId={id} shiny={shiny} size={46} silhouette={!got} style={!got && !saw ? { opacity: 0.25 } : undefined} />
+      <View>
+        <MonThumb speciesId={id} shiny={shiny} size={46} silhouette={!got} style={!got && !saw ? { opacity: 0.25 } : undefined} />
+        {inBox && <Text style={styles.boxMark}>📦</Text>}
+      </View>
       <Text style={styles.num}>#{String(id).padStart(3, '0')}</Text>
       <Text style={[styles.name, !got && { color: C.dim }]} numberOfLines={1}>{saw || got ? name : '???'}</Text>
     </Pressable>
@@ -36,15 +41,24 @@ export function DexPanel() {
   const s = useGame((g) => g.s)!;
   useGame((g) => g.rev);
   const [shiny, setShiny] = useState(false);
+  const [absentOnly, setAbsentOnly] = useState(false);
   const [open, setOpen] = useState<number | null>(null);
   const caught = new Set(shiny ? s.dex.shiny : s.dex.caught);
   const seen = new Set(s.dex.seen);
+  // espèces possédées dans la version de l'onglet (boîte, équipe, pension, exploration) : pictogramme 📦
+  const owned = new Set<number>();
+  for (const m of Object.values(s.mons)) if (m.shiny === shiny) owned.add(m.speciesId);
+  let ownedSig = 0;
+  for (const id of owned) ownedSig = (ownedSig + id * 2654435761) | 0;
   const { width } = useWindowDimensions();
   const cellWidth = (width - SCREEN_PADDING - GRID_GAP * (GRID_COLS - 1)) / GRID_COLS;
   // n'affiche que les espèces des régions déjà débloquées (151 en Kanto, 251 dès Johto…) : le Pokédex ne
   // doit pas trahir la génération suivante avant que le joueur l'ait débloquée.
   const maxId = regionOf(s.prestige).dexMax;
-  const species = ALL_SPECIES.filter((sp) => sp.id <= maxId);
+  const regionSpecies = ALL_SPECIES.filter((sp) => sp.id <= maxId);
+  // « Absents de la boîte » (2026-10-02) : capturées au Pokédex de l'onglet, mais possédées nulle part dans cette version
+  const absent = regionSpecies.filter((sp) => caught.has(sp.id) && !owned.has(sp.id));
+  const species = absentOnly ? absent : regionSpecies;
   const openCell = useCallback((id: number) => setOpen(id), []);
   const header = (
     <View style={{ gap: 10, marginBottom: 10 }}>
@@ -60,6 +74,15 @@ export function DexPanel() {
         <Pressable onPress={() => setShiny(false)} style={[styles.chip, !shiny && styles.chipOn]}><Text style={styles.chipTxt}>Normaux</Text></Pressable>
         <Pressable onPress={() => setShiny(true)} style={[styles.chip, shiny && styles.chipGold]}><Text style={styles.chipTxt}>Chromatiques</Text></Pressable>
       </View>
+      <View style={styles.row}>
+        <Pressable onPress={() => setAbsentOnly((v) => !v)} style={[styles.chip, absentOnly && styles.chipOn]}>
+          <Text style={styles.chipTxt}>📦 Absents de la boîte ({absent.length})</Text>
+        </Pressable>
+      </View>
+      <Text style={styles.dim}>📦 = dans ta boîte ({shiny ? 'en chromatique' : 'en normal'}), ton équipe, ta pension ou ton exploration</Text>
+      {absentOnly && !absent.length && (
+        <Text style={styles.dim}>Toutes les espèces {shiny ? 'chromatiques ' : ''}capturées sont dans ta boîte.</Text>
+      )}
     </View>
   );
   return (
@@ -76,10 +99,11 @@ export function DexPanel() {
         initialNumToRender={24}
         windowSize={7}
         removeClippedSubviews
-        extraData={`${shiny}-${s.dex.caught.length}-${s.dex.seen.length}-${s.dex.shiny.length}`}
+        extraData={`${shiny}-${absentOnly}-${s.dex.caught.length}-${s.dex.seen.length}-${s.dex.shiny.length}-${ownedSig}`}
         maxToRenderPerBatch={12}
         renderItem={({ item: sp }) => (
-          <DexCell id={sp.id} name={sp.name} got={caught.has(sp.id)} saw={seen.has(sp.id)} shiny={shiny} width={cellWidth} onOpen={openCell} />
+          <DexCell id={sp.id} name={sp.name} got={caught.has(sp.id)} saw={seen.has(sp.id)} shiny={shiny} inBox={owned.has(sp.id)}
+            width={cellWidth} onOpen={openCell} />
         )}
       />
       {open !== null && <WhereModal id={open} prestige={s.prestige} onClose={() => setOpen(null)} />}
@@ -189,6 +213,7 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: GRID_GAP },
   cell: { alignItems: 'center', paddingVertical: 4 },
   num: { color: C.dim, fontSize: 9 },
+  boxMark: { position: 'absolute', top: -3, left: -6, fontSize: 11 },
   name: { color: C.text, fontSize: 10, fontWeight: '700', maxWidth: 80 },
   types: { flexDirection: 'row', gap: 2, marginTop: 2 },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 28 },

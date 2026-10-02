@@ -14,7 +14,7 @@ import { Battle } from './battle';
 import { BIOMES, STAGES_PER_ZONE, WAVES_PER_STAGE } from './content';
 import {
   BETWEEN_WAVES_MS, BOOSTS, BallKind, CAPTURE_OFFER_CHANCE, GameState, TOWER_IDLE_ITEM_EVERY, TOWER_LEVEL, boostCoverage,
-  towerIdleActive, towerIdleFloor, towerLootTemplates, towerShards, towerWaves, LOOT_CHANCE, PENSION_CAP_MS, RELEASE_CANDIES, shinyOdds,
+  towerDropPool, towerIdleActive, towerIdleFloor, towerShards, towerWaves, LOOT_CHANCE, PENSION_CAP_MS, RELEASE_CANDIES, shinyOdds,
   addMon, allyFighter, bestStarsOf, captureChance, genesMinForBadges, giveXp, idleFarmTarget, isRareInZone, isTargeted,
   keepTargetCapture, lineBase, makeMon, makeWaves, pickSpecies, teamMaxLevel, wildFighter, xpGapMult,
 } from './game';
@@ -345,8 +345,8 @@ const TOWER_IDLE_DEPTH = 10;
 /**
  * Absence en fin de jeu : l'équipe rejoue l'étage `towerIdleFloor` de la Tour (une défaite la fait redescendre d'un étage,
  * une victoire remonter, jamais au-delà de l'étage choisi). Chaque étage gagné : la moitié de ses éclats ; tous les
- * `TOWER_IDLE_ITEM_EVERY` étages gagnés, un Chromatique (panoplies de Sinnoh) au niveau 100 + étage. Ni XP, ni
- * chromatiques, ni captures (propres aux zones). Ne modifie pas `s`.
+ * `TOWER_IDLE_ITEM_EVERY` étages gagnés, un Chromatique (panoplies visées, sinon les 20 du jeu : `towerDropPool`) au
+ * niveau 100 + étage. Ni XP, ni chromatiques, ni captures (propres aux zones). Ne modifie pas `s`.
  */
 function towerIdleGains(s: GameState, absenceMs: number, durationMs: number, rng: Rng): IdleGains {
   const top = towerIdleFloor(s);
@@ -354,7 +354,7 @@ function towerIdleGains(s: GameState, absenceMs: number, durationMs: number, rng
   const samples: Record<number, { winRate: number; avgMs: number }> = {};
   const sample = (f: number) => (samples[f] ??= sampleTowerFloor(s, rng, f));
   const gains = emptyGains(s, absenceMs, durationMs);
-  const pool = towerLootTemplates();
+  const pool = towerDropPool(s);
   let floor = top;
   let won = 0;
   let shards = 0;

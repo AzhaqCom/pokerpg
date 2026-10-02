@@ -1,8 +1,12 @@
 import { species, TYPE_NAME, PType } from '../game/data';
 import { GameState, allyFighter, monPower } from '../game/game';
-import { Mon } from '../game/model';
+import { plusOf, template } from '../game/items';
+import { Item, Mon, RARITY_COLOR } from '../game/model';
 import { xpForLevel } from '../game/stats';
 import { AURA } from '../game/talents';
+
+/** « 48 250 » : séparateur de milliers (sans `Intl`, pas toujours complet sous Hermes). */
+export const fmtNum = (n: number) => String(Math.floor(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
 /** Couleur par type. Sol plus brun (#c9a05a au lieu de #e0c068) pour ne plus se confondre avec Électrik. */
 export const TYPE_COLOR: Record<PType, string> = {
@@ -76,6 +80,19 @@ const LEGEND = { name: 'Légende', colors: GOLD, width: 4, glow: true, text: '#f
 export function chromaTier(plus: number): ChromaTier {
   if (plus <= CHROMA_TIERS.length) return CHROMA_TIERS[Math.max(1, plus) - 1];
   return { ...LEGEND, inner: CHROMA_TIERS[(plus - 1) % CHROMA_TIERS.length].colors };
+}
+
+/** Couleur du nom d'un objet : sa rareté, ou le palier de son cran pour un Chromatique +N (cartes, message de fusion). */
+export function itemColor(it: Item): string {
+  const plus = plusOf(it);
+  return plus > 0 ? chromaTier(plus).text : RARITY_COLOR[it.rarity];
+}
+
+/** « Cape du Vainqueur +3 » : nom d'un objet et son cran Chromatique +N, sans la rareté (messages de fusion et du coffre
+ *  de la Tour, à la couleur `itemColor`). */
+export function itemDisplayName(it: Item): string {
+  const plus = plusOf(it);
+  return plus > 0 ? `${template(it.templateId).name} +${plus}` : template(it.templateId).name;
 }
 
 /** Couleurs d'un palier lisibles en texte lettre par lettre (sans la reprise de la boucle, ni le brun de l'Éclipse). */

@@ -24,7 +24,7 @@ function fmt(ms: number) {
 
 export function PensionPanel() {
   const s = useGame((g) => g.s)!;
-  useGame((g) => g.rev);
+  const rev = useGame((g) => g.rev);
   const act = useGame((g) => g.act);
   const now = useFrameClock(1);
   const [pick, setPick] = useState(false);
@@ -33,7 +33,8 @@ export function PensionPanel() {
   const [typeFilter, setTypeFilter] = useState<PType | null>(null);
   const [xpOnly, setXpOnly] = useState(false);
   const goal = useSettings((st) => st.collectionGoal);
-  const xpSet = needsXp(s, goal);
+  // « Besoin d'XP » : calculé seulement fenêtre ouverte, et pas à chaque seconde de l'horloge (seulement si le jeu change)
+  const xpSet = useMemo(() => (pick ? needsXp(s, goal) : new Set<string>()), [pick, goal, rev]);
   // tri de la liste : Pokédex → niveau croissant → niveau décroissant → Pokédex
   const [levelSort, setLevelSort] = useState<'dex' | 'asc' | 'desc'>('dex');
   const nextLevelSort = () => setLevelSort((v) => (v === 'dex' ? 'asc' : v === 'asc' ? 'desc' : 'dex'));
@@ -127,7 +128,7 @@ export function PensionPanel() {
                 </Pressable>
               ))}
               <Pressable onPress={() => setXpOnly((v) => !v)} style={[styles.chip, xpOnly && styles.chipOn]}>
-                <Text style={styles.chipTxt}>Besoin d'XP</Text>
+                <Text style={styles.chipTxt}>Besoin d'XP ({candidates.filter((m) => xpSet.has(m.uid)).length})</Text>
               </Pressable>
               <Pressable onPress={nextLevelSort} style={[styles.chip, levelSort !== 'dex' && styles.chipOn]}>
                 <Text style={styles.chipTxt}>{levelSort === 'dex' ? 'Trier par niveau' : levelSort === 'asc' ? 'Niveau ▲' : 'Niveau ▼'}</Text>

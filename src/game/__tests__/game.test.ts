@@ -1,14 +1,15 @@
 import { BIOMES, REGION_START, REGIONS, STAGES_PER_ZONE, regionLastBiome } from '../content';
 import { ALL_SPECIES, EVOLUTION_CHOICES, evolutionTargets, species } from '../data';
 import {
-  GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, applyMegaCandy, craftMegaCandy, lineBase, arenaAvailable, assignExploration, assignPension, autoCaptureBall, autoEquipBest, towerRetryFloor, bestEquipCombo, measuredEquipValue, maxBattleSpeed, monPower, equipGain, quickEquipValue, allyFighter, setMoves, bestStarsOf, biomeAvailable, bossAvailable,
+  GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, applyMegaCandy, craftMegaCandy, lineBase, arenaAvailable, assignExploration, assignPension, autoCaptureBall, autoEquipBest, towerRetryFloor, bestEquipCombo, maxBattleSpeed, monPower, equipGain, quickEquipValue, allyFighter, setMoves, bestStarsOf, biomeAvailable, bossAvailable,
   lineChain, equipValue, towerLootTemplates, towerSpecies, towerStart, enterTower, towerRewardPlus, claimTowerReward, TOWER_LEVEL, setRecycleCandidates, endgameUnlocked, fusableRarity, itemLevelCap, upgradeItem, hasShinyCharm, shinyCharmToAnnounce, shinyOdds, BOOSTS, BOOST_MS, UNIVERSAL_MEGA_PRICE, boostActive, boostCoverage, buyBoost, buyUniversalMega, endingReady, autoTalents, canCompleteDex, whereToFind, canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
   harvestExploration, harvestPension, holder, isRareInZone, makeMon, addMon, makeWaves, migrateSave, monsBelowStars, monsNotShiny, newGame, pickSpecies, rankUpTalent, recycle, release, releaseBelowStars, SHARDS_PER_MIN,
   releaseExcess, releaseNotShiny, remainingEvolutions, removePension, selectStage, setAutoAdvance, START_BALLS, startPrestige,
   CAPTURE_PITY, RELEASE_CANDIES, applyMegaCandy as applyMega, lineForms, BALL_PRICE, buyBalls, autoMoves, captureTarget, setTeam, toggleLock, challengesReady, postponePrestige, idleFarmTarget, isTargeted, toggleTarget, zoneHasTarget, teamMaxLevel, tryCapture, unequipBox, xpGapMult,
-  removeExploration, feedCandy,
+  removeExploration, feedCandy, buyUniversalMegas, upgradeItemTimes, toggleTowerSet, towerDropPool, towerFocusChoices, towerPreviewItem,
+  autoTeamOrder,
 } from '../game';
-import { SETS, TEMPLATES, makeItem, statText, mainValue, rarityName, recycleValue } from '../items';
+import { SETS, TEMPLATES, makeItem, statText, mainValue, rarityName, recycleValue, subRange, upgradeCostFor } from '../items';
 import { Item, emptyBonuses } from '../model';
 import { cadence, kitContext, kitRate } from '../optimize';
 import { Rng, seededRng } from '../rng';
@@ -165,20 +166,45 @@ test('talents : les descriptions arrondissent les pourcentages (4,7 × 3 = 14,1,
   expect(spec2.describe(spec2.perRank * 3)).toBe('Dégâts de son type +14.1 %');
 });
 
-test('autoEquipBest : choisit l’un des trois candidats (duel, ancien calcul ou valeurs mesurées), de façon déterministe', () => {
+test('autoEquipBest : déterministe, 2e appui sans effet, et aucune flèche ▲ ne le contredit ensuite', () => {
   const s = newGame();
   chooseStarter(s, 4, seededRng(1));
   const uid = s.team[0];
   giveXp(s.mons[uid], 30 * 50 * 50);
   const rng = seededRng(9);
   for (const t of towerLootTemplates().slice(0, 18)) { const it = makeItem(t.id, 4, 50, rng); s.items[it.uid] = it; }
-  const ids = (c: (Item | undefined)[]) => c.map((it) => it?.uid);
-  const candidates = [ids(bestEquipCombo(s, uid, equipValue)), ids(bestEquipCombo(s, uid, quickEquipValue)), ids(bestEquipCombo(s, uid, measuredEquipValue))];
+  const before: GameState = JSON.parse(JSON.stringify(s));
   autoEquipBest(s, uid);
   const worn = (['offense', 'defense', 'berry'] as const).map((sl) => s.mons[uid].items[sl]);
-  expect(candidates).toContainEqual(worn);
+  autoEquipBest(before, uid);
+  expect((['offense', 'defense', 'berry'] as const).map((sl) => before.mons[uid].items[sl])).toEqual(worn); // déterministe
+  expect(s.mons[uid].equipAuto?.items).toEqual(worn.map((u) => u ?? ''));
   const again = JSON.parse(JSON.stringify(s));
   expect(autoEquipBest(again, uid)).toBe(0); // même résultat au 2e appui
+  // les flèches du sélecteur ne marquent ▲ aucun objet du sac (seul un objet porté par un coéquipier le pourrait)
+  for (const it of Object.values(s.items)) expect(equipGain(s, uid, it)).toBeLessThanOrEqual(0.05);
+});
+
+test('autoTeamOrder (« ★ Ordre ») : même meilleur ordre quel que soit l’ordre de départ, 2e appui sans effet', () => {
+  const s = newGame();
+  chooseStarter(s, 4, seededRng(1));
+  giveXp(s.mons[s.team[0]], 30 * 50 * 50);
+  addMon(s, makeMon(143, 50, seededRng(2))); // Ronflex
+  addMon(s, makeMon(65, 50, seededRng(3))); // Alakazam
+  const team = [...s.team];
+  expect(team).toHaveLength(3);
+  const a: GameState = JSON.parse(JSON.stringify(s));
+  const b: GameState = JSON.parse(JSON.stringify(s));
+  b.team = [team[2], team[0], team[1]];
+  const ra = autoTeamOrder(a);
+  const rb = autoTeamOrder(b);
+  expect(a.team).toEqual(b.team); // le résultat ne dépend pas de l'ordre de départ
+  expect([...a.team].sort()).toEqual([...team].sort()); // les mêmes Pokémon
+  expect(ra !== null || rb !== null).toBe(true); // deux départs différents : au moins l'un a changé
+  expect(autoTeamOrder(a)).toBeNull(); // déjà le meilleur ordre
+  const solo = newGame();
+  chooseStarter(solo, 4, seededRng(1));
+  expect(autoTeamOrder(solo)).toBeNull(); // seul : rien à ordonner
 });
 
 test('prestige reporté (« Plus tard ») : reste disponible, et le récap de la région suivante s’affichera à nouveau', () => {
@@ -1665,13 +1691,48 @@ test('Équiper le meilleur : trouve la meilleure combinaison (comparée à une r
   }
 });
 
-test('Tour : butin limité aux panoplies de Sinnoh (moins d\'objets différents, fusions plus rapides)', () => {
+test('Tour : sans panoplies visées, les 20 panoplies du jeu (60 objets), comme le coffre (2026-10-02)', () => {
   const pool = towerLootTemplates();
   const sets = new Set(pool.map((t) => t.set));
-  expect(sets.size).toBe(15);
-  expect(pool).toHaveLength(45);
-  expect(sets.has('champion')).toBe(true);
-  expect(sets.has('prairie')).toBe(false); // panoplie de Hoenn seulement
+  expect(sets.size).toBe(20);
+  expect(pool).toHaveLength(60);
+  expect([...sets].sort()).toEqual([...towerFocusChoices()].sort());
+  expect(sets.has('prairie')).toBe(true); // absente de Sinnoh : ne tombait jamais dans la Tour avant
+  // même puissance quelle que soit la panoplie (aperçu de la fenêtre d'une panoplie = objet réellement tombé)
+  const preview = towerPreviewItem('mandibule-ruche', 150);
+  const dropped = makeItem('mandibule-ruche', 6, 150, seededRng(1), BIOMES.length - 1);
+  expect(mainValue(preview)).toBe(mainValue(dropped));
+  // deux objets Attaque de panoplies différentes : même puissance, à l'arrondi du facteur `biomeTier` près
+  expect(Math.abs(mainValue(towerPreviewItem('gantelet-champion', 150)) - mainValue(preview))).toBeLessThan(0.5);
+});
+
+test('Tour : 3 panoplies visées parmi les 20 → les Chromatiques ne tombent plus que dans leurs 9 objets (2026-10-02)', () => {
+  const s = endgameState();
+  chooseStarter(s, 387, seededRng(1));
+  expect(towerFocusChoices()).toHaveLength(20); // comme le coffre de palier
+  expect(towerDropPool(s)).toHaveLength(60);
+  expect(toggleTowerSet(s, 'ruche')).toBe(true); // absente de Sinnoh : ne tombait jamais dans la Tour
+  expect(toggleTowerSet(s, 'circuit')).toBe(true);
+  expect(towerDropPool(s)).toHaveLength(60); // moins de 3 : tirage habituel
+  expect(toggleTowerSet(s, 'dragon2')).toBe(true);
+  expect(toggleTowerSet(s, 'sylve')).toBe(false); // déjà 3
+  expect(toggleTowerSet(s, 'inconnue')).toBe(false);
+  const focus = new Set(['ruche', 'circuit', 'dragon2']);
+  expect(towerDropPool(s)).toHaveLength(9);
+  expect(towerDropPool(s).every((t) => focus.has(t.set!))).toBe(true);
+  // en combat : chaque étage gagné donne un objet des panoplies visées
+  s.towerBest = 30;
+  for (let i = 0; i < 20; i++) {
+    s.towerFloor = 21;
+    const run = new StageRun(s, 'tower', seededRng(100 + i));
+    run.battle.result = 'win';
+    const r = run.finishWave()!;
+    expect(focus.has(TEMPLATES.find((t) => t.id === r.loot[0].templateId)!.set!)).toBe(true);
+  }
+  // retirer une panoplie : retour au tirage habituel
+  expect(toggleTowerSet(s, 'circuit')).toBe(true);
+  expect(s.towerSets).toEqual(['ruche', 'dragon2']);
+  expect(towerDropPool(s)).toHaveLength(60);
 });
 
 test('vitesse de combat : ×2 dès le 1er badge, ×3 dès le 4e, retour à ×1 après un Nouveau départ', () => {
@@ -1733,9 +1794,50 @@ test('sauvegarde d’avant le 2026-10-01 : sous-stats Vitesse / Recharge convert
   expect(subs[0].value).toBeLessThan(30); // ~+130 % → ~+21 %
   expect(subs[0].value).toBeGreaterThan(subs[1].value / 17 * 7); // jet max contre jet à 70 %
   expect(subs[2].value).toBe(20);
-  expect(out.balanceVersion).toBe(3);
+  expect(out.balanceVersion).toBe(4);
   const again = migrateSave(JSON.parse(JSON.stringify(out))) as unknown as GameState;
   expect(again.items[it.uid].subs[0].value).toBe(subs[0].value); // pas de double conversion
+});
+
+test('sauvegarde d’avant le 2026-10-02 : une sous-stat sous le jet minimum de son objet remonte à ce minimum', () => {
+  const s = newGame();
+  const it: Item = { ...makeItem('griffe-sylve', 6, 50, seededRng(2)), plus: 2 };
+  const defMax = subRange('defPct', 50, 2).max;
+  it.subs = [{ stat: 'hpPct', value: 1 }, { stat: 'defPct', value: defMax }];
+  s.items[it.uid] = it;
+  const out = migrateSave(JSON.parse(JSON.stringify({ ...s, balanceVersion: 3 }))) as unknown as GameState;
+  expect(out.items[it.uid].subs[0].value).toBe(subRange('hpPct', 50, 2).min); // venue d'une pièce plus basse
+  expect(out.items[it.uid].subs[1].value).toBe(defMax); // dans sa fourchette : intacte
+  expect(out.balanceVersion).toBe(4);
+});
+
+test('boutique : méga bonbons universels par 10 ou 100, tout ou rien', () => {
+  const s = newGame();
+  s.shards = UNIVERSAL_MEGA_PRICE * 10;
+  expect(buyUniversalMegas(s, 100)).toBe(false);
+  expect(s.shards).toBe(UNIVERSAL_MEGA_PRICE * 10);
+  expect(buyUniversalMegas(s, 10)).toBe(true);
+  expect(s.universalMega).toBe(10);
+  expect(s.shards).toBe(0);
+});
+
+test('améliorer +10 : coût total des 10 niveaux, tout ou rien, jamais au-delà du niveau maximum', () => {
+  const s = newGame();
+  const it = makeItem('griffe-sylve', 0, 10, seededRng(5));
+  s.items[it.uid] = it;
+  expect(upgradeCostFor(it, 10)).toBe(5 * (10 + 11 + 12 + 13 + 14 + 15 + 16 + 17 + 18 + 19));
+  s.shards = upgradeCostFor(it, 10) - 1;
+  expect(upgradeItemTimes(s, it.uid, 10)).toBe(0);
+  expect(s.items[it.uid].level).toBe(10);
+  s.shards += 1;
+  expect(upgradeItemTimes(s, it.uid, 10)).toBe(10);
+  expect(s.items[it.uid].level).toBe(20);
+  expect(s.shards).toBe(0);
+  const top = makeItem('griffe-sylve', 0, 95, seededRng(6));
+  s.items[top.uid] = top;
+  s.shards = 1e9;
+  expect(upgradeItemTimes(s, top.uid, 10)).toBe(0); // Nv.100 au plus avant la fin de jeu
+  expect(upgradeItemTimes(s, top.uid, 5)).toBe(5);
 });
 
 test('pension et exploration : retirer un Pokémon encaisse d’abord ce qu’il a accumulé (2026-10-01)', () => {

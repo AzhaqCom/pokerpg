@@ -2,13 +2,13 @@
  * État de la partie (sérialisable) et règles de progression :
  * équipe, étapes/vagues, butin, capture, évolutions, pension.
  */
-import { Battle, FighterInit, MAX_BATTLE_TIME } from './battle';
+import { Battle, FighterInit } from './battle';
 import { bestMoves, cadence, duelMult, kitContext, kitTypeShare } from './optimize';
 import {
   BADGE_BONUS, BIOMES, REGIONS, REGION_START, STAGES_PER_ZONE, WAVES_PER_STAGE, ZoneDef, regionLastBiome, regionOf,
 } from './content';
 import { ALL_SPECIES, EVOLUTION_CHOICES, PType, learnedMoves, evolutionTargets, move, movesAtLevel, preEvolution, species } from './data';
-import { BIOME_SET, convertFlatSub, SUB_WORTH, subScore, MAX_ITEM_LEVEL, PLUS_SUB_STEP, SETS, addItemBonuses, berryScore, combatValue, setOfBiome, TEMPLATES, berryHeal, fuse, canFuse, itemScore, makeItem, newUid, recycleValue, rerollCost, rerollSub, rollLoot, rollRarity, slotOf, template, upgrade, upgradeCost } from './items';
+import { biomeTier, convertFlatSub, SUB_WORTH, subScore, MAX_ITEM_LEVEL, PLUS_SUB_STEP, SETS, addItemBonuses, berryScore, combatValue, setOfBiome, TEMPLATES, berryHeal, fuse, canFuse, itemScore, makeItem, newUid, recycleValue, rerollCost, rerollSub, rollLoot, rollRarity, slotOf, subRange, template, upgrade, upgradeCost, upgradeCostFor } from './items';
 import { BattleBonuses, BonusStat, Item, ItemSlot, ItemTemplate, MAX_RARITY, Mon, emptyBonuses } from './model';
 import { Rng, seededRng } from './rng';
 import { MAX_LEVEL, auraBonuses, combatPower, finalStats, levelFromXp, monBonuses, monStars, sumBonuses, xpForLevel } from './stats';
@@ -138,6 +138,9 @@ export interface GameState {
   towerIdlePick: number | null;
   /** Combat continu dans la Tour (jeu actif) : une défaite fait reprendre plus bas au lieu de sortir (`towerRetryFloor`). */
   towerAuto: boolean;
+  /** Panoplies visées dans la Tour (`toggleTowerSet`) : avec 3, ses Chromatiques ne tombent plus que dans celles-là
+   *  (`towerDropPool`) ; moins de 3 = tirage sur les 20 panoplies du jeu. */
+  towerSets: string[];
   /** Version d'équilibrage des objets déjà convertie (2 = poids mesurés du 2026-09-24, voir `migrateSave`). */
   balanceVersion: number;
 }
@@ -157,7 +160,7 @@ export function newGame(): GameState {
     prestige: 0,
     startedAt: Date.now(), prestigeOffered: false, adventureStart: Date.now(), endingSeen: false,
     shinyCharmSeen: false, boosts: noBoosts(), universalMega: 0,
-    towerBest: 0, towerFloor: null, towerRewards: [], towerIdle: true, towerIdlePick: null, towerAuto: false, balanceVersion: 3,
+    towerBest: 0, towerFloor: null, towerRewards: [], towerIdle: true, towerIdlePick: null, towerAuto: false, towerSets: [], balanceVersion: 4,
   };
 }
 
@@ -309,9 +312,16 @@ export function migrateSave(raw: Record<string, unknown>): Record<string, unknow
       for (const sub of it.subs ?? []) sub.value = convertFlatSub(sub.stat, sub.value, it.level ?? 1, it.plus ?? 0);
     }
   }
+  // fusion recalée (2026-10-02) : une sous-stat sous le jet minimum de son objet — venue d'une pièce plus basse lors
+  // d'une ancienne fusion, ou changée sur un Chromatique +N sans le bonus du cran — remonte à ce minimum (`subRange`)
+  if ((raw.balanceVersion as number | undefined ?? 1) < 4 && raw.items && typeof raw.items === 'object') {
+    for (const it of Object.values(raw.items as Record<string, { level?: number; plus?: number; subs?: { stat: BonusStat; value: number }[] }>)) {
+      for (const sub of it.subs ?? []) sub.value = Math.max(sub.value, subRange(sub.stat, it.level ?? 1, it.plus ?? 0).min);
+    }
+  }
   // début de l'aventure : les anciennes sauvegardes n'ont que le début de la région en cours
   if (typeof raw.adventureStart !== 'number') raw.adventureStart = typeof raw.startedAt === 'number' ? raw.startedAt : Date.now();
-  raw.balanceVersion = 3;
+  raw.balanceVersion = 4;
   return raw;
 }
 
@@ -851,7 +861,9 @@ export function monBaseBonuses(s: GameState, uid: string): BattleBonuses {
  * Gain de valeur si `item` remplace l'objet porté dans son emplacement, pour CE Pokémon (flèche du sélecteur
  * d'objets). Positif = mieux. Sans combats (calculé pour chaque objet du sac) : le calcul que le dernier « Équiper le
  * meilleur » a retenu pour ce Pokémon (`Mon.equipModel`), sinon l'ancien (`quickEquipValue`, un peu plus juste en
- * moyenne que le duel seul, audit du 2026-10-01). Ainsi les flèches ne contredisent pas le bouton.
+ * moyenne que le duel seul, audit du 2026-10-01). Ainsi les flèches ne contredisent pas le bouton : tant que
+ * l'équipement d'« ★ Auto » est porté (`Mon.equipAuto`), un objet qu'il a déjà départagé par les combats n'est jamais
+ * marqué meilleur (2026-10-02 : « ★ Auto » peut retenir un équipement qu'aucun calcul ne place premier).
  */
 export function equipGain(s: GameState, uid: string, item: Item): number {
   const mon = s.mons[uid];
@@ -859,7 +871,10 @@ export function equipGain(s: GameState, uid: string, item: Item): number {
   const base = monBaseBonuses(s, uid);
   const slot = slotOf(item);
   const value = mon.equipModel === 'duel' ? equipValue : mon.equipModel === 'measured' ? measuredEquipValue : quickEquipValue;
-  return value(s, uid, [...held.filter((it) => slotOf(it) !== slot), item], base) - value(s, uid, held, base);
+  const gain = value(s, uid, [...held.filter((it) => slotOf(it) !== slot), item], base) - value(s, uid, held, base);
+  const auto = mon.equipAuto;
+  if (gain > 0 && auto && auto.tested.includes(item.uid) && EQUIP_SLOTS.every((sl, i) => (mon.items[sl] ?? '') === auto.items[i])) return 0;
+  return gain;
 }
 
 /**
@@ -911,6 +926,10 @@ export function measuredEquipValue(s: GameState, uid: string, items: Item[]): nu
 const AUTO_EQUIP_TOP = 6;
 /** Pièces d'une même panoplie retenues par emplacement pour tenter les bonus de panoplie. */
 const AUTO_EQUIP_SET_TOP = 2;
+/** « ★ Auto » : objets essayés pour compléter une panoplie de 2 pièces (6 pour le bot). Mesuré le 2026-10-02
+ *  (`tools/scratch/combo_cost.ts`, Sac de 196 objets) : même optimum dans les 9 cas (3 Pokémon × 3 calculs), panoplies
+ *  ~40 % plus rapides. */
+const AUTO_EQUIP_SET_FILL = 3;
 const EQUIP_SLOTS: ItemSlot[] = ['offense', 'defense', 'berry'];
 type EquipValueFn = (s: GameState, uid: string, items: Item[], base: BattleBonuses) => number;
 
@@ -918,10 +937,10 @@ type EquipValueFn = (s: GameState, uid: string, items: Item[], base: BattleBonus
  * La combinaison des 3 emplacements qui maximise `value` pour ce Pokémon, parmi les objets du sac et les siens (jamais
  * ceux d'un autre Pokémon). Un objet ne se juge pas seul (Critique × Dégâts critiques, Recharge plafonnée, bonus de
  * panoplie à 2 et 3 pièces) : toutes les combinaisons des `AUTO_EQUIP_TOP` meilleurs objets de chaque emplacement, plus,
- * pour chaque panoplie, 2 ou 3 de ses pièces complétées par les meilleurs objets hors panoplie (quelques milliers
+ * pour chaque panoplie, 2 ou 3 de ses pièces complétées par les `setFill` meilleurs objets (quelques milliers
  * d'évaluations, même avec un sac de milliers d'objets).
  */
-export function bestEquipCombo(s: GameState, uid: string, value: EquipValueFn = equipValue): (Item | undefined)[] {
+export function bestEquipCombo(s: GameState, uid: string, value: EquipValueFn = equipValue, setFill = AUTO_EQUIP_TOP): (Item | undefined)[] {
   const mon = s.mons[uid];
   const held = heldBy(s);
   const base = monBaseBonuses(s, uid);
@@ -952,7 +971,7 @@ export function bestEquipCombo(s: GameState, uid: string, value: EquipValueFn = 
     if (pieces.filter((p) => p.length).length < 2) continue;
     for (let free = -1; free < EQUIP_SLOTS.length; free++) { // free = emplacement hors panoplie (-1 : les 3 en panoplie)
       if (EQUIP_SLOTS.some((_, i) => i !== free && !pieces[i].length)) continue;
-      const choices = EQUIP_SLOTS.map((slot, i) => (i === free ? top(slot) : pieces[i]));
+      const choices = EQUIP_SLOTS.map((slot, i) => (i === free ? top(slot).slice(0, setFill) : pieces[i]));
       for (const o of choices[0]) for (const d of choices[1]) for (const b of choices[2]) consider([o, d, b]);
     }
   }
@@ -974,72 +993,216 @@ export function bestEquipCombo(s: GameState, uid: string, value: EquipValueFn = 
   return best;
 }
 
-/** Banc d'essai d'« Équiper le meilleur » : vagues de référence, combats pour caler la difficulté, combats par candidat. */
-const BENCH_WAVES = 240;
+/**
+ * Banc d'essai d'« Équiper le meilleur » : vagues de référence (= combats par finaliste), combats pour caler la
+ * difficulté. 160 vagues depuis le 2026-10-02 (240 avant) : avec la marge (`fightMargin`), le meilleur de 6 équipements
+ * y est aussi bien choisi que sur 240 (`tools/scratch/auto_bench.ts`).
+ */
+const BENCH_WAVES = 160;
+/** « ★ Ordre » : vagues par ordre essayé. 240, pas 160 : seulement 6 ordres à comparer (~40 ms sur PC), et sur 160
+ *  vagues un ordre à 3 points du meilleur passait devant (Rayquaza + Lugia + Magnézone, `tools/scratch/tower_meta.ts
+ *  order`, 2026-10-02). */
+const ORDER_WAVES = 240;
 const BENCH_CALIBRATE_STEPS = 7;
 const BENCH_CALIBRATE_WAVES = 24;
 const BENCH_SEED = 20261001;
+/** Part minimale des PV perdus (victoire) ou retirés (défaite) comptée par `fightMargin` : marge bornée à ±1,5. */
+const MARGIN_FLOOR = 0.05;
 
 /**
- * Départage des équipements candidats par de vrais combats (moteur `Battle`), déterministes (graines fixes) : l'équipe
- * du Pokémon (lui + ses coéquipiers actuels) contre des vagues de 3 formes finales ou légendaires de son niveau, à une
- * difficulté calée pour que le 1er candidat gagne environ une fois sur deux, mêmes vagues et mêmes graines pour tous.
- * Score continu : victoire = 1 + temps restant, défaite = part des PV adverses retirés. Renvoie l'index du meilleur.
+ * Marge d'un combat terminé : log de la difficulté que l'équipe aurait encore tenue, rapportée à celle du combat. Modèle
+ * de course : PV et Attaque adverses × M, donc dégâts subis jusqu'à la victoire ∝ M² et part des PV adverses retirés
+ * avant la défaite ∝ 1/M². Victoire : −½ ln(part des PV de l'équipe perdus) ≥ 0 ; défaite : ½ ln(part des PV adverses
+ * retirés) ≤ 0. Pas de saut entre une victoire et une défaite de justesse : bien moins de bruit que de compter les
+ * victoires (mesuré le 2026-10-02, `tools/scratch/auto_bench.ts`, ~200 équipements par Pokémon jugés sur 4 000 combats
+ * de Tour : en choisissant le meilleur de 6, on perd en moyenne 1,0 point sur 48 combats, 0,4 sur 240, contre 1,8 et
+ * 0,6 avec l'ancien score, victoire + temps restant).
  */
-function benchEquipCombos(s: GameState, uid: string, combos: (Item | undefined)[][]): number {
-  const mon = s.mons[uid];
-  const savedItems = { ...mon.items };
-  const savedTeam = s.team;
-  s.team = s.team.includes(uid) ? [...s.team] : [uid, ...s.team].slice(0, TEAM_SIZE);
-  const allies = combos.map((combo) => {
-    mon.items = {};
-    combo.forEach((it, i) => { if (it) mon.items[EQUIP_SLOTS[i]] = it.uid; });
-    return s.team.map((u) => allyFighter(s, u));
-  });
-  mon.items = savedItems;
-  s.team = savedTeam;
+function fightMargin(b: Battle): number {
+  let own = 0;
+  let ownMax = 0;
+  let foe = 0;
+  let foeMax = 0;
+  for (const f of b.fighters) {
+    if (f.side === 0) { own += Math.max(0, f.hp); ownMax += f.maxHp; }
+    else { foe += Math.max(0, f.hp); foeMax += f.maxHp; }
+  }
+  return b.result === 'win'
+    ? -0.5 * Math.log(Math.max(MARGIN_FLOOR, 1 - own / ownMax))
+    : 0.5 * Math.log(Math.max(MARGIN_FLOOR, 1 - foe / foeMax));
+}
 
-  const pool = towerSpecies();
-  const rng = seededRng(BENCH_SEED);
-  const waves = Array.from({ length: BENCH_WAVES }, () =>
-    Array.from({ length: TOWER_TEAM }, () => makeMon(pool[rng.int(pool.length)], mon.level, rng, false, GENE_MAX)));
-  const run = (team: FighterInit[], mult: number, n: number) => {
-    let win = 0;
-    let score = 0;
-    for (let i = 0; i < n; i++) {
-      const foes = waves[i].map((m, j) => wildFighter(`b${j}`, m, { wild: true, wildMult: mult }));
-      const b = new Battle([...team.map((f) => ({ ...f })), ...foes], seededRng(BENCH_SEED + i));
-      b.runToEnd();
-      if (b.result === 'win') { win++; score += 1 + 0.2 * (MAX_BATTLE_TIME - b.t) / MAX_BATTLE_TIME; }
-      else {
-        const left = b.fighters.filter((f) => f.side === 1);
-        score += (0.2 * left.reduce((a, f) => a + (1 - f.hp / f.maxHp), 0)) / left.length;
-      }
-    }
-    return { win: win / n, score: score / n };
+/** Vagues du banc d'essai par niveau, générées une seule fois (toujours les mêmes graines) : quelques niveaux gardés.
+ *  Assez pour « ★ Ordre » ; « ★ Auto » ne joue que les `BENCH_WAVES` premières. */
+const benchWavesByLevel = new Map<number, Mon[][]>();
+const BENCH_LEVELS_KEPT = 4;
+function benchWaves(level: number): Mon[][] {
+  let waves = benchWavesByLevel.get(level);
+  if (!waves) {
+    const pool = towerSpecies();
+    const rng = seededRng(BENCH_SEED);
+    waves = Array.from({ length: Math.max(BENCH_WAVES, ORDER_WAVES) }, () =>
+      Array.from({ length: TOWER_TEAM }, () => makeMon(pool[rng.int(pool.length)], level, rng, false, GENE_MAX)));
+    if (benchWavesByLevel.size >= BENCH_LEVELS_KEPT) benchWavesByLevel.delete(benchWavesByLevel.keys().next().value!);
+    benchWavesByLevel.set(level, waves);
+  }
+  return waves;
+}
+
+/**
+ * Banc d'essai des boutons « ★ Auto » (objets) et « ★ Ordre » (équipe) : de vrais combats (moteur `Battle`),
+ * déterministes (graines fixes), de l'équipe contre des vagues de 3 formes finales ou légendaires du niveau `level`, à
+ * une difficulté calée pour que la référence `ref` gagne environ une fois sur deux ; mêmes vagues et mêmes graines pour
+ * tous les candidats. Score : marge moyenne des combats (`fightMargin`).
+ * `alliesOf` donne les combattants de l'équipe pour un candidat (sans modifier l'état), `keyOf` sa clé (cache).
+ * Rien n'est rejoué (2026-10-02) : les adversaires de chaque vague sont préparés une fois, et la marge de chaque combat
+ * d'un candidat est gardée (passer de 32 à 160 vagues ne joue que les 128 qui manquent).
+ */
+function teamBench<T>(level: number, alliesOf: (c: T) => FighterInit[], keyOf: (c: T) => string, ref: T) {
+  const waves = benchWaves(level);
+  const foesAt = (i: number, mult: number) => waves[i].map((m, j) => wildFighter(`b${j}`, m, { wild: true, wildMult: mult }));
+  // la vague i, toujours la même : tous les candidats affrontent les mêmes adversaires, avec les mêmes graines
+  const fight = (allies: FighterInit[], foes: FighterInit[], i: number) => {
+    const b = new Battle([...allies.map((f) => ({ ...f })), ...foes], seededRng(BENCH_SEED + i));
+    b.runToEnd();
+    return b;
   };
+  const refAllies = alliesOf(ref);
   let lo = Math.log(0.05);
   let hi = Math.log(5000);
   for (let k = 0; k < BENCH_CALIBRATE_STEPS; k++) {
     const mid = (lo + hi) / 2;
-    if (run(allies[0], Math.exp(mid), BENCH_CALIBRATE_WAVES).win >= 0.5) lo = mid; else hi = mid;
+    let win = 0;
+    for (let i = 0; i < BENCH_CALIBRATE_WAVES; i++) if (fight(refAllies, foesAt(i, Math.exp(mid)), i).result === 'win') win++;
+    if (win / BENCH_CALIBRATE_WAVES >= 0.5) lo = mid; else hi = mid;
   }
   const mult = Math.exp((lo + hi) / 2);
-  let best = 0;
-  let bestScore = -Infinity;
-  allies.forEach((team, i) => {
-    const sc = run(team, mult, BENCH_WAVES).score;
-    if (sc > bestScore) { bestScore = sc; best = i; }
+  /** adversaires de chaque vague à la difficulté calée, préparés au premier combat */
+  const foes: FighterInit[][] = [];
+  const played = new Map<string, { allies: FighterInit[]; margins: number[] }>();
+  return {
+    /** Score moyen de l'équipe pour le candidat `c`, sur les `n` premières vagues. */
+    score(c: T, n: number): number {
+      const key = keyOf(c);
+      let p = played.get(key);
+      if (!p) { p = { allies: alliesOf(c), margins: [] }; played.set(key, p); }
+      for (let i = p.margins.length; i < n; i++) p.margins.push(fightMargin(fight(p.allies, (foes[i] ??= foesAt(i, mult)), i)));
+      let sum = 0;
+      for (let i = 0; i < n; i++) sum += p.margins[i];
+      return sum / n;
+    },
+  };
+}
+
+type Combo = (Item | undefined)[];
+const comboKey = (c: Combo) => c.map((it) => it?.uid ?? '-').join('|');
+
+/** Banc d'essai d'« ★ Auto » : l'équipe du Pokémon (lui + ses coéquipiers actuels), lui équipé de chaque candidat. */
+function equipBench(s: GameState, uid: string, ref: Combo) {
+  const mon = s.mons[uid];
+  const team = s.team.includes(uid) ? [...s.team] : [uid, ...s.team].slice(0, TEAM_SIZE);
+  /** Combattants de l'équipe avec ce Pokémon équipé de `combo` (l'état n'est pas modifié). */
+  const alliesFor = (combo: Combo) => {
+    const savedItems = mon.items;
+    const savedTeam = s.team;
+    mon.items = {};
+    combo.forEach((it, i) => { if (it) mon.items[EQUIP_SLOTS[i]] = it.uid; });
+    s.team = team;
+    const allies = team.map((u) => allyFighter(s, u));
+    mon.items = savedItems;
+    s.team = savedTeam;
+    return allies;
+  };
+  return teamBench(mon.level, alliesFor, comboKey, ref);
+}
+
+/** Combats par candidat au premier tri d'« ★ Auto » ; les finalistes sont départagés sur `BENCH_WAVES`. */
+const BENCH_SHORT = 32;
+/** Finalistes départagés sur toutes les vagues. */
+const BENCH_FINALISTS = 3;
+/** Objets essayés par emplacement à la place de ceux d'un équipement (les mieux classés seuls, par 2 calculs). */
+const AUTO_SWAP_TOP = 3;
+/** Panoplies complètes essayées (les mieux classées par le calcul rapide). */
+const AUTO_SET_TRIES = 3;
+/** Objets au plus que le calcul des flèches juge meilleurs, ajoutés au dernier tri (pour qu'aucune flèche ▲ ne
+ *  contredise le résultat). */
+const AUTO_ARROW_CHECKS = 12;
+
+/**
+ * Recherche d'« ★ Auto » par de vrais combats (2026-10-02). Avant, seuls les optimums des 3 calculs étaient départagés :
+ * quand aucun ne voyait le bon équipement, il n'était jamais essayé (mesuré en Tour : Kyogre en Voile des Ombres au lieu
+ * de Troisième Œil, ou Giratina en Brume Toxique complète au lieu de 2 pièces + un meilleur objet défensif, 2 à
+ * 5 points de victoire de moins). Candidats : les optimums des 3 calculs, les panoplies complètes les mieux classées, et
+ * le remplacement d'un objet à la fois par les meilleurs du Sac ; tri sur `BENCH_SHORT` combats, finale sur
+ * `BENCH_WAVES` ; puis un tour de remplacements autour du gagnant, objets que les flèches jugeraient meilleurs compris.
+ * Renvoie l'équipement retenu et les objets essayés (les flèches ne les marquent plus ▲ tant qu'il est porté).
+ */
+function autoEquipSearch(s: GameState, uid: string, optima: Combo[]): { combo: Combo; tested: string[] } {
+  const mon = s.mons[uid];
+  const held = heldBy(s);
+  const base = monBaseBonuses(s, uid);
+  const free = Object.values(s.items).filter((it) => { const o = held.get(it.uid); return !o || o === mon; });
+  const bySlot = EQUIP_SLOTS.map((slot) => free.filter((it) => slotOf(it) === slot));
+  // classements d'un objet seul par deux calculs (rapide, mesuré)
+  const rank = (fn: (it: Item) => number) => bySlot.map((list) => list.map((it) => ({ it, v: fn(it) })).sort((a, b) => b.v - a.v).map((x) => x.it));
+  const quickRank = rank((it) => quickEquipValue(s, uid, [it], base));
+  const measuredRank = rank((it) => measuredEquipValue(s, uid, [it]));
+  const bench = equipBench(s, uid, optima[1]);
+  const tested = new Set<string>();
+  const swapsAround = (c: Combo): Combo[] => EQUIP_SLOTS.flatMap((_, j) => {
+    const picks = [...quickRank[j].slice(0, AUTO_SWAP_TOP), ...measuredRank[j].slice(0, AUTO_SWAP_TOP)];
+    return picks.filter((it) => it !== c[j]).map((it) => { const n = [...c]; n[j] = it; return n; });
   });
-  return best;
+  const uniqOf = (list: Combo[]) => [...new Map(list.map((c) => [comboKey(c), c])).values()];
+  /**
+   * Le meilleur de `keep` + `list` : `keep` va toujours en finale (jamais moins bien qu'avant cette recherche), `list`
+   * passe d'abord un tri sur peu de combats ; finale sur toutes les vagues, `keep[0]` gagne les égalités.
+   */
+  const pickBest = (keep: Combo[], list: Combo[]): Combo => {
+    const kept = uniqOf(keep);
+    const keptKeys = new Set(kept.map(comboKey));
+    const others = uniqOf(list).filter((c) => !keptKeys.has(comboKey(c)));
+    for (const c of [...kept, ...others]) for (const it of c) if (it) tested.add(it.uid);
+    const short = others.map((c) => ({ c, v: bench.score(c, BENCH_SHORT) })).sort((a, b) => b.v - a.v);
+    const finalists = [...kept, ...short.slice(0, BENCH_FINALISTS).map((x) => x.c)];
+    if (finalists.length === 1) return finalists[0];
+    return finalists.map((c) => ({ c, v: bench.score(c, BENCH_WAVES) })).sort((a, b) => b.v - a.v)[0].c;
+  };
+  // panoplies complètes : le meilleur exemplaire de chaque pièce (calcul rapide), les mieux classées d'abord
+  const setCombos = Object.keys(SETS)
+    .map((set) => EQUIP_SLOTS.map((_, j) => quickRank[j].find((it) => template(it.templateId).set === set)))
+    .filter((c): c is Item[] => c.every(Boolean))
+    .sort((a, b) => quickEquipValue(s, uid, b, base) - quickEquipValue(s, uid, a, base))
+    .slice(0, AUTO_SET_TRIES);
+  // les optimums des 3 calculs toujours en finale, l'ancien calcul d'abord (à score égal, c'est lui qui est gardé)
+  let best = pickBest([optima[1], optima[0], optima[2]], [...setCombos, ...swapsAround(optima[1])]);
+  // dernier tour autour du gagnant : remplacements, et tout objet que les flèches marqueraient ▲
+  const model = equipModelOf(best, optima);
+  const value = model === 'duel' ? equipValue : model === 'measured' ? measuredEquipValue : quickEquipValue;
+  const bestItems = best.filter((it): it is Item => !!it);
+  const arrows = free.filter((it) => !tested.has(it.uid))
+    .map((it) => {
+      const j = EQUIP_SLOTS.indexOf(slotOf(it));
+      return { it, j, g: value(s, uid, [...bestItems.filter((b) => slotOf(b) !== slotOf(it)), it], base) - value(s, uid, bestItems, base) };
+    })
+    .filter((x) => x.g > 0.05).sort((a, b) => b.g - a.g).slice(0, AUTO_ARROW_CHECKS)
+    .map(({ it, j }) => { const n = [...best]; n[j] = it; return n; });
+  best = pickBest([best], [...swapsAround(best), ...arrows]);
+  return { combo: best, tested: [...tested] };
+}
+
+/** Calcul suivi par les flèches du sélecteur : celui dont l'optimum est l'équipement retenu, sinon l'ancien. */
+function equipModelOf(combo: Combo, optima: Combo[]): 'duel' | 'quick' | 'measured' {
+  const k = comboKey(combo);
+  return k === comboKey(optima[1]) ? 'quick' : k === comboKey(optima[0]) ? 'duel' : k === comboKey(optima[2]) ? 'measured' : 'quick';
 }
 
 /**
  * « Équiper le meilleur ». Deux modèles de valeur se trompent chacun de 10 points de victoire ou plus sur certains
  * Pokémon (audit du 2026-10-01 : le duel valorise bien le Vol de vie et la Vitesse saturée, l'ancien `combatValue` les PV
- * en fin de jeu) : on prend la meilleure combinaison selon chacun, puis on les départage par de vrais combats
- * (`benchEquipCombos`, quelques centaines de combats, déterministe). `mode: 'quick'` = ancien calcul seul, sans
- * combats (bot des simulations). Retourne le nombre d'emplacements changés.
+ * en fin de jeu) : on prend la meilleure combinaison selon chacun, puis on les départage par de vrais combats avec
+ * d'autres candidats (panoplies complètes, un objet remplacé à la fois : `autoEquipSearch`, déterministe).
+ * `mode: 'quick'` = ancien calcul seul, sans combats (bot des simulations). Retourne le nombre d'emplacements changés.
  */
 export function autoEquipBest(s: GameState, uid: string, mode: 'bench' | 'quick' = 'bench'): number {
   const mon = s.mons[uid];
@@ -1047,14 +1210,14 @@ export function autoEquipBest(s: GameState, uid: string, mode: 'bench' | 'quick'
   let best: (Item | undefined)[];
   if (mode === 'quick') best = bestEquipCombo(s, uid, quickEquipValue);
   else {
-    const models = ['duel', 'quick', 'measured'] as const;
-    const all = [bestEquipCombo(s, uid, equipValue), bestEquipCombo(s, uid, quickEquipValue), bestEquipCombo(s, uid, measuredEquipValue)];
-    // candidats distincts (l'ancien calcul d'abord : à égalité, c'est lui qui est gardé)
-    const order = [1, 0, 2].filter((i, k, arr) => !arr.slice(0, k).some((j) => all[j].every((it, x) => it?.uid === all[i][x]?.uid)));
-    const pick = order.length === 1 ? order[0] : order[benchEquipCombos(s, uid, order.map((i) => all[i]))];
-    best = all[pick];
-    // les flèches du sélecteur suivent le calcul retenu (l'ancien par défaut)
-    if (models[pick] === 'quick') delete mon.equipModel; else mon.equipModel = models[pick];
+    const optima = [equipValue, quickEquipValue, measuredEquipValue].map((fn) => bestEquipCombo(s, uid, fn, AUTO_EQUIP_SET_FILL));
+    const { combo, tested } = autoEquipSearch(s, uid, optima);
+    best = combo;
+    // les flèches du sélecteur suivent le calcul dont l'optimum a gagné (l'ancien par défaut), et ne marquent plus ▲ les
+    // objets déjà départagés par les combats tant que cet équipement est porté
+    const model = equipModelOf(combo, optima);
+    if (model === 'quick') delete mon.equipModel; else mon.equipModel = model;
+    mon.equipAuto = { items: combo.map((it) => it?.uid ?? ''), tested };
   }
   let n = 0;
   EQUIP_SLOTS.forEach((slot, i) => {
@@ -1062,6 +1225,43 @@ export function autoEquipBest(s: GameState, uid: string, mode: 'bench' | 'quick'
     if (pick && pick.uid !== mon.items[slot]) { equip(s, uid, pick.uid); n++; }
   });
   return n;
+}
+
+/** Tous les ordres d'une liste (permutations), la liste telle quelle d'abord. */
+function permutations<T>(list: T[]): T[][] {
+  if (list.length <= 1) return [list];
+  return list.flatMap((x, i) => permutations([...list.slice(0, i), ...list.slice(i + 1)]).map((p) => [x, ...p]));
+}
+
+/**
+ * « ★ Ordre » (2026-10-02) : l'ordre de l'équipe qui gagne le plus de vrais combats. Les ennemis visent le 1er Pokémon
+ * (70 % de leurs coups) : mesuré en Tour (étage 120, même équipe, même équipement), le meilleur ordre gagne 85 % des
+ * combats, le pire 66 %. Tous les ordres (6 pour 3 Pokémon) affrontent les mêmes `ORDER_WAVES` vagues (`teamBench`) au niveau du plus
+ * haut de l'équipe. La difficulté est calée sur un ordre fixe (uid triés), pas sur l'ordre actuel : le résultat ne
+ * dépend pas de l'ordre de départ (un 2e appui ne change rien). À score égal, l'ordre actuel est gardé.
+ * Renvoie le nouvel ordre, ou null s'il était déjà le meilleur.
+ */
+export function autoTeamOrder(s: GameState): string[] | null {
+  const team = s.team.filter((u) => s.mons[u]);
+  if (team.length < 2) return null;
+  const alliesOf = (order: string[]) => {
+    const saved = s.team;
+    s.team = order;
+    const allies = order.map((u) => allyFighter(s, u));
+    s.team = saved;
+    return allies;
+  };
+  const level = Math.max(...team.map((u) => s.mons[u].level));
+  const bench = teamBench(level, alliesOf, (o) => o.join('|'), [...team].sort());
+  let best = team;
+  let bestScore = bench.score(team, ORDER_WAVES);
+  for (const order of permutations(team).slice(1)) {
+    const v = bench.score(order, ORDER_WAVES);
+    if (v > bestScore) { best = order; bestScore = v; }
+  }
+  if (best === team) return null;
+  s.team = best;
+  return best;
 }
 
 /** Objets d'une panoplie recyclables d'un coup depuis le Sac : ni verrouillés 🔒 ni portés. */
@@ -1138,6 +1338,18 @@ export function upgradeItem(s: GameState, uid: string): boolean {
   up.invested = (it.invested ?? 0) + cost; // amélioration manuelle : 50 % rendus au recyclage (`recycleRefund`)
   s.items[uid] = up;
   return true;
+}
+
+/**
+ * `n` niveaux d'amélioration d'affilée (fenêtre « Améliorer » : +1, +10), tout ou rien comme l'achat groupé des Balls :
+ * refusé s'il manque des éclats pour les `n` niveaux ou si le niveau maximum serait dépassé. Renvoie les niveaux gagnés.
+ */
+export function upgradeItemTimes(s: GameState, uid: string, n: number): number {
+  const it = s.items[uid];
+  if (!it || n < 1 || it.level + n > itemLevelCap(s) || s.shards < upgradeCostFor(it, n)) return 0;
+  let k = 0;
+  while (k < n && upgradeItem(s, uid)) k++;
+  return k;
 }
 
 export function rerollItemSub(s: GameState, uid: string, index: number, rng: Rng): boolean {
@@ -1882,16 +2094,58 @@ export function towerShards(floor: number): number {
 
 let towerLoot: ItemTemplate[] | null = null;
 /**
- * Objets qui tombent dans la Tour : ceux des panoplies de la dernière région (Sinnoh, 15 panoplies, 45 objets). Leur
- * puissance ne dépend pas de la panoplie (tous créés au niveau du dernier biome, voir `biomeTier`) ; moins d'objets
- * différents = plus de doublons, donc des fusions en Chromatique +N plus rapides (demande d'Arno, 2026-09-30).
+ * Objets qui tombent dans la Tour sans panoplies visées : ceux des 20 panoplies du jeu (60 objets), les mêmes que le
+ * coffre de palier et que la liste des panoplies visées (2026-10-02 ; avant, les 15 panoplies de Sinnoh, 45 objets, pour
+ * plus de doublons — c'est désormais le rôle des panoplies visées). Leur puissance ne dépend pas de la panoplie (tous
+ * créés au niveau du dernier biome, voir `biomeTier`).
  */
 export function towerLootTemplates(): ItemTemplate[] {
-  if (!towerLoot) {
-    const sets = new Set(Object.entries(BIOME_SET).filter(([b]) => Number(b) >= REGIONS[REGIONS.length - 1].start).map(([, set]) => set));
-    towerLoot = TEMPLATES.filter((t) => t.set && sets.has(t.set));
-  }
+  if (!towerLoot) towerLoot = TEMPLATES.filter((t) => t.set && SETS[t.set]);
   return towerLoot;
+}
+
+/** Nombre de panoplies à viser pour que les Chromatiques de la Tour s'y limitent : 3 (9 objets au lieu de 60, chaque
+ *  objet visé tombe près de 7 fois plus souvent) ; 1 ou 2 accéléreraient trop les crans +N (×20, ×10). */
+export const TOWER_FOCUS_SETS = 3;
+
+/** Panoplies de la Tour : les 20 du jeu (tirage sans panoplies visées, choix des panoplies visées, coffre de palier),
+ *  de même puissance une fois tombées dans la Tour (créées au niveau du dernier biome, `biomeTier`). */
+export function towerFocusChoices(): string[] {
+  return Object.keys(SETS).filter((id) => TEMPLATES.some((t) => t.set === id));
+}
+
+/** Objet tel qu'il tombe dans la Tour (Chromatique, sans sous-stats) à ce niveau : aperçu d'une panoplie (onglet de la
+ *  Tour), même puissance que `makeItem(…, BIOMES.length - 1)`. */
+export function towerPreviewItem(templateId: string, level: number): Item {
+  const it: Item = { uid: `apercu-${templateId}`, templateId, rarity: MAX_RARITY, level, subs: [] };
+  const tier = biomeTier(BIOMES.length - 1, template(templateId));
+  if (tier !== 1) it.tier = tier;
+  return it;
+}
+
+/** Panoplies visées valables (au plus `TOWER_FOCUS_SETS`, inconnues ignorées). */
+function towerFocus(s: GameState): string[] {
+  const choices = towerFocusChoices();
+  return (s.towerSets ?? []).filter((id) => choices.includes(id)).slice(0, TOWER_FOCUS_SETS);
+}
+
+/**
+ * Objets que fait tomber un étage de la Tour (combat et hors ligne) : ceux des 3 panoplies visées (2026-10-02, demande
+ * d'Arno : 9 objets au lieu de 60, des fusions +N bien plus rapides sur ce qu'on porte), sinon ceux des 20 panoplies
+ * (`towerLootTemplates`).
+ */
+export function towerDropPool(s: GameState): ItemTemplate[] {
+  const focus = towerFocus(s);
+  return focus.length < TOWER_FOCUS_SETS ? towerLootTemplates() : TEMPLATES.filter((t) => t.set && focus.includes(t.set));
+}
+
+/** Vise ou retire une panoplie dans la Tour ; refusé (`false`) si on en vise déjà `TOWER_FOCUS_SETS`. */
+export function toggleTowerSet(s: GameState, setId: string): boolean {
+  const cur = towerFocus(s);
+  if (cur.includes(setId)) { s.towerSets = cur.filter((id) => id !== setId); return true; }
+  if (cur.length >= TOWER_FOCUS_SETS || !towerFocusChoices().includes(setId)) return false;
+  s.towerSets = [...cur, setId];
+  return true;
 }
 
 /** Cran du Chromatique gagné tous les 10 étages : +0 aux étages 10-20, +1 aux 30-40, +2 aux 50-60… */
@@ -1900,7 +2154,8 @@ export function towerRewardPlus(floor: number): number {
 }
 
 /**
- * Récompenses d'un étage franchi : éclats, 1 objet **Chromatique** Nv.100 + étage (panoplies de Sinnoh), et un
+ * Récompenses d'un étage franchi : éclats, 1 objet **Chromatique** Nv.100 + étage (panoplies visées, sinon les 20 :
+ * `towerDropPool`), et un
  * Chromatique +N à choisir tous les 10 étages — **au premier passage seulement** (étage au-delà du record, 2026-10-01 :
  * avant, chaque palier regagné redonnait son coffre, un +5 au choix toutes les 10 victoires vers l'étage 120 en combat
  * continu). Toujours Chromatique : la Tour ne doit jamais être bloquée par un manque de rareté, seulement par la
@@ -1911,7 +2166,7 @@ function towerFloorRewards(s: GameState, floor: number, rng: Rng): WaveRewards {
   const shards = towerShards(floor);
   s.shards += shards;
   out.shards = shards;
-  const pool = towerLootTemplates();
+  const pool = towerDropPool(s);
   const it = makeItem(pool[rng.int(pool.length)].id, MAX_RARITY, TOWER_LEVEL + floor, rng, BIOMES.length - 1);
   s.items[it.uid] = it;
   out.loot.push(it);
@@ -1984,9 +2239,15 @@ export function buyBoost(s: GameState, kind: BoostKind, now = Date.now()): boole
 }
 
 export function buyUniversalMega(s: GameState): boolean {
-  if (s.shards < UNIVERSAL_MEGA_PRICE) return false;
-  s.shards -= UNIVERSAL_MEGA_PRICE;
-  s.universalMega = (s.universalMega ?? 0) + 1;
+  return buyUniversalMegas(s, 1);
+}
+
+/** Achat groupé de méga bonbons universels (fenêtre ×10 · ×100 de la Boutique) : tout d'un coup, ou rien. */
+export function buyUniversalMegas(s: GameState, n: number): boolean {
+  const cost = UNIVERSAL_MEGA_PRICE * n;
+  if (n < 1 || s.shards < cost) return false;
+  s.shards -= cost;
+  s.universalMega = (s.universalMega ?? 0) + n;
   return true;
 }
 

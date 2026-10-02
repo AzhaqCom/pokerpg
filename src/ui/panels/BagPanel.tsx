@@ -3,7 +3,7 @@ import { FlatList, Pressable, ScrollView, StyleSheet, View } from 'react-native'
 import { Text } from '../components/Text';
 import { BALLS, BallKind, setRecycleCandidates, fuseItems, fusionCandidates, heldBy, recycle } from '../../game/game';
 import { SETS, recycleValue, slotOf, template, itemScore } from '../../game/items';
-import { Item, ItemSlot, RARITIES, RARITY_COLOR } from '../../game/model';
+import { Item, ItemSlot, RARITIES } from '../../game/model';
 import { rng, useGame } from '../../store/game';
 import { useSettings } from '../../store/settings';
 import { toast, useUi } from '../../store/ui';
@@ -14,6 +14,7 @@ import { Dialog, DialogSpec } from '../components/Dialog';
 import { ItemCard } from '../components/ItemCard';
 import { feedback } from '../components/feedback';
 import { runner } from '../battle/runner';
+import { itemColor, itemDisplayName } from '../helpers';
 import { C } from '../theme';
 
 const FILTERS: { key: ItemSlot | 'all'; label: string }[] = [
@@ -80,7 +81,7 @@ export function BagPanel() {
             <View style={styles.row}>
               <Button small label={`Fusionner (${fusions.length})`} color={fusions.length ? '#8e24aa' : C.panel2} disabled={!fusions.length} onPress={() => {
                 let n = 0;
-                act((g) => { for (let c = fusionCandidates(g); c.length; c = fusionCandidates(g)) { const out = fuseItems(g, c[0].map((i) => i.uid), rng); if (out) { n++; toast(`Fusion : ${template(out.templateId).name}`, RARITY_COLOR[out.rarity], template(out.templateId).name); } } });
+                act((g) => { for (let c = fusionCandidates(g); c.length; c = fusionCandidates(g)) { const out = fuseItems(g, c[0].map((i) => i.uid), rng); if (out) { n++; toast(`Fusion : ${itemDisplayName(out)}`, itemColor(out), itemDisplayName(out)); } } });
                 if (n) { feedback('medal', true); runner.restart(); }
               }} />
               <Button small label={`Recycler : ${RARITIES[recycleMaxRarity]} (${junk.length})`} disabled={!junk.length} onPress={() => {

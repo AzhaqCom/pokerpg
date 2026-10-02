@@ -1,15 +1,17 @@
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../components/Text';
 import {
-  BALL_PRICE, BALLS, BOOST_KINDS, BOOST_MAX_MS, BOOST_MS, BOOSTS, BallKind, BoostKind, UNIVERSAL_MEGA_PRICE,
-  boostRemaining, buyBall, buyBalls, buyBoost, buyUniversalMega,
+  BALL_PRICE, BALLS, BOOST_KINDS, BOOST_MAX_MS, BOOST_MS, BOOSTS, BallKind, BoostKind, GameState, UNIVERSAL_MEGA_PRICE,
+  boostRemaining, buyBall, buyBalls, buyBoost, buyUniversalMega, buyUniversalMegas,
 } from '../../game/game';
 import { useGame } from '../../store/game';
 import { toast } from '../../store/ui';
 import { BallIcon } from '../components/BallIcon';
 import { feedback } from '../components/feedback';
+import { BuyButton, QuantityModal } from '../components/QuantityModal';
 import { useHoldRepeat } from '../components/useHoldRepeat';
+import { fmtNum as fmt } from '../helpers';
 import { C } from '../theme';
 import { useFrameClock } from '../useFrameClock';
 
@@ -21,41 +23,20 @@ export function formatLeft(ms: number): string {
   return h ? `${h} h ${String(min % 60).padStart(2, '0')}` : `${min} min`;
 }
 
-/** « 48 250 » : séparateur de milliers (sans `Intl`, pas toujours complet sous Hermes). */
-const fmt = (n: number) => String(Math.floor(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-
 /** Effet d'un bonus en quelques mots (tuiles de la grille ; la description complète s'affiche au toucher). */
 const BOOST_SHORT: Record<BoostKind, string> = {
   charm: 'Chromatiques ×1,5', incense: 'Offres de capture ×2', lure: 'Espèces rares ×3', xp: 'XP de l’équipe ×1,5',
 };
 
-/**
- * Bouton d'achat : le prix quand on peut payer, sinon ce qui manque (« −6 750 ») au lieu d'un simple bouton grisé.
- * `label` remplace le texte (ex. « réserve pleine »).
- */
-function BuyButton({ cost, shards, text, label, onPress, onLongPress, onPressOut, style, big }: {
-  cost: number; shards: number; text: string; label?: string; onPress: () => void;
-  onLongPress?: () => void; onPressOut?: () => void; style?: object;
-  /** grand bouton (achat de Balls) : 40 px de haut, texte plus gros — facile à toucher */
-  big?: boolean;
-}) {
-  const can = !label && shards >= cost;
-  return (
-    <Pressable disabled={!can} onPress={onPress} onLongPress={onLongPress} onPressOut={onPressOut} delayLongPress={350}
-      style={({ pressed }) => [styles.buy, big && styles.buyBig, !can && styles.buyOff, pressed && { opacity: 0.75 }, style]}>
-      <Text style={[styles.buyTxt, big && styles.buyTxtBig, !can && styles.buyTxtOff]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-        {label ?? (can ? text : `−${fmt(cost - shards)}`)}
-      </Text>
-    </Pressable>
-  );
-}
+/** Article achetable en quantité (maintenir sa tuile) : une Ball ou le méga bonbon universel. */
+type BulkKind = BallKind | 'mega';
 
 /**
  * Ball de la boutique (3 sur une ligne, 2026-10-01) : toucher = +1 ; maintenir = la fenêtre d'achat en quantité
  * (`BulkModal`) s'ouvre aussitôt, sans attendre le relâchement. Sur Android, une fenêtre qui s'ouvre interrompt l'appui
  * en cours : l'achat en continu se fait donc dans la fenêtre (maintenir « +1 »).
  */
-function BallTile({ kind, onBulk }: { kind: BallKind; onBulk: (kind: BallKind) => void }) {
+function BallTile({ kind, onBulk }: { kind: BallKind; onBulk: (kind: BulkKind) => void }) {
   const s = useGame((g) => g.s)!;
   const act = useGame((g) => g.act);
   const price = BALL_PRICE[kind];
@@ -73,41 +54,37 @@ function BallTile({ kind, onBulk }: { kind: BallKind; onBulk: (kind: BallKind) =
 }
 
 /**
- * Fenêtre d'achat en quantité d'une Ball (maintenir sa tuile) : +1 (maintenir = achat en continu de plus en plus vite,
- * `useHoldRepeat`), ×10, ×100 ; reste ouverte jusqu'à « Fermer ».
+ * Fenêtre d'achat en quantité d'une Ball ou du méga bonbon universel (2026-10-02 : demande d'Arno) — maintenir sa tuile :
+ * +1 (maintenir = achat en continu de plus en plus vite, `useHoldRepeat`), ×10, ×100 ; reste ouverte jusqu'à « Fermer ».
  */
-function BulkModal({ kind, onClose }: { kind: BallKind | null; onClose: () => void }) {
+function BulkModal({ kind, onClose }: { kind: BulkKind | null; onClose: () => void }) {
   const s = useGame((g) => g.s)!;
   useGame((g) => g.rev);
   const act = useGame((g) => g.act);
-  const hold = useHoldRepeat((n) => (kind ? act((g) => { let k = 0; while (k < n && buyBall(g, kind)) k++; return k; }) ?? 0 : 0));
+  const buyN = (g: GameState, n: number) => (kind === 'mega' ? buyUniversalMegas(g, n) : kind ? buyBalls(g, kind, n) : false);
+  const hold = useHoldRepeat((n) => (kind ? act((g) => { let k = 0; while (k < n && buyN(g, 1)) k++; return k; }) ?? 0 : 0));
   if (!kind) return null;
-  const price = BALL_PRICE[kind];
-  const buy = (n: number) => { if (act((g) => buyBalls(g, kind, n))) { feedback(); toast(`+${n} ${BALLS[kind].name}s`); } };
+  const mega = kind === 'mega';
+  const price = mega ? UNIVERSAL_MEGA_PRICE : BALL_PRICE[kind];
+  const buy = (n: number) => {
+    if (!act((g) => buyN(g, n))) return;
+    if (mega) { feedback('medal'); toast(`+${n} méga bonbon${n > 1 ? 's' : ''} universel${n > 1 ? 's' : ''}`, C.gold); }
+    else { feedback(); if (n > 1) toast(`+${n} ${BALLS[kind].name}s`); }
+  };
   return (
-    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.modal} onPress={() => {}}>
-          <View style={styles.modalHead}>
-            <BallIcon kind={kind} size={36} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.modalTitle}>{BALLS[kind].name}</Text>
-              <Text style={styles.desc}>stock {fmt(s.balls[kind])} · capture {BALLS[kind].chance} % · {price} 💎 l'unité</Text>
-            </View>
-          </View>
-          <Text style={styles.desc}>💎 {fmt(s.shards)} éclats</Text>
-          <View style={styles.modalBtns}>
-            <BuyButton big cost={price} shards={s.shards} text="+1" onPress={() => { if (act((g) => buyBall(g, kind))) feedback(); }}
-              onLongPress={hold.start} onPressOut={hold.stop} style={{ flex: 1 }} />
-            {[10, 100].map((n) => (
-              <BuyButton key={n} big cost={price * n} shards={s.shards} text={`×${n} · ${fmt(price * n)} 💎`} onPress={() => buy(n)} style={{ flex: 1.6 }} />
-            ))}
-          </View>
-          <Text style={styles.hint}>Maintenir « +1 » pour acheter en continu.</Text>
-          <Pressable onPress={onClose} style={styles.closeBtn}><Text style={styles.closeTxt}>Fermer</Text></Pressable>
-        </Pressable>
-      </Pressable>
-    </Modal>
+    <QuantityModal
+      icon={mega ? <Text style={styles.megaIcon}>🍬</Text> : <BallIcon kind={kind} size={36} />}
+      title={mega ? 'Méga bonbon universel' : BALLS[kind].name}
+      sub={mega
+        ? `stock ${fmt(s.universalMega ?? 0)} · ${fmt(price)} 💎 l'unité`
+        : `stock ${fmt(s.balls[kind])} · capture ${BALLS[kind].chance} % · ${price} 💎 l'unité`}
+      shards={s.shards}
+      options={[
+        { text: '+1', cost: price, onPress: () => buy(1), onLongPress: hold.start, onPressOut: hold.stop },
+        ...[10, 100].map((n) => ({ text: `×${n} · ${fmt(price * n)} 💎`, cost: price * n, onPress: () => buy(n), flex: 1.6 })),
+      ]}
+      hint="Maintenir « +1 » pour acheter en continu."
+      onClose={onClose} />
   );
 }
 
@@ -139,7 +116,7 @@ export function ShopPanel() {
   const s = useGame((g) => g.s)!;
   useGame((g) => g.rev);
   const act = useGame((g) => g.act);
-  const [bulk, setBulk] = useState<BallKind | null>(null);
+  const [bulk, setBulk] = useState<BulkKind | null>(null);
   return (
     <View style={{ flex: 1 }}>
       <View style={styles.shards}>
@@ -167,8 +144,10 @@ export function ShopPanel() {
             <Text style={styles.desc}>+1 gène, n'importe quel Pokémon (fiche, onglet Bonbons) · gardé au nouveau départ</Text>
           </View>
           <BuyButton cost={UNIVERSAL_MEGA_PRICE} shards={s.shards} text={`+1 · ${fmt(UNIVERSAL_MEGA_PRICE)} 💎`}
-            onPress={() => { if (act((g) => buyUniversalMega(g))) { feedback('medal'); toast('+1 méga bonbon universel', C.gold); } }} />
+            onPress={() => { if (act((g) => buyUniversalMega(g))) { feedback('medal'); toast('+1 méga bonbon universel', C.gold); } }}
+            onLongPress={() => { feedback(); setBulk('mega'); }} />
         </View>
+        <Text style={styles.hint}>Toucher : +1. Maintenir : achat en quantité (×10, ×100, en continu).</Text>
       </ScrollView>
       <BulkModal kind={bulk} onClose={() => setBulk(null)} />
     </View>
@@ -187,13 +166,6 @@ const styles = StyleSheet.create({
   active: { color: C.gold, fontWeight: '800' },
   ballsRow: { flexDirection: 'row', gap: 8 },
   ballTile: { flex: 1, alignItems: 'center', gap: 2, backgroundColor: C.panel, borderRadius: 12, paddingVertical: 10 },
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24 },
-  modal: { backgroundColor: C.panel, borderRadius: 18, padding: 16, gap: 10 },
-  modalHead: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  modalTitle: { color: C.text, fontSize: 17, fontWeight: '900' },
-  modalBtns: { flexDirection: 'row', gap: 10 },
-  closeBtn: { alignItems: 'center', paddingVertical: 10, borderRadius: 10, backgroundColor: C.panel2 },
-  closeTxt: { color: C.text, fontWeight: '800' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   boost: { width: '48.8%', backgroundColor: C.panel, borderRadius: 12, padding: 8, gap: 2, borderWidth: 1.5, borderColor: 'transparent' },
   boostOn: { borderColor: C.gold },
@@ -201,10 +173,4 @@ const styles = StyleSheet.create({
   gaugeFill: { height: '100%', backgroundColor: C.gold },
   megaCard: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.panel, borderRadius: 12, padding: 10 },
   megaIcon: { fontSize: 26 },
-  buy: { backgroundColor: C.accent, borderRadius: 8, paddingVertical: 5, paddingHorizontal: 6, alignItems: 'center', marginTop: 2 },
-  buyOff: { backgroundColor: C.panel2 },
-  buyTxt: { color: C.text, fontSize: 11, fontWeight: '900' },
-  buyBig: { height: 40, justifyContent: 'center', borderRadius: 10, marginTop: 0 },
-  buyTxtBig: { fontSize: 14 },
-  buyTxtOff: { color: C.dim },
 });

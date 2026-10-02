@@ -1,6 +1,6 @@
 import { BIOMES, REGIONS, regionLastBiome } from '../content';
-import { addMon, chooseStarter, equip, makeMon, newGame, setTowerIdlePick, teamMaxLevel, towerIdleActive, towerIdleFloor } from '../game';
-import { makeItem } from '../items';
+import { addMon, chooseStarter, equip, makeMon, newGame, setTowerIdlePick, teamMaxLevel, toggleTowerSet, towerIdleActive, towerIdleFloor } from '../game';
+import { makeItem, template } from '../items';
 import { IDLE_CAP_MS, applyIdleGains, computeIdleGains, idleRun, teamXpPerHour } from '../idle';
 import { seededRng } from '../rng';
 
@@ -379,4 +379,15 @@ test('entraînement hors ligne dans la Tour : 1 Chromatique tous les 10 étages 
   // désactivé : l'absence farme la zone
   s.towerIdle = false;
   expect(computeIdleGains(s, 2 * H, seededRng(4))!.tower).toBeUndefined();
+});
+
+test('entraînement hors ligne dans la Tour : les Chromatiques suivent les 3 panoplies visées (2026-10-02)', () => {
+  const s = towerGame();
+  s.towerBest = 23;
+  setTowerIdlePick(s, 3);
+  const focus = ['ruche', 'circuit', 'dragon2'];
+  for (const id of focus) toggleTowerSet(s, id);
+  const g = computeIdleGains(s, 2 * H, seededRng(4))!;
+  expect(g.bagItems.length).toBeGreaterThan(1);
+  expect(g.bagItems.every((it) => focus.includes(template(it.templateId).set!))).toBe(true);
 });

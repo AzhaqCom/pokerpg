@@ -235,14 +235,25 @@ export const FLAT_SUBS: BonusStat[] = ['spePct', 'cdrPct'];
 const subLvlMult = (stat: BonusStat, level: number) => (FLAT_SUBS.includes(stat) ? slowLvlMult(level) : lvlMult(level));
 
 /**
- * Valeur **mesurée** d'un jet moyen de chaque sous-stat, en points de victoire (équipe de Tour à l'étage ~100,
- * Chromatique +2 Nv.200, `tools/scratch/tower100.ts`, 2026-10-01). Sert à la fusion (quelles sous-stats garder), à
- * l'équipement Auto (3e candidat) et aux couleurs des sous-stats. Avant : la fusion gardait les plus gros chiffres
- * (Dégâts critiques +199 passait devant PV +46, qui vaut bien plus).
+ * Valeur d'un jet moyen de chaque sous-stat : décide des sous-stats que garde la fusion (`fuse`, au meilleur `subScore`),
+ * sert à l'équipement Auto (3e candidat, `measuredEquipValue`) et aux couleurs des sous-stats.
+ * Recalée le 2026-10-02 par l'équipe qu'on obtient vraiment (`tools/scratch/tower_meta.ts policy`) : mêmes drops de Tour
+ * fusionnés avec chaque jeu de valeurs, équipe équipée par « ★ Auto », étage tenu à 50 % (6 meilleures équipes, paliers
+ * +2 à +6). Un jet vaut d'autant moins qu'on a déjà beaucoup de cette stat (rendement décroissant) : un classement strict
+ * fait garder les 3 mêmes sous-stats partout, qui saturent (mesuré : PV/Vitesse/Attaque d'avant, ou Type/PV/Défense,
+ * 1 à 4 étages de moins). La même valeur pour les 4 meilleures (PV, Dégâts du type, Vitesse, Attaque) fait garder les
+ * meilleurs jets parmi elles, donc un mélange : +2 étages environ. Puis Défense ; Dégâts critiques, Critique et Recharge
+ * valent peu (le Critique se sature vite avec les panoplies Critique de fin de jeu). Valeurs voisines (±2) : même
+ * résultat à 1 étage près.
+ * Avant : PV 11,5, Vitesse 11,1, Attaque 10,2, Type 8,8, D.crit 7,4, Défense 6,5, Critique 4,1, Recharge 1,2 (2026-10-01,
+ * gain d'un jet mesuré sur un seul équipement) ; plus tôt encore, la fusion gardait les plus gros chiffres (−8 étages).
  */
 export const SUB_WORTH: Record<BonusStat, number> = {
-  hpPct: 11.5, spePct: 11.1, atkPct: 10.2, typeDmgPct: 8.8, critDmgPct: 7.4, defPct: 6.5, critPct: 4.1, cdrPct: 1.2,
+  hpPct: 10, typeDmgPct: 10, spePct: 10, atkPct: 10, defPct: 7, critDmgPct: 5, critPct: 3, cdrPct: 3,
 };
+/** Seuils des couleurs des sous-stats (`subTier`) : vert (PV, Dégâts du type, Vitesse, Attaque), jaune (Défense), gris
+ *  en dessous (Dégâts critiques, Critique, Recharge). */
+export const SUB_TIER = { top: 9.5, good: 6.5 };
 
 /** Jet moyen (85 %) d'une sous-stat à ce niveau : l'unité de `SUB_WORTH`. */
 export function subRollRef(stat: BonusStat, level: number): number {
@@ -254,10 +265,10 @@ export function subScore(stat: BonusStat, value: number, level: number): number 
   return (value / subRollRef(stat, level)) * SUB_WORTH[stat];
 }
 
-/** Couleur d'une sous-stat : 'top' (≥ 10 : PV, Vitesse, Attaque), 'good' (≥ 8 : Dégâts de son type), sinon 'low'. */
+/** Couleur d'une sous-stat : 'top' (PV, Dégâts du type, Vitesse, Attaque), 'good' (Défense), sinon 'low' (`SUB_TIER`). */
 export function subTier(stat: BonusStat): 'top' | 'good' | 'low' {
   const w = SUB_WORTH[stat];
-  return w >= 10 ? 'top' : w >= 8 ? 'good' : 'low';
+  return w >= SUB_TIER.top ? 'top' : w >= SUB_TIER.good ? 'good' : 'low';
 }
 
 /**
@@ -279,11 +290,14 @@ export function setBonusValue(setKey: string, part: 'two' | 'three', level: numb
   return round1(Math.max(p.value, scaled));
 }
 const BONUS_LABEL: Partial<Record<NumericBonusStat, string>> = { lifestealPct: 'Vol de vie', dodgePct: 'Esquive' };
+/** « Attaque », « Vol de vie » : la stat d'un bonus de panoplie, sans valeur (panoplies visées de la Tour). */
+export function setBonusLabel(setKey: string, part: 'two' | 'three'): string {
+  const stat = SETS[setKey][part].stat;
+  return SUB_STAT_SET.has(stat) ? STAT_LABEL[stat as BonusStat] : BONUS_LABEL[stat] ?? stat;
+}
 /** « Attaque +15 % » : bonus d'une panoplie à ce niveau (Carte, fiche d'un objet). */
 export function setBonusText(setKey: string, part: 'two' | 'three', level: number): string {
-  const stat = SETS[setKey][part].stat;
-  const label = SUB_STAT_SET.has(stat) ? STAT_LABEL[stat as BonusStat] : BONUS_LABEL[stat] ?? stat;
-  return `${label} +${setBonusValue(setKey, part, level)} %`;
+  return `${setBonusLabel(setKey, part)} +${setBonusValue(setKey, part, level)} %`;
 }
 /** Base d'une sous-stat Vitesse / Recharge d'avant le 2026-10-01 (conversion des anciennes sauvegardes). */
 export const OLD_FLAT_SUB_BASE: Partial<Record<BonusStat, number>> = { spePct: 17.1, cdrPct: 10 };
@@ -371,11 +385,34 @@ export function berryHeal(item: Item): number {
   return t.berry?.heal ? Math.round(t.berry.heal * rarityMult(item)) : 0;
 }
 
-function rollSub(rng: Rng, level: number, exclude: BonusStat[]): { stat: BonusStat; value: number } {
+/** Qualité d'un jet de sous-stat, en % du maximum : 70 à 100 % au butin et à la fusion. */
+export const SUB_ROLL_MIN = 70;
+/**
+ * « Changer une sous-stat » (2026-10-02, demande d'Arno) : le nouveau jet tombe entre 85 et 100 % du maximum, pour ne
+ * plus jeter autant d'objets après un mauvais tirage. Le butin et la fusion restent à 70-100 %.
+ */
+export const REROLL_ROLL_MIN = 85;
+
+/** Jet maximum (100 %) d'une sous-stat à ce niveau et à ce cran Chromatique +N (+10 % par cran). */
+function subMax(stat: BonusStat, level: number, plus = 0): number {
+  return SUB_BASE[stat] * subLvlMult(stat, level) * (1 + PLUS_SUB_STEP * plus);
+}
+
+/**
+ * Fourchette d'une sous-stat à ce niveau et à ce cran : jet minimum (70 %) et maximum (100 %), affichée dans la fiche
+ * d'un objet. Les améliorations multiplient tout pareil : la place d'une sous-stat dans sa fourchette ne bouge jamais.
+ */
+export function subRange(stat: BonusStat, level: number, plus = 0): { min: number; max: number } {
+  const max = subMax(stat, level, plus);
+  return { min: round1((max * SUB_ROLL_MIN) / 100), max: round1(max) };
+}
+
+/** `plus` : cran Chromatique +N (+10 % par cran ; avant le 2026-10-02, un changement de sous-stat sur un +N l'oubliait). */
+function rollSub(rng: Rng, level: number, exclude: BonusStat[], plus = 0, minRoll = SUB_ROLL_MIN): { stat: BonusStat; value: number } {
   const pool = SUB_POOL.filter((s) => !exclude.includes(s));
   const stat = pool[rng.int(pool.length)];
-  const roll = 0.7 + rng.int(31) / 100; // 70–100 %
-  return { stat, value: round1(SUB_BASE[stat] * subLvlMult(stat, level) * roll) };
+  const roll = minRoll / 100 + rng.int(101 - minRoll) / 100; // 70–100 % (85–100 % pour un changement de sous-stat)
+  return { stat, value: round1(subMax(stat, level, plus) * roll) };
 }
 
 let seq = 0;
@@ -507,6 +544,13 @@ export function upgradeCost(item: Item): number {
   return 5 * item.level * (item.rarity + 1 + plusOf(item));
 }
 
+/** Coût de `n` niveaux d'amélioration d'affilée (fenêtre « Améliorer » : +10). */
+export function upgradeCostFor(item: Item, n: number): number {
+  let cost = 0;
+  for (let i = 0; i < n; i++) cost += upgradeCost({ ...item, level: item.level + i });
+  return cost;
+}
+
 /** Niveau maximum d'un objet (comme les Pokémon) : au-delà, l'amélioration est bloquée — sauf en fin de jeu
  * (`itemLevelCap` dans `game.ts`). */
 export const MAX_ITEM_LEVEL = 100;
@@ -524,7 +568,7 @@ export function rerollSub(item: Item, index: number, rng: Rng): Item {
   const t = template(item.templateId);
   const others = item.subs.filter((_, i) => i !== index).map((s) => s.stat);
   const subs = item.subs.slice();
-  subs[index] = rollSub(rng, item.level, [...mainStats(t), ...others]);
+  subs[index] = rollSub(rng, item.level, [...mainStats(t), ...others], plusOf(item), REROLL_ROLL_MIN);
   return { ...item, subs };
 }
 
@@ -549,12 +593,19 @@ export function fuse(items: Item[], rng: Rng, endgame = false): Item {
   const level = Math.max(...items.map((i) => i.level));
   const t = template(items[0].templateId);
   // garde les meilleurs bonus existants (par valeur mesurée, `subScore`, pas par la taille du chiffre), complète
-  // jusqu'au nombre de la rareté
+  // jusqu'au nombre de la rareté. Chaque sous-stat est d'abord remise au niveau de l'objet obtenu, comme par une
+  // amélioration (`upgrade`) : avant le 2026-10-02, une sous-stat venue d'une pièce plus basse gardait sa petite valeur
+  // (sous le jet minimum de l'objet fusionné)
   const best = new Map<BonusStat, number>();
-  for (const it of items) for (const s of it.subs) best.set(s.stat, Math.max(best.get(s.stat) ?? 0, s.value));
+  for (const it of items) {
+    for (const s of it.subs) {
+      const atLevel = s.value * (subLvlMult(s.stat, level) / subLvlMult(s.stat, it.level));
+      best.set(s.stat, Math.max(best.get(s.stat) ?? 0, atLevel));
+    }
+  }
   const subs = [...best.entries()].sort((a, b) => subScore(b[0], b[1], level) - subScore(a[0], a[1], level)).slice(0, RARITY_SUBS[rarity])
     .map(([stat, value]) => ({ stat, value: round1(value * subScale) }));
-  while (subs.length < RARITY_SUBS[rarity]) subs.push(rollSub(rng, level, [...mainStats(t), ...subs.map((s) => s.stat)]));
+  while (subs.length < RARITY_SUBS[rarity]) subs.push(rollSub(rng, level, [...mainStats(t), ...subs.map((s) => s.stat)], plus));
   const tier = Math.max(...items.map((i) => i.tier ?? 1));
   const out: Item = { uid: newUid('i'), templateId: t.id, rarity, level, subs };
   if (tier !== 1) out.tier = tier;
@@ -567,10 +618,23 @@ export function fuse(items: Item[], rng: Rng, endgame = false): Item {
   return out;
 }
 
+/**
+ * Panoplies portées par un Pokémon : nombre de pièces et niveau de la pièce la plus basse, qui fixe la valeur des bonus
+ * (combat, fiche Pokémon, fiche d'un objet, sélecteur d'objet).
+ */
+export function wornSets(held: Item[]): Map<string, { count: number; level: number }> {
+  const out = new Map<string, { count: number; level: number }>();
+  for (const it of held) {
+    const set = template(it.templateId).set;
+    if (!set) continue;
+    const cur = out.get(set);
+    out.set(set, { count: (cur?.count ?? 0) + 1, level: Math.min(cur?.level ?? Infinity, it.level) });
+  }
+  return out;
+}
+
 /** Ajoute les bonus d'objets tenus (stat principale, secondaires, panoplie). */
 export function addItemBonuses(b: BattleBonuses, held: Item[]) {
-  const setCount: Record<string, number> = {};
-  const setLevel: Record<string, number> = {};
   for (const it of held) {
     const t = template(it.templateId);
     if (t.base > 0) b[t.main] += mainValue(it);
@@ -578,16 +642,12 @@ export function addItemBonuses(b: BattleBonuses, held: Item[]) {
     const flat = flatBonus(it);
     if (flat) b[flat.stat] += flat.value;
     for (const s of it.subs) b[s.stat] += s.value;
-    if (t.set) {
-      setCount[t.set] = (setCount[t.set] ?? 0) + 1;
-      setLevel[t.set] = Math.min(setLevel[t.set] ?? Infinity, it.level); // la pièce la plus basse fixe le bonus
-    }
   }
-  for (const [id, n] of Object.entries(setCount)) {
+  for (const [id, { count, level }] of wornSets(held)) {
     const set = SETS[id];
     if (!set) continue;
-    if (n >= 2) b[set.two.stat] += setBonusValue(id, 'two', setLevel[id]);
-    if (n >= 3) b[set.three.stat] += setBonusValue(id, 'three', setLevel[id]);
+    if (count >= 2) b[set.two.stat] += setBonusValue(id, 'two', level);
+    if (count >= 3) b[set.three.stat] += setBonusValue(id, 'three', level);
   }
 }
 

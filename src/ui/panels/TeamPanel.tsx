@@ -4,10 +4,10 @@ import { Text, TextInput } from '../components/Text';
 import { regionOf } from '../../game/content';
 import { PType, species } from '../../game/data';
 import {
-  GameState, canCompleteDex, canEvolve, completeDex, excessMons, monsBelowStars, monsNotShiny, releaseBelowStars,
+  GameState, autoTeamOrder, canCompleteDex, canEvolve, completeDex, excessMons, monsBelowStars, monsNotShiny, releaseBelowStars,
   isTargeted, releaseExcess, releaseList, releaseNotShiny, setTeam, unequipBox,
 } from '../../game/game';
-import { boxExcess, boxProgress, completeBox, needsXp } from '../../game/collection';
+import { CollectionGoal, boxExcess, boxProgress, completeBox, needsXp } from '../../game/collection';
 import { Mon } from '../../game/model';
 import { monStars } from '../../game/stats';
 import { useGame } from '../../store/game';
@@ -53,6 +53,10 @@ const SORTS: { key: SortMode; label: string }[] = [
   { key: 'dex', label: 'Ordre Pokédex' },
   { key: 'level', label: 'Niveau' }, { key: 'stars', label: 'Rang' }, { key: 'date', label: 'Capture' },
 ];
+/** Ce que compte « Besoin d'XP », selon l'objectif de collection (Aucune suit la règle du Pokédex). */
+const XP_GOAL_LABEL: Record<CollectionGoal, string> = {
+  off: 'Pour le Pokédex', dex: 'Pour le Pokédex', box: 'Pour la boîte', boxShiny: 'Pour la boîte + ✨',
+};
 const SORTERS: Record<SortMode, (a: Mon, b: Mon) => number> = {
   level: (a, b) => b.level - a.level || monStars(b) - monStars(a),
   dex: (a, b) => a.speciesId - b.speciesId || b.level - a.level,
@@ -80,12 +84,15 @@ export function TeamPanel() {
   const dexMax = regionOf(s.prestige).dexMax;
   const [typeFilter, setTypeFilter] = useState<PType | null>(null);
   const boxAll = Object.values(s.mons).filter((m) => !s.team.includes(m.uid));
+  // « Besoin d'XP » (2026-10-02) : toute la matière à faire monter, équipe comprise (⚔), pour voir d'un coup qui gagne
+  // déjà de l'XP (équipe, pension) et qui reste à placer ; avant, l'équipe était comptée sans être affichée
+  const pool = xpOnly ? Object.values(s.mons) : boxAll;
   /** Types présents dans la boîte (un Pokémon bi-type compte pour ses deux types), dans l'ordre habituel. */
   const boxTypes = useMemo(() => {
     const present = new Set<PType>();
-    for (const m of boxAll) for (const t of species(m.speciesId).types) present.add(t);
+    for (const m of pool) for (const t of species(m.speciesId).types) present.add(t);
     return TYPE_ORDER.filter((t) => present.has(t));
-  }, [boxAll.length, s.mons]);
+  }, [pool.length, s.mons]);
   const activeType = typeFilter && boxTypes.includes(typeFilter) ? typeFilter : null;
   const pensionUids = new Set(s.pension.map((p) => p.uid));
   const explorationUids = new Set(s.exploration.map((p) => p.uid));
@@ -104,10 +111,19 @@ export function TeamPanel() {
     dexCompletable: boxGoal ? completeBox(s, goal, true) > 0 : canCompleteDex(s, { keepEvolutionMaterial }),
     progress: boxProgress(s),
   }), [sig, goal, keepEvolutionMaterial]);
-  const box = boxAll
+  // « Besoin d'XP » : ceux à placer d'abord, puis ceux en pension, puis l'équipe
+  const xpGroup = (m: Mon) => (s.team.includes(m.uid) ? 2 : pensionUids.has(m.uid) ? 1 : 0);
+  const box = pool
     .filter((m) => (!activeType || species(m.speciesId).types.includes(activeType)) && (!evolveOnly || canEvolve(m, dexMax)) && (!xpOnly || xpSet.has(m.uid)) && (!q || monName(m).toLowerCase().startsWith(q))
       && (shinyFilter === 'all' || m.shiny === (shinyFilter === 'shiny')))
-    .sort((a, b) => (reversed ? -1 : 1) * SORTERS[sort](a, b));
+    .sort((a, b) => (xpOnly ? xpGroup(a) - xpGroup(b) : 0) || (reversed ? -1 : 1) * SORTERS[sort](a, b));
+  // résumé du filtre : combien gagnent déjà de l'XP, combien restent à placer (une exploration ne rapporte pas d'XP)
+  const xpCount = { team: 0, pension: 0, place: 0 };
+  for (const uid of xpSet) {
+    if (s.team.includes(uid)) xpCount.team++;
+    else if (pensionUids.has(uid)) xpCount.pension++;
+    else xpCount.place++;
+  }
   // liste courante de la boîte lue au toucher (pas une dépendance des cases : elles ne se redessinent pas pour autant)
   const boxRef = useRef<Mon[]>([]);
   boxRef.current = box;
@@ -131,12 +147,22 @@ export function TeamPanel() {
         windowSize={5}
         removeClippedSubviews
         renderItem={({ item: m }: { item: Mon }) => (
-          <BoxCell mon={m} level={m.level} stars={monStars(m)} locked={!!m.locked} targeted={isTargeted(s, m.speciesId)}
-            place={pensionUids.has(m.uid) ? ' · 🏡' : explorationUids.has(m.uid) ? ' · 🧭' : ''} width={cellWidth} onOpen={openCell} />
+          <BoxCell mon={m} speciesId={m.speciesId} level={m.level} stars={monStars(m)} locked={!!m.locked} targeted={isTargeted(s, m.speciesId)}
+            place={s.team.includes(m.uid) ? ' · ⚔' : pensionUids.has(m.uid) ? ' · 🏡' : explorationUids.has(m.uid) ? ' · 🧭' : ''} width={cellWidth} onOpen={openCell} />
         )}
         ListHeaderComponent={
           <View style={{ gap: 10, marginBottom: 10 }}>
-            <Text style={styles.title}>Équipe <Text style={styles.hint}>· le 1er est en 1ère ligne : les ennemis le visent en priorité</Text></Text>
+            <View style={styles.teamHead}>
+              <Text style={[styles.title, { flex: 1 }]}>Équipe <Text style={styles.hint}>· le 1er est en 1ère ligne : les ennemis le visent en priorité</Text></Text>
+              {/* « ★ Ordre » : essaie tous les ordres par de vrais combats et garde le meilleur (autoTeamOrder) */}
+              {s.team.length > 1 && (
+                <Button small label="★ Ordre" color={C.accent} onPress={() => {
+                  const order = act((g: GameState) => autoTeamOrder(g));
+                  if (order) { feedback(); toast(`Nouvel ordre : ${order.map((u) => monName(s.mons[u])).join(' → ')}`, '#69f0ae'); }
+                  else toast('Déjà le meilleur ordre');
+                }} />
+              )}
+            </View>
             {s.team.map((uid, i) => {
               const m = s.mons[uid];
               const st = monStats(s, uid);
@@ -298,6 +324,13 @@ export function TeamPanel() {
               <Text style={styles.title}>Boîte · {box.length}</Text>
               <Text style={styles.hint}>Collection {progress.normal}/{progress.total} · ✨ {progress.shiny}/{progress.total}</Text>
             </View>
+            {xpOnly && (
+              <Text style={styles.xpSummary}>
+                {XP_GOAL_LABEL[goal]} : {xpSet.size
+                  ? `${xpSet.size} à faire monter · ${xpCount.team} en équipe ⚔ · ${xpCount.pension} en pension 🏡 · ${xpCount.place} à placer`
+                  : 'personne à faire monter'}
+              </Text>
+            )}
             {evolveOnly && !box.length && !q && <Text style={styles.hint}>Aucun Pokémon de la boîte n'est prêt à évoluer pour l'instant.</Text>}
             {!!q && !box.length && <Text style={styles.hint}>Aucun Pokémon de la boîte ne correspond à « {query.trim()} ».</Text>}
           </View>
@@ -310,18 +343,21 @@ export function TeamPanel() {
 }
 
 /**
- * Case de la boîte, mémorisée : elle ne se redessine que si ce qu'elle affiche change (niveau, étoiles, verrou, cible,
- * pension/exploration), pas à chaque fin de vague. `mon` est modifié sur place par le moteur : les champs affichés sont
- * donc aussi passés à part pour que la comparaison les voie changer.
+ * Case de la boîte, mémorisée : elle ne se redessine que si ce qu'elle affiche change (espèce, niveau, étoiles, verrou,
+ * cible, équipe/pension/exploration), pas à chaque fin de vague. `mon` est modifié sur place par le moteur : les champs
+ * affichés sont donc aussi passés à part pour que la comparaison les voie changer (l'espèce aussi depuis le 2026-10-02 :
+ * une évolution sur place ne redessinait pas la case).
+ * Numéro de Pokédex en petit en haut à gauche de la case (2026-10-02) ; autour de la miniature : ✨ en haut à droite,
+ * 🔒 en bas à gauche, 🎯 en bas à droite.
  */
-const BoxCell = memo(function BoxCell({ mon: m, level, locked, targeted, place, width, onOpen }: {
-  mon: Mon; level: number; stars: number; locked: boolean; targeted: boolean; place: string; width: number; onOpen: (uid: string) => void;
+const BoxCell = memo(function BoxCell({ mon: m, speciesId, level, locked, targeted, place, width, onOpen }: {
+  mon: Mon; speciesId: number; level: number; stars: number; locked: boolean; targeted: boolean; place: string; width: number; onOpen: (uid: string) => void;
 }) {
   return (
     <Pressable onPress={() => onOpen(m.uid)} style={[styles.boxCell, { width }]}>
+      <Text style={styles.dexNum}>#{String(speciesId).padStart(3, '0')}</Text>
       <View>
-        <MonThumb speciesId={m.speciesId} shiny={m.shiny} size={48} />
-        {/* lignée ciblée (🎯) : en haut à gauche, à l'opposé du ✨ des chromatiques */}
+        <MonThumb speciesId={speciesId} shiny={m.shiny} size={48} />
         {targeted && <Text style={styles.targetMark}>🎯</Text>}
         {locked && <Text style={styles.lockMark}>🔒</Text>}
       </View>
@@ -335,6 +371,7 @@ const BoxCell = memo(function BoxCell({ mon: m, level, locked, targeted, place, 
 const styles = StyleSheet.create({
   list: { padding: 12, paddingBottom: 40, gap: BOX_GAP },
   title: { color: C.text, fontSize: 15, fontWeight: '800' },
+  teamHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   hint: { color: C.dim, fontSize: 12, fontWeight: '500' },
   card: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.panel, borderRadius: 14, padding: 10 },
   slot: { color: C.gold, fontWeight: '900', fontSize: 16, width: 12, textAlign: 'center' },
@@ -351,8 +388,10 @@ const styles = StyleSheet.create({
   aura: { color: '#80cbc4', fontSize: 11 },
   flag: { color: '#fff', fontSize: 10, fontWeight: '800', backgroundColor: '#c0392b', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 6, overflow: 'hidden' },
   boxCell: { alignItems: 'center', backgroundColor: C.panel, borderRadius: 12, paddingVertical: 6 },
-  targetMark: { position: 'absolute', top: -2, left: -4, fontSize: 11, opacity: 0.85 },
+  dexNum: { position: 'absolute', top: 2, left: 5, color: C.dim, fontSize: 9, fontWeight: '700' },
+  targetMark: { position: 'absolute', bottom: -2, right: -4, fontSize: 11, opacity: 0.85 },
   lockMark: { position: 'absolute', bottom: -2, left: -4, fontSize: 10, opacity: 0.85 },
+  xpSummary: { color: '#80cbc4', fontSize: 12, fontWeight: '700' },
   boxName: { color: C.text, fontSize: 10, fontWeight: '700', maxWidth: 70 },
   boxLv: { color: C.sub, fontSize: 10 },
   chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: C.panel },

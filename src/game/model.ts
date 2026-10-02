@@ -21,6 +21,9 @@ export interface Mon {
   /** calcul de valeur retenu par le dernier « Équiper le meilleur » (départage par combats) ; les flèches du sélecteur
    *  d'objets suivent le même, pour ne pas contredire le bouton. Absent = ancien calcul (`quickEquipValue`). */
   equipModel?: 'duel' | 'quick' | 'measured';
+  /** dernier résultat d'« ★ Auto » (uid par emplacement : offensif, défensif, baie) et objets qu'il a départagés par de
+   *  vrais combats : tant que cet équipement est porté, aucun de ces objets n'est marqué ▲ dans le sélecteur. */
+  equipAuto?: { items: string[]; tested: string[] };
   /** verrouillé 🔒 : jamais relâché ni utilisé par les nettoyages de boîte / « Compléter le Pokédex ».
    *  Posé d'office sur un 4★ (capture, méga bonbon, anciennes sauvegardes) ; absent = jamais décidé. */
   locked?: boolean;

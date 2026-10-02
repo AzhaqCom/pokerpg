@@ -11,7 +11,7 @@ ligne. Arno veut des propositions arrêtées et structurées, pas une liste d'op
 
 **État** : 4 régions jouables et testées en simulation — Kanto (151), Johto (251), Hoenn (386), Sinnoh (493) — reliées
 par un prestige. 47 biomes. Fonctionnement des régions et recette d'ajout : `REGIONS.md`. Pistes et écarts connus : `IDEES.md`.
-**Dernière passation : `SESSION_2026-10-01.md`.** (L'ancien journal `HISTORIQUE.md` a été retiré : l'historique est dans git.)
+**Dernière passation : `SESSION_2026-10-02.md`.** (L'ancien journal `HISTORIQUE.md` a été retiré : l'historique est dans git.)
 
 ## Commandes
 ```
@@ -20,7 +20,7 @@ npx expo start -c       # Expo Go / dev client (mode développement : lent, pour
 npx expo start -c --no-dev --minify   # Expo Go en mode production : à utiliser pour juger les performances
                                       # (le mode développement lague partout, l'APK et ce mode sont fluides)
 npm run typecheck       # tsc --noEmit
-npx jest --testPathIgnorePatterns=balance.test.ts   # tests rapides (~230, ~20 s)
+npx jest --testPathIgnorePatterns=balance.test.ts   # tests rapides (~250, ~20 s)
 npx jest balance.test.ts                            # simulations de bout en bout (~11 min)
 eas build -p android --profile preview              # APK
 ```
@@ -71,15 +71,22 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   qu'ils ne bougent pas quand on change d'équipe). PC colorés par palier (`CP_TIERS`/`cpColor` dans `ui/helpers.ts` : gris < 250, vert, bleu 600, violet 1 200, orange
   2 000, rouge 3 000, doré ≥ 4 000) sur la fiche, les cartes d'équipe et la liste d'échange.
   Boutique (`ShopPanel`, refaite le 2026-10-01) : sa propre zone de défilement (comme le Sac) pour garder le solde
-  d'éclats fixé en haut ; les 3 Balls sur une ligne (stock, taux, prix) : toucher = +1, maintenir = fenêtre d'achat en
-  quantité aussitôt (`BulkModal` : +1 — maintenir = achat en continu `useHoldRepeat` —, ×10, ×100 ; reste ouverte jusqu'à
-  « Fermer » ; une fenêtre ouverte interrompt l'appui en cours sur Android, d'où la rafale dans la fenêtre) ; bonus en
-  grille 2×2 avec jauge de réserve (8 h) ; un bouton inaccessible affiche ce qui manque (« −6 750 »). Le Sac n'affiche
-  plus que le stock de Balls.
+  d'éclats fixé en haut ; les 3 Balls sur une ligne (stock, taux, prix) et le méga bonbon universel (2026-10-02) : toucher
+  = +1, maintenir = fenêtre d'achat en quantité aussitôt (`BulkModal` : +1 — maintenir = achat en continu `useHoldRepeat` —,
+  ×10, ×100 ; reste ouverte jusqu'à « Fermer » ; une fenêtre ouverte interrompt l'appui en cours sur Android, d'où la
+  rafale dans la fenêtre) ; bonus en grille 2×2 avec jauge de réserve (8 h) ; un bouton inaccessible affiche ce qui manque
+  (« −6 750 »). Fenêtre et bouton partagés : `components/QuantityModal.tsx` (`QuantityModal`, `BuyButton`). Le Sac
+  n'affiche plus que le stock de Balls.
   Cartes d'objets (`ItemCard`, 2026-10-01) : compactes par défaut (nom sur 2 lignes, « Nv. » sans la panoplie, rareté portée
-  par la couleur, sous-stats en pastilles abrégées `STAT_SHORT`, colorées par `subTier` (vert ≥ 10, jaune ≥ 8, d'après `SUB_WORTH`), porteur en
+  par la couleur (`itemColor` : rareté, ou palier du cran +N), sous-stats en pastilles abrégées `STAT_SHORT`, colorées par `subTier` (vert : PV, Type, Vitesse, Attaque ; jaune : Défense ; d'après `SUB_WORTH` et `SUB_TIER`), porteur en
   pastille miniature sur le coin haut-droit, jamais une ligne de plus) ;
-  `full` dans la fiche d'un objet (`ItemDetail`). « Améliorer » maintenu = rafale accélérée (`useHoldRepeat`).
+  `full` dans la fiche d'un objet (`ItemDetail`) : fourchette de chaque sous-stat (`subRange` : jet à 70 % – 100 % à son
+  niveau et à son cran) ; objet porté : « Panoplie 2/3 portées », bonus débloqués en vert (`setWorn`, `wornSets`).
+  Fiche d'un objet (2026-10-02) : « Améliorer » touché = +1, maintenu = fenêtre +1 / +10 (`UpgradeModal`,
+  `upgradeItemTimes` tout ou rien, `upgradeCostFor` ; « +N (max) » à moins de 10 niveaux du Nv.100) ; message de fusion =
+  le nom seul, à la couleur de l'objet obtenu (`itemColor`), la rareté n'est pas écrite (aussi « Fusionner » du Sac).
+  Fiche Pokémon : sous les 3 objets, « 🎒 Panoplie 2/3 : bonus ✓ » en vert dès 2 pièces ; sélecteur d'objet : panoplie
+  de chaque carte et, en vert, le bonus que l'équiper activerait avec les 2 autres objets (`setHintFor`).
   Sac : filtre par panoplie (puces défilantes) et « ♻ Recycler <panoplie> » avec confirmation (`setRecycleCandidates` :
   toutes raretés, jamais les objets verrouillés 🔒 ni portés).
   Lisibilité du combat (2026-09-25) : zone de combat haute de 72 % de la largeur ; messages 1,6 s, 2 max à l'écran
@@ -109,7 +116,8 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   (pools de Johto à Sinnoh depuis les jeux officiels), `tools/fetch-sprites.ts`, `tools/gen_data*.py`,
   `tools/gen_learnsets_pt.py`, `tools/measure/` (simulations par région). `tools/scratch/` = scripts de mesure locaux,
   **non versionnés** (mesures du 2026-10-01 : `auto_audit.ts`, `proto_speed.ts`, `calib_speed.ts`, `proto_sets.ts`,
-  `tower100.ts`).
+  `tower100.ts` ; du 2026-10-02 : `tower_meta.ts` — méta de la Tour, panoplies, valeurs des sous-stats, Sacs réalistes,
+  « ★ Ordre » — `auto_bench.ts` — fidélité du banc d'essai d'« ★ Auto » — et `order_bench.ts`, `order_bench2.ts`).
 
 ## Règles de jeu actuelles
 - **Difficulté des sauvages** : une courbe unique par région (`DIFFICULTY`/`zoneWildMult` dans `game.ts`), plus aucun
@@ -141,16 +149,51 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   ~5 h Kanto, 9 h Johto, 18 h Hoenn, 40 h Sinnoh).
 - **Butin** : 11 %/sauvage (`LOOT_CHANCE`), boss 3 objets ; niveau = `max(niveau ennemi, meilleur de l'équipe)`.
 - **Objets** : 7 raretés, panoplies (`SETS`), `BIOME_SET` + `biomeTier` pour les régions 3+. Puissance calée sur les
-  **poids mesurés** (`STAT_WEIGHT`, 2026-09-24 ; Vitesse et Recharge recalées le 2026-10-01). Deux valeurs d'équipement dans le contexte du Pokémon
+  **poids mesurés** (`STAT_WEIGHT`, 2026-09-24 ; Vitesse et Recharge recalées le 2026-10-01). Trois valeurs d'équipement, les deux premières dans le contexte du Pokémon
   (`monBaseBonuses` : talents, auras, badges) : `quickEquipValue` (`combatValue` des bonus, poids fixes, + soin de la
-  baie) et `equipValue` (duel `duelMult` d'`optimize.ts` : multiplicateur tenu à égalité contre un adversaire moyen,
-  Vol de vie et kit réel compris). Chacune se trompe de 10 points ou plus sur certains Pokémon : `autoEquipBest` prend
-  la meilleure combinaison selon chacune (`bestEquipCombo` : combinaisons des 6 meilleurs objets par emplacement +
-  panoplies à 2-3 pièces, exact sur un petit sac) puis les **départage par ~500 vrais combats** déterministes de
-  l'équipe réelle (`benchEquipCombos`, 2026-10-01). Le bot garde `autoEquipBest(…, 'quick')` (ancien calcul seul,
-  équilibrage inchangé) ; `equipGain` (flèches du sélecteur) suit le calcul retenu par le dernier Auto pour ce Pokémon
-  (`Mon.equipModel`, absent = `quickEquipValue`) : après l'Auto, aucune flèche ne le contredit.
-  Anciennes sauvegardes : sous-stats converties une fois (`balanceVersion`). Recyclage en éclats (`recycleValue` = `recycleBase` + `recycleRefund`, 2026-10-01) : la plus grande entre
+  baie), `equipValue` (duel `duelMult` d'`optimize.ts` : multiplicateur tenu à égalité contre un adversaire moyen,
+  Vol de vie et kit réel compris) et `measuredEquipValue` (valeurs mesurées `SUB_WORTH`). Chacune se trompe de 10 points
+  ou plus sur certains Pokémon. **« ★ Auto » des objets** (`autoEquipBest`, recherche `autoEquipSearch` refaite le
+  2026-10-02) : candidats = l'optimum de chaque calcul (`bestEquipCombo` : combinaisons des 6 meilleurs objets par
+  emplacement + panoplies à 2-3 pièces, complétées par les 3 meilleurs objets pour « ★ Auto », `AUTO_EQUIP_SET_FILL`,
+  6 pour le bot), les 3 panoplies complètes les mieux classées, et le remplacement d'un objet à la
+  fois par les 3 meilleurs du Sac selon 2 calculs ; tri sur 32 combats (`BENCH_SHORT`), finale sur 160 (`BENCH_WAVES`)
+  où les 3 optimums sont toujours qualifiés ; puis un tour de remplacements autour du gagnant, objets que les flèches
+  marqueraient ▲ compris. Avant, seuls les 3 optimums étaient comparés : un équipement qu'aucun calcul ne plaçait
+  premier n'était jamais essayé. Banc d'essai `teamBench` (aussi celui de « ★ Ordre ») : l'équipe réelle contre des
+  formes finales/légendaires de son niveau, difficulté calée à ~50 % de victoires, graines fixes (déterministe) ; score
+  = **marge** de chaque combat (`fightMargin` : log de la difficulté encore tenable, d'après les PV restants après une
+  victoire ou les PV adverses retirés après une défaite ; sans le saut victoire/défaite, l'erreur de choix est
+  divisée par ~2 à nombre de combats égal). Rien n'est rejoué : vagues générées une fois et gardées d'un appui à l'autre
+  (`benchWaves`), adversaires préparés une fois par appui, marge de chaque combat gardée par candidat (passer de 32 à
+  160 vagues ne joue que les 128 qui manquent). Mesuré (`tools/scratch/auto_bench.ts` : chaque équipement possible d'un
+  Pokémon jugé sur 4 000 vrais combats de Tour ; Sac de 196 Chromatiques des 20 panoplies, coéquipiers équipés) : le
+  meilleur des 153 à 255 équipements possibles pour Giratina, Heatran et Kyogre (après l'allègement : pour Heatran et
+  Kyogre ; Giratina le 2e, à 0,7 point, dans le bruit de la mesure). `tower_meta.ts bag` (3 Sacs réalistes, validation
+  sur 10 000 combats neufs) : en 2 passes sur l'équipe, le meilleur équipement d'équipe trouvé dans les 3, avant comme
+  après l'allègement (Sac des 20 panoplies : l'équipement qui fait 55 % là où l'ancien « ★ Auto » faisait 50 %, étage
+  125). 63 à 80 ms par Pokémon sur PC (100 à 140 avant l'allègement, `tools/scratch/auto_cost.ts`).
+  **Limite** : un Pokémon à la fois, sans jamais prendre l'objet d'un coéquipier ;
+  une seule passe sur une équipe sans objets peut rester 3 à 6 points sous la 2e (le premier équipé est jugé avec des
+  coéquipiers nus et prend ce qui servirait mieux à un autre). Le bot garde `autoEquipBest(…, 'quick')` (ancien calcul seul,
+  équilibrage inchangé). Flèches du sélecteur (`equipGain`) : le calcul dont l'optimum a gagné (`Mon.equipModel`,
+  absent = `quickEquipValue`), et jamais ▲ sur un objet déjà départagé par les combats tant que l'équipement d'« ★ Auto »
+  est porté (`Mon.equipAuto` : uid retenus + objets essayés) ; un objet porté par un coéquipier peut afficher ▲
+  (échange à faire soi-même).
+  **« ★ Ordre »** (2026-10-02, bouton à côté du titre « Équipe », `autoTeamOrder`) : les ennemis visent le 1er Pokémon
+  (70 % de leurs coups) et l'ordre pèse plus que l'équipement (Tour, étage 120, même équipe et même équipement : 85 %
+  de victoires dans le meilleur ordre, 66 % dans le pire). Le bouton essaie les 6 ordres (2 à 2 Pokémon) sur le banc
+  d'essai d'« ★ Auto » (240 combats chacun, `ORDER_WAVES`, difficulté calée sur un ordre fixe : même résultat quel que soit l'ordre de
+  départ, un 2e appui ne change rien) et garde le meilleur (« Nouvel ordre : A → B → C » ou « Déjà le meilleur ordre »).
+  Mesuré (`tower_meta.ts order`, 4 équipes, 4 000 combats de Tour par ordre) : toujours l'un des 2 meilleurs ordres, au
+  plus 1,3 point sous le meilleur (15 à 20 points entre le meilleur et le pire) ; ~40 ms sur PC. Deux ordres à 1-2
+  points l'un de l'autre ne se départagent pas de façon fiable, même sur 3 840 combats (`order_bench.ts`).
+  **Jets de sous-stats (2026-10-02)** : butin et fusion à 70-100 % du maximum (`SUB_ROLL_MIN`), « Changer une
+  sous-stat » à **85-100 %** (`REROLL_ROLL_MIN`) et avec le bonus du cran +N (oublié avant). **Fusion recalée** : chaque
+  sous-stat gardée est d'abord remise au niveau de l'objet obtenu (comme `upgrade`) ; avant, celle d'une pièce plus basse
+  gardait sa petite valeur. Pas de simulation longue relancée (choix d'Arno : effet faible, le bot fusionne).
+  Anciennes sauvegardes : sous-stats converties une fois (`balanceVersion` ; 4 = sous-stat sous son jet minimum remontée
+  à ce minimum, `subRange`). Recyclage en éclats (`recycleValue` = `recycleBase` + `recycleRefund`, 2026-10-01) : la plus grande entre
   2 × (rareté + 1 + cran)² + niveau et 10 % du coût d'un niveau d'amélioration (Chromatique Nv.200 : 700 au lieu de 298),
   + 50 % des éclats dépensés à la main en améliorations (`Item.invested`, additionné à la fusion, compté depuis le
   2026-10-01).
@@ -178,10 +221,19 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   2026-10-01) : une défaite fait reprendre au début du palier de 10 en cours, ou du précédent sur son 1er étage
   (`towerRetryFloor`). **Coffres de palier au premier passage seulement** (étage gagné > record, 2026-10-01) : rejouer
   des étages ne rapporte que leurs éclats et leur Chromatique (avant, un +5 au choix toutes les 10 victoires vers l'étage 120). Récompenses (`towerFloorRewards`) : `towerShards` éclats, 1 objet
-  **Chromatique** Nv.100 + étage tiré parmi les 45 objets des 15 panoplies de Sinnoh (`towerLootTemplates` : puissance
-  identique quelle que soit la panoplie, créés au niveau du dernier biome ; moins d'objets différents = plus de doublons
-  à fusionner), tous les 10 étages (premier passage) un Chromatique +`towerRewardPlus`
+  **Chromatique** Nv.100 + étage tiré parmi les 60 objets des **20 panoplies du jeu** (`towerLootTemplates`, 2026-10-02 ;
+  avant, les 15 de Sinnoh : la Tour n'a plus qu'une liste de panoplies, celle du coffre et des panoplies visées ;
+  puissance identique quelle que soit la panoplie, créés au niveau du dernier biome), tous les 10 étages (premier
+  passage) un Chromatique +`towerRewardPlus`
   (+1 tous les 20 étages, 10 % de chance d'un cran de plus) à choisir objet par objet (`towerRewards`, `claimTowerReward`).
+  **Panoplies visées** (2026-10-02, carte « 🎯 » de l'onglet de la Tour, `GameState.towerSets`, `toggleTowerSet`) :
+  exactement 3 parmi les 20 (`towerFocusChoices`) → chaque Chromatique de la Tour, en combat comme hors ligne, ne tombe
+  plus que dans leurs 9 objets au lieu de 60 (`towerDropPool`) : chaque objet visé près de 7 fois plus souvent. Moins de
+  3 = tirage sur les 20 ; 1 ou 2 ne sont pas permis (×20 / ×10 : courbe des +N écrasée). Toucher une panoplie ouvre sa
+  fiche (`SetInfoModal` : 3 objets avec leur stat principale, bonus 2 et 3 pièces, chiffrés pour un Chromatique au
+  niveau du record via `towerPreviewItem`, figés à l'ouverture) d'où on la vise ou la retire. Sous les puces, les bonus
+  des panoplies visées sans valeur (`setBonusLabel`) ; la carte (`TowerFocusCard`, mémorisée) ne lit que la sélection
+  et ne se redessine pas à chaque étage. Pas de simulation (le bot ne joue pas la Tour).
   **Entraînement hors ligne** (`towerIdle`, activé par défaut, interrupteur dans l'onglet de la Tour) : dès un étage
   franchi, l'absence rejoue `towerIdleFloor` (dernier palier de 10, ou `towerIdlePick`, jamais au-delà du record ; une
   défaite fait redescendre d'un étage, 10 au plus) au lieu de farmer la zone : 1 Chromatique Nv.100 + étage tous les
@@ -198,8 +250,16 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   `FLAT_HYBRID_BASE` × `slowLvlMult` × rareté) ; panoplies Circuit/Zéphyr Vitesse +10 %, Œil/Voile de la Tour Recharge
   +24. `combatValue` recalé (`tools/scratch/calib_speed.ts`, prototype `proto_speed.ts`). Anciennes sauvegardes :
   sous-stats Vitesse/Recharge converties une fois (`convertFlatSub`, `balanceVersion` 3).
-  **Valeurs mesurées des sous-stats** (`SUB_WORTH`, Tour étage ~100, `tools/scratch/tower100.ts`) : PV 11,5, Vitesse 11,1,
-  Attaque 10,2, Type 8,8, D.crit 7,4, Défense 6,5, Critique 4,1, Recharge 1,2 (points de victoire par jet moyen). Servent
+  **Valeurs des sous-stats** (`SUB_WORTH`, recalées le 2026-10-02 par l'équipe qu'on obtient vraiment,
+  `tools/scratch/tower_meta.ts policy` : mêmes drops de Tour fusionnés avec chaque jeu de valeurs, équipe équipée par
+  « ★ Auto », étage tenu à 50 %) : PV = Dégâts du type = Vitesse = Attaque = 10, Défense 7, D.crit 5, Critique 3,
+  Recharge 3. Rendement décroissant : un classement strict fait garder les 3 mêmes sous-stats partout, qui saturent
+  (PV/Vitesse/Attaque d'avant, ou Type/PV/Défense : 1 à 4 étages de moins) ; 4 valeurs égales font garder les meilleurs
+  jets parmi elles, donc un mélange (+2 étages). Valeurs voisines (±2) : même résultat à 1 étage près. La vraie valeur
+  d'un jet dépend du rôle (PV ~7 points pour le Pokémon de devant, ~1 pour les autres, `tower_meta.ts subs`) et de
+  l'équipement (Critique quasi nul dans une panoplie Critique, énorme dans une panoplie Attaque) : pour un Pokémon
+  précis, les flèches ▲▼ du sélecteur font foi. Couleurs (`SUB_TIER`) : vert PV, Type, Vitesse, Attaque ; jaune
+  Défense ; gris le reste. Servent
   à la fusion (`fuse` garde les sous-stats au meilleur `subScore`, plus les plus gros chiffres ; `fusionCandidates`
   départage à niveau égal), à l'équipement Auto (3e candidat `measuredEquipValue`, départagé par combats comme les
   autres) et aux couleurs.
@@ -230,10 +290,26 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   branches** (2026-09-25) : `lineBase` suit `preEvolution` (évolutions à choix comprises) et `lineForms` liste toutes
   les formes — Voltali partage la base d'Évoli (bonbons, méga bonbons, cibles, doublons ; anciens stocks et cibles
   regroupés par `migrateSave`). `completeDex` ne suit toujours que la forme par défaut (`lineChain`).
+- **« Besoin d'XP »** (filtre de la Boîte et de la fenêtre « Poster » de la Pension, `needsXp` dans `collection.ts`, refait
+  le 2026-10-02) : suit l'objectif de collection, et ne propose **que le nombre nécessaire**.
+  Boîte / Boîte + ✨ (`boxPlan`) : par espèce et par version, autant d'exemplaires que le besoin de ses évolutions
+  (2 Bulbizarre pour Herbizarre ET Florizarre) ; celui qui reste = le meilleur en gènes parmi ceux qui ne gagnent pas
+  d'XP ; la matière (`matterOrder`) = ceux déjà au niveau d'abord, puis ceux qui gagnent de l'XP (équipe, pension :
+  `gainsXp`), puis les meilleurs en gènes, jamais un verrouillé qu'on n'a pas posté soi-même. Un seul calcul pour le
+  filtre (matière sous le niveau), « Compléter la boîte » (matière au niveau, en pension et en exploration comprises,
+  jamais l'équipe) et « Nettoyer les doublons » (`boxExcess` garde celui qui reste + la matière). Bug corrigé : un
+  Pokémon mis en pension devenait « celui qui reste » et le filtre en proposait un autre à sa place (3 en pension pour 2
+  utiles, ceux en pension absents du filtre, « Compléter » ignorait la pension).
+  Aucune / Pokédex (`dexArrivals`) : 1 exemplaire par lignée simple (un Bulbizarre enregistre Herbizarre puis Florizarre),
+  1 par branche (Évoli), moins ce qu'on possède déjà plus bas dans la lignée ; avant, tous les exemplaires (15 Bulbizarre).
+  Boîte, filtre actif : l'équipe apparaît aussi (⚔), ceux à placer d'abord, puis pension 🏡, puis équipe ; ligne de
+  résumé « Pour la boîte + ✨ : N à faire monter · x en équipe · y en pension · z à placer » (l'exploration compte « à
+  placer » : elle ne donne pas d'XP).
 - **Verrou 🔒** (`Mon.locked`, `toggleLock`) : un verrouillé n'est jamais relâché (`release` refuse), ni nettoyé
   (doublons, 3★+, chromatiques), ni utilisé par `completeDex`. Posé d'office sur tout 4★ (`addMon`, méga bonbon qui rend
   parfait, et 4★ des anciennes sauvegardes via `migrateSave` quand `locked` est absent). Cadenas à côté du nom dans la fiche,
-  🔒 en bas à gauche de la vignette dans la boîte.
+  🔒 en bas à gauche de la vignette dans la boîte (🎯 en bas à droite, ✨ en haut à droite, numéro de Pokédex en petit en
+  haut à gauche de la case depuis le 2026-10-02).
 - **Pension** (XP passive, 50 % de l'XP/h de l'équipe (`PENSION_XP_SHARE`), taux rafraîchi à chaque récolte) et **Exploration**
   (`SHARDS_PER_MIN` = 3 éclats/min par Pokémon) : plafond 8 h, un Pokémon ne peut être que dans l'une des deux.
   Retirer un Pokémon (bouton, mise en équipe via `setTeam`) encaisse d'abord son XP / ses éclats (`removePension`,
@@ -270,8 +346,13 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   plafonné, pas effacé). Bouton ×1 → ×2 → ×3 du HUD. Bandeaux d'annonce en temps réel (`runner.realClock`).
 - **Carte** : en tête de chaque biome, accordéon « 🎒 Panoplie » (fermé par défaut) (`BiomeSetCard` dans `MapPanel.tsx`) : panoplie dont tombent
   les objets du biome (`setOfBiome`), ses 3 pièces avec leur stat principale (`templateStatText`) et ses bonus 2 et 3 pièces.
+  Fenêtre d'une zone (`ZoneDex`) : Pokédex, Chromatiques, puis **Boîte** (2026-10-02) : chaque espèce de la zone dont il
+  faut encore des exemplaires (« Évoli · 2 en boîte · encore 6 à capturer », `collectionNeeds`) et les formes de sa
+  lignée absentes de la boîte (`missingForms`) ; « Boîte ✨ » en plus avec l'objectif Boîte + ✨.
 - **Pokédex** : n'affiche que les espèces ≤ `dexMax` de la région ; toucher une espèce vue ouvre « où la trouver »
-  (`whereToFind`, y compris la route par évolution).
+  (`whereToFind`, y compris la route par évolution). 📦 en haut à gauche du sprite (2026-10-02) : espèce possédée dans la
+  version de l'onglet (boîte, équipe, pension ou exploration) ; filtre « 📦 Absents de la boîte » : capturées au Pokédex
+  de l'onglet mais possédées nulle part.
 
 ## Règles de travail
 - Toute modif de règle de jeu = test Jest dans `src/game/__tests__/`, puis tests rapides + `npm run typecheck`.

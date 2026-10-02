@@ -1,18 +1,20 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { Text } from './components/Text';
 import {
-  GameState, TOWER_IDLE_ITEM_EVERY, claimTowerReward, enterTower, exitTower, setTowerAuto, setTowerIdle, setTowerIdlePick, towerIdleFloor,
-  towerRewardPlus, towerShards, towerStart, towerWildMult,
+  GameState, TOWER_FOCUS_SETS, TOWER_IDLE_ITEM_EVERY, TOWER_LEVEL, claimTowerReward, enterTower, exitTower, setTowerAuto, setTowerIdle,
+  setTowerIdlePick, toggleTowerSet, towerFocusChoices, towerIdleFloor, towerPreviewItem, towerRewardPlus, towerShards, towerStart, towerWildMult,
 } from '../game/game';
-import { SETS, TEMPLATES, rarityName, template } from '../game/items';
+import { SETS, TEMPLATES, setBonusLabel, setBonusText } from '../game/items';
 import { RARITY_COLOR } from '../game/model';
 import { rng, useGame } from '../store/game';
 import { toast } from '../store/ui';
 import { runner } from './battle/runner';
 import { Button } from './components/Button';
+import { itemMainText } from './components/ItemCard';
 import { ChromaText } from './components/RainbowBorder';
 import { feedback } from './components/feedback';
+import { itemColor, itemDisplayName } from './helpers';
 import { C } from './theme';
 
 const SLOT_ICON = { offense: '⚔', defense: '🛡', berry: '🍒' } as const;
@@ -36,6 +38,9 @@ export function TowerSection() {
   const floor = s.towerFloor ?? start; // étage en cours, ou celui de la prochaine entrée
   // coffre de palier : seulement au premier passage, donc le 1er palier au-delà du record
   const nextChest = (Math.floor(s.towerBest / 10) + 1) * 10;
+  // panoplies visées (2026-10-02) : avec 3, les Chromatiques ne tombent plus que dans celles-là (`towerDropPool`)
+  const focus = (s.towerSets ?? []).filter((id) => SETS[id]);
+  const dropsFrom = focus.length >= TOWER_FOCUS_SETS ? focus.map((id) => SETS[id].name).join(', ') : 'une des 20 panoplies';
   return (
     <View style={{ gap: 10 }}>
       <View style={styles.card}>
@@ -45,8 +50,8 @@ export function TowerSection() {
         </View>
         <Text style={styles.sub}>
           Étages infinis contre 3 Pokémon Nv.100 aux gènes parfaits, de plus en plus forts. Chaque étage donne un Chromatique
-          d'une panoplie de Sinnoh : fusionne les identiques pour monter en +N. Une défaite te ramène à ta zone, sans
-          pénalité (sauf en combat continu) ; tu reprends ensuite au dernier palier de 10.
+          de l'une des 20 panoplies du jeu, ou de tes 3 panoplies visées : fusionne les identiques pour monter en +N. Une
+          défaite te ramène à ta zone, sans pénalité (sauf en combat continu) ; tu reprends ensuite au dernier palier de 10.
         </Text>
         {inTower ? (
           <Button label={`Quitter la Tour (étage ${s.towerFloor} en cours)`} onPress={() => { act(exitTower); runner.restart(); feedback(); }} />
@@ -58,11 +63,13 @@ export function TowerSection() {
       <View style={styles.card}>
         <Text style={styles.name}>{inTower ? `Étage ${floor}` : `Prochain étage : ${floor}`}</Text>
         <Text style={styles.line}>⚔ Adversaires : PV et Attaque ×{Math.round(towerWildMult(floor))}</Text>
-        <Text style={styles.line}>💎 {towerShards(floor)} éclats et 1 <ChromaLabel plus={0} /> Nv.{100 + floor} (panoplies de Sinnoh)</Text>
+        <Text style={styles.line}>💎 {towerShards(floor)} éclats et 1 <ChromaLabel plus={0} /> Nv.{100 + floor} ({dropsFrom})</Text>
         <Text style={styles.line}>
           🎁 Étage {nextChest} (1er passage) : <ChromaLabel plus={towerRewardPlus(nextChest)} /> de l'objet de ton choix
         </Text>
       </View>
+
+      <TowerFocusCard />
 
       <View style={styles.card}>
         <View style={styles.row}>
@@ -116,6 +123,94 @@ export function TowerSection() {
   );
 }
 
+/**
+ * Panoplies visées (2026-10-02) : les 20 panoplies en puces ; toucher une puce ouvre sa fiche (`SetInfoModal`), d'où on
+ * la vise ou la retire. Avec 3 panoplies visées, les Chromatiques de la Tour ne tombent plus que dans leurs 9 objets.
+ * Composant à part, mémorisé, qui ne lit que la sélection : il ne se redessine pas à chaque étage (le reste de l'onglet,
+ * si). Sous les puces, les bonus des panoplies choisies sont rappelés sans valeur ; les valeurs sont dans la fiche.
+ */
+const TowerFocusCard = memo(function TowerFocusCard() {
+  const key = useGame((g) => (g.s?.towerSets ?? []).join(','));
+  const [info, setInfo] = useState<{ id: string; level: number } | null>(null);
+  const focus = key ? key.split(',').filter((id) => SETS[id]) : [];
+  const left = TOWER_FOCUS_SETS - focus.length;
+  return (
+    <View style={styles.card}>
+      <Text style={styles.name}>🎯 Panoplies visées · {Math.min(focus.length, TOWER_FOCUS_SETS)}/{TOWER_FOCUS_SETS}</Text>
+      <Text style={styles.sub}>
+        {left <= 0
+          ? 'Chaque Chromatique de la Tour, en combat comme hors ligne, tombe dans l’une de ces 3 panoplies : 9 objets au lieu de 60, des doublons près de 7 fois plus fréquents à fusionner.'
+          : `Touche une panoplie pour voir ses objets et ses bonus, et la viser. Encore ${left} à choisir : avec 3, les Chromatiques ne tombent plus que dans leurs 9 objets au lieu de 60, des doublons près de 7 fois plus fréquents.`}
+      </Text>
+      <View style={styles.wrap}>
+        {towerFocusChoices().map((id) => {
+          const on = focus.includes(id);
+          return (
+            <Pressable key={id} style={[styles.pick, on && styles.pickOn]} onPress={() => {
+              feedback();
+              // valeurs de la fiche : un Chromatique au niveau du record, figé à l'ouverture
+              setInfo({ id, level: TOWER_LEVEL + (useGame.getState().s?.towerBest ?? 0) });
+            }}>
+              <Text style={[styles.pickTxt, on && styles.pickTxtOn]} numberOfLines={1}>{on ? '🎯 ' : ''}{SETS[id].name}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      {/* rappel des bonus des panoplies choisies, sans valeur : rien ne bouge d'un étage à l'autre */}
+      {focus.map((id) => (
+        <Text key={id} style={styles.setBonus}>
+          {SETS[id].name} : 2 p. {setBonusLabel(id, 'two')} · 3 p. {setBonusLabel(id, 'three')}
+        </Text>
+      ))}
+      {info && <SetInfoModal setId={info.id} level={info.level} focus={focus} onClose={() => setInfo(null)} />}
+    </View>
+  );
+});
+
+/** Ordre des pièces d'une panoplie : offensif, défensif, baie. */
+const SLOT_ORDER = { offense: 0, defense: 1, berry: 2 } as const;
+
+/**
+ * Fiche d'une panoplie (toucher sa puce dans « Panoplies visées ») : ses 3 objets avec leur stat principale et ses bonus
+ * 2 et 3 pièces, chiffrés pour un Chromatique au niveau du record (`towerPreviewItem`, comme ceux qui tombent) ; puis
+ * la viser, ou la retirer.
+ */
+function SetInfoModal({ setId, level, focus, onClose }: { setId: string; level: number; focus: string[]; onClose: () => void }) {
+  const act = useGame((g) => g.act);
+  const pieces = TEMPLATES.filter((t) => t.set === setId).sort((a, b) => SLOT_ORDER[a.slot] - SLOT_ORDER[b.slot]);
+  const on = focus.includes(setId);
+  const full = !on && focus.length >= TOWER_FOCUS_SETS;
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.backdrop} onPress={onClose} />
+      <View style={styles.centerWrap} pointerEvents="box-none">
+        <View style={styles.box}>
+          <Text style={styles.title}>🎒 {SETS[setId].name}</Text>
+          {pieces.map((t) => (
+            <View key={t.id}>
+              <Text style={styles.pieceName}>{SLOT_ICON[t.slot]} {t.name}</Text>
+              <Text style={styles.pieceStat}>{itemMainText(towerPreviewItem(t.id, level))}</Text>
+            </View>
+          ))}
+          <Text style={styles.setBonus}>2 pièces : {setBonusText(setId, 'two', level)}</Text>
+          <Text style={styles.setBonus}>3 pièces : {setBonusText(setId, 'three', level)}</Text>
+          <Text style={styles.sub}>
+            Valeurs pour un Chromatique Nv.{level} (Nv.100 + ton record) : elles grimpent avec le niveau des objets, et les
+            bonus de panoplie avec celui de la pièce la plus basse portée.
+          </Text>
+          {full ? (
+            <Button label="3 panoplies déjà visées : retires-en une d’abord" disabled onPress={() => {}} />
+          ) : (
+            <Button label={on ? 'Ne plus la viser' : '🎯 Viser cette panoplie'} color={on ? C.panel2 : C.accent}
+              onPress={() => { if (act((g) => toggleTowerSet(g, setId))) { feedback(); onClose(); } }} />
+          )}
+          <Button label="Fermer" color={C.panel2} onPress={onClose} />
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 /** Choix de l'objet d'une récompense d'étage (la plus ancienne d'abord), groupé par panoplie. */
 function RewardPicker({ onClose }: { onClose: () => void }) {
   const s = useGame((g) => g.s) as GameState;
@@ -123,7 +218,7 @@ function RewardPicker({ onClose }: { onClose: () => void }) {
   const act = useGame((g) => g.act);
   const reward = s.towerRewards[0];
   if (!reward) return null;
-  const sets = Object.keys(SETS).filter((id) => TEMPLATES.some((t) => t.set === id));
+  const sets = towerFocusChoices(); // les 20 panoplies, comme les panoplies visées
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose} />
@@ -144,7 +239,8 @@ function RewardPicker({ onClose }: { onClose: () => void }) {
                       const it = act((g) => claimTowerReward(g, 0, t.id, rng));
                       if (!it) return;
                       feedback('medal');
-                      toast(`🎁 ${template(it.templateId).name} ${rarityName(it)} Nv.${it.level}`, RARITY_COLOR[it.rarity], template(it.templateId).name);
+                      // « 🎁 Cape du Vainqueur +2 Nv.150 », à la couleur du cran (comme le message de fusion)
+                      toast(`🎁 ${itemDisplayName(it)} Nv.${it.level}`, itemColor(it), itemDisplayName(it));
                       if (!useGame.getState().s?.towerRewards.length) onClose(); // c'était la dernière
                     }}>
                       <Text style={styles.pickTxt} numberOfLines={1}>{SLOT_ICON[t.slot]} {t.name}</Text>
@@ -177,6 +273,11 @@ const styles = StyleSheet.create({
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   pick: { backgroundColor: C.panel2, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, maxWidth: '100%' },
   pickTxt: { color: C.text, fontSize: 12, fontWeight: '700' },
+  pickOn: { backgroundColor: C.accent },
+  pickTxtOn: { fontWeight: '900' },
+  setBonus: { color: '#ffcc80', fontSize: 11, fontWeight: '700' },
+  pieceName: { color: C.text, fontSize: 13, fontWeight: '800' },
+  pieceStat: { color: C.sub, fontSize: 12, fontWeight: '600' },
   step: { width: 34, height: 34, borderRadius: 17, backgroundColor: C.panel2, alignItems: 'center', justifyContent: 'center' },
   auto: { paddingHorizontal: 12, height: 34, borderRadius: 17, backgroundColor: C.panel2, alignItems: 'center', justifyContent: 'center' },
   stepTxt: { color: C.text, fontSize: 15, fontWeight: '800' },

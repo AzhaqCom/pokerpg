@@ -1,5 +1,5 @@
-import { BIOME_SET, CRIT_BY_RARITY, SETS, bonusCritValue, combatValue, TEMPLATES, addItemBonuses, canFuse, convertFlatSub, flatBonus, recycleRefund, upgradeCost, SUB_WORTH, setBonusText, subRollRef, subScore, subTier, fuse, itemScore, makeItem, mainValue, recycleValue, rollLoot, setOfBiome, template, upgrade } from '../items';
-import { critOverflow, emptyBonuses } from '../model';
+import { BIOME_SET, CRIT_BY_RARITY, SETS, bonusCritValue, combatValue, TEMPLATES, addItemBonuses, canFuse, convertFlatSub, flatBonus, recycleRefund, upgradeCost, SUB_WORTH, setBonusText, subRollRef, subScore, subTier, fuse, itemScore, makeItem, mainValue, recycleValue, rerollSub, rollLoot, setOfBiome, subRange, template, upgrade } from '../items';
+import { BonusStat, Item, critOverflow, emptyBonuses } from '../model';
 import { seededRng } from '../rng';
 import { newGame, upgradeItem } from '../game';
 import { ACTION_LOCK, actionLock, cdFactor } from '../battle';
@@ -208,10 +208,10 @@ describe('valeurs mesurées des sous-stats (2026-10-01)', () => {
     const out = fuse([a, b, c], seededRng(2));
     expect(out.subs.map((s) => s.stat).sort()).toEqual(['critDmgPct', 'hpPct', 'spePct']); // pas la Critique ni la Recharge
   });
-  test('couleurs : vert ≥ 10 (PV, Vitesse, Attaque), jaune ≥ 8 (Dégâts de son type), gris sinon', () => {
-    expect(['hpPct', 'spePct', 'atkPct'].map((k) => subTier(k as any))).toEqual(['top', 'top', 'top']);
-    expect(subTier('typeDmgPct')).toBe('good');
-    expect(['critDmgPct', 'defPct', 'critPct', 'cdrPct'].every((k) => subTier(k as any) === 'low')).toBe(true);
+  test('couleurs (recalées le 2026-10-02) : vert PV, Type, Vitesse, Attaque ; jaune Défense ; gris sinon', () => {
+    expect(['hpPct', 'typeDmgPct', 'spePct', 'atkPct'].map((k) => subTier(k as any))).toEqual(['top', 'top', 'top', 'top']);
+    expect(subTier('defPct')).toBe('good');
+    expect(['critDmgPct', 'critPct', 'cdrPct'].every((k) => subTier(k as any) === 'low')).toBe(true);
     expect(subScore('hpPct', 2 * subRollRef('hpPct', 50), 50)).toBeCloseTo(2 * SUB_WORTH.hpPct, 6);
   });
 });
@@ -260,4 +260,46 @@ test('fusion : le cadenas d’un objet verrouillé est conservé sur le résulta
   items[1].locked = true;
   expect(fuse(items, seededRng(9)).locked).toBe(true);
   expect(fuse([1, 2, 3].map((i) => makeItem('griffe-sylve', 2, 20, seededRng(i))), seededRng(9)).locked).toBeUndefined();
+});
+
+describe('sous-stats : fourchette, changement à 85-100 %, fusion recalée (2026-10-02)', () => {
+  // les valeurs sont arrondies au dixième : comparaisons à 0,1 près (0,15 quand deux arrondis s'enchaînent)
+  const near = (a: number, b: number, tol = 0.1) => expect(Math.abs(a - b)).toBeLessThanOrEqual(tol);
+
+  test('fourchette : 70 à 100 % du jet maximum, +10 % par cran +N', () => {
+    const r = subRange('atkPct', 100);
+    near(r.max, 3 * (1 + 0.08 * 99));
+    near(r.min, r.max * 0.7);
+    near(subRange('atkPct', 100, 2).max, r.max * 1.2);
+    // un jet du butin tombe toujours dans la fourchette
+    for (let i = 0; i < 50; i++) {
+      const it = makeItem('griffe-sylve', 6, 60, seededRng(200 + i));
+      for (const s of it.subs) {
+        const { min, max } = subRange(s.stat, 60);
+        expect(s.value).toBeGreaterThanOrEqual(min - 0.05);
+        expect(s.value).toBeLessThanOrEqual(max + 0.05);
+      }
+    }
+  });
+
+  test('changer une sous-stat : nouveau jet entre 85 et 100 % du maximum, cran +N compris', () => {
+    const base: Item = { ...makeItem('griffe-sylve', 6, 150, seededRng(3)), plus: 3 };
+    for (let i = 0; i < 200; i++) {
+      const sub = rerollSub(base, 0, seededRng(1000 + i)).subs[0];
+      const { max } = subRange(sub.stat, 150, 3);
+      expect(sub.value).toBeGreaterThanOrEqual(max * 0.85 - 0.1);
+      expect(sub.value).toBeLessThanOrEqual(max + 0.1);
+    }
+  });
+
+  test('fusion : une sous-stat venue d’une pièce plus basse est remise au niveau de l’objet obtenu', () => {
+    const mk = (level: number, stat: BonusStat, roll: number): Item =>
+      ({ ...makeItem('griffe-sylve', 2, level, seededRng(level)), subs: [{ stat, value: subRange(stat, level).max * roll }] });
+    const out = fuse([mk(10, 'hpPct', 1), mk(10, 'typeDmgPct', 1), mk(50, 'defPct', 0.7)], seededRng(4));
+    expect(out.level).toBe(50);
+    expect(out.subs.map((s) => s.stat).sort()).toEqual(['hpPct', 'typeDmgPct']);
+    // jet maximum au Nv.10 → jet maximum au Nv.50 (avant : la valeur du Nv.10, sous le minimum de l'objet obtenu)
+    near(out.subs.find((s) => s.stat === 'hpPct')!.value, subRange('hpPct', 50).max, 0.15);
+    near(out.subs.find((s) => s.stat === 'typeDmgPct')!.value, subRange('typeDmgPct', 50).max, 0.15);
+  });
 });

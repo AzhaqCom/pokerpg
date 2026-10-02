@@ -8,7 +8,7 @@ import {
   CANDY_XP, GENE_MAX, GeneKey, MEGA_CANDY_COST, TEAM_SIZE, applyMegaCandy, autoEquipBest, canEvolve, craftMegaCandy, equip, isTargeted, toggleLock, toggleTarget,
   evolve, feedCandy, heldItems, holder, lineBase, rankUpTalent, autoTalents, autoMoves, equipGain, release, resetTalents, setMoves, setTeam, unequip,
 } from '../game/game';
-import { itemScore, plusOf, slotOf, template } from '../game/items';
+import { SETS, itemScore, plusOf, setBonusText, slotOf, template, wornSets } from '../game/items';
 import { BattleBonuses, ItemSlot, RARITY_COLOR, critOverflow } from '../game/model';
 import { TIER_REQ, eligibleAffinityTypes, spentPoints, talentPoints, talentTree } from '../game/talents';
 import { MAX_LEVEL } from '../game/stats';
@@ -17,7 +17,7 @@ import { useGame } from '../store/game';
 import { toast, useUi } from '../store/ui';
 import { Button } from './components/Button';
 import { Dialog, DialogSpec } from './components/Dialog';
-import { ItemCard, SLOT_ICON, SubChips, itemMainText } from './components/ItemCard';
+import { ItemCard, SLOT_ICON, SubChips, itemMainText, setHintFor } from './components/ItemCard';
 import { ChromaPill, RainbowBorder } from './components/RainbowBorder';
 import { ItemDetail } from './ItemDetail';
 import { BallIcon } from './components/BallIcon';
@@ -309,6 +309,15 @@ export function MonSheet() {
                     );
                   })}
                 </View>
+                {/* panoplie portée (2 pièces ou plus) : bonus débloqués en vert, à leur valeur (pièce la plus basse) */}
+                {[...wornSets(heldItems(s, mon))].filter(([id, w]) => w.count >= 2 && SETS[id]).map(([id, w]) => (
+                  <Text key={id} style={styles.setLine}>
+                    🎒 {SETS[id].name} {w.count}/3 :{' '}
+                    <Text style={styles.setOn}>{setBonusText(id, 'two', w.level)} ✓</Text>
+                    {' · '}
+                    <Text style={w.count >= 3 ? styles.setOn : styles.setOff}>{setBonusText(id, 'three', w.level)}{w.count >= 3 ? ' ✓' : ' (3 p.)'}</Text>
+                  </Text>
+                ))}
               </View>
             </>
           )}
@@ -514,6 +523,8 @@ function ItemPicker({ slot, monUid, onClose, onChanged }: { slot: ItemSlot; monU
   // tri et flèches selon la valeur POUR CE Pokémon (ses talents : Critique et Dégâts critiques se renforcent)
   const gains = new Map(Object.values(s.items).filter((i) => slotOf(i) === slot).map((i) => [i.uid, equipGain(s, monUid, i)]));
   const list = Object.values(s.items).filter((i) => slotOf(i) === slot).sort((a, b) => gains.get(b.uid)! - gains.get(a.uid)!);
+  // panoplie de chaque objet, et le bonus qu'il activerait avec les 2 autres objets du Pokémon (2026-10-02)
+  const monHeld = heldItems(s, mon);
   const doEquip = (uid: string) => { feedback(); act((g) => equip(g, monUid, uid)); onChanged(); onClose(); };
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
@@ -529,7 +540,7 @@ function ItemPicker({ slot, monUid, onClose, onChanged }: { slot: ItemSlot; monU
               const cmp = current ? (g > 0.05 ? 'up' : g < -0.05 ? 'down' : null) : 'up';
               return (
                 <ItemCard key={it.uid} item={it} selected={it.uid === current?.uid} wornBy={wornByOther}
-                  compare={it.uid === current?.uid ? null : cmp}
+                  compare={it.uid === current?.uid ? null : cmp} setHint={setHintFor(it, monHeld)}
                   onPress={() => {
                     if (wornByOther) {
                       setDialog({
@@ -670,6 +681,9 @@ const styles = StyleSheet.create({
   miniLv: { color: C.dim, fontSize: 10, fontWeight: '700' },
   miniLvRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   miniStat: { color: C.sub, fontSize: 10, fontWeight: '700' },
+  setLine: { color: '#ffcc80', fontSize: 11, fontWeight: '700' },
+  setOn: { color: '#69f0ae', fontWeight: '800' },
+  setOff: { color: C.dim, fontWeight: '600' },
   geneBtn: { flex: 1, alignItems: 'center', backgroundColor: C.panel2, borderRadius: 10, paddingVertical: 6 },
   geneMax: { backgroundColor: '#1b3a2a' },
   geneLabel: { color: C.sub, fontSize: 11, fontWeight: '700' },
