@@ -11,13 +11,6 @@ Ce qui reste à faire ou à envisager (ce qui est fait est dans `CLAUDE.md` et l
      ont changé ;
   3. SQLite (`expo-sqlite`) seulement si ça ne suffit pas.
 
-## Revue de code (2026-10-01) — points mineurs non corrigés
-- Hors ligne : `sampleWaves` (`idle.ts`) n'applique pas l'adoucissement des équipes de 1-2 Pokémon (`SOLO_MALUS`) :
-  l'absence est un peu plus dure qu'en jouant tant que l'équipe n'a pas 3 membres.
-- `grantDailyBalls` compare le jour avec `===` : reculer l'horloge du téléphone redonne les 5 Balls (utiliser `>`).
-- `completeDex` : boucle `while (mon.speciesId !== target) evolve(...)` sans garde-fou ; sûre avec les données actuelles
-  (vérifié), à protéger si une évolution incohérente apparaît un jour.
-
 ## Performances (à revoir sur l'APK)
 - « Équiper le meilleur » avec un très gros Sac : ~0,3 s sur PC pour 5 000 objets, sans doute 1 à 3 s sur téléphone.
 - Réduire les vignettes `assets/thumbs` de 240 à 144 px (`SIZE` dans `tools/make_thumbs.py`) : décodage ~2,8× plus

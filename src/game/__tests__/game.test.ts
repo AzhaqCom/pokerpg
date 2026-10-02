@@ -1,5 +1,6 @@
 import { BIOMES, REGION_START, REGIONS, STAGES_PER_ZONE, regionLastBiome } from '../content';
 import { ALL_SPECIES, EVOLUTION_CHOICES, evolutionTargets, species } from '../data';
+import * as dataModule from '../data';
 import {
   GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, applyMegaCandy, craftMegaCandy, lineBase, arenaAvailable, assignExploration, assignPension, autoCaptureBall, autoEquipBest, towerRetryFloor, bestEquipCombo, maxBattleSpeed, monPower, equipGain, quickEquipValue, allyFighter, setMoves, bestStarsOf, biomeAvailable, bossAvailable,
   lineChain, equipValue, towerLootTemplates, towerSpecies, towerStart, enterTower, towerRewardPlus, claimTowerReward, TOWER_LEVEL, setRecycleCandidates, endgameUnlocked, fusableRarity, itemLevelCap, upgradeItem, hasShinyCharm, shinyCharmToAnnounce, shinyOdds, BOOSTS, BOOST_MS, UNIVERSAL_MEGA_PRICE, boostActive, boostCoverage, buyBoost, buyUniversalMega, endingReady, autoTalents, canCompleteDex, whereToFind, canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
@@ -7,7 +8,7 @@ import {
   releaseExcess, releaseNotShiny, remainingEvolutions, removePension, selectStage, setAutoAdvance, START_BALLS, startPrestige,
   CAPTURE_PITY, RELEASE_CANDIES, applyMegaCandy as applyMega, lineForms, BALL_PRICE, buyBalls, autoMoves, captureTarget, setTeam, toggleLock, challengesReady, postponePrestige, idleFarmTarget, isTargeted, toggleTarget, zoneHasTarget, teamMaxLevel, tryCapture, unequipBox, xpGapMult,
   removeExploration, feedCandy, buyUniversalMegas, upgradeItemTimes, toggleTowerSet, towerDropPool, towerFocusChoices, towerPreviewItem,
-  autoTeamOrder,
+  autoTeamOrder, grantDailyBalls, FREE_BALLS_PER_DAY,
 } from '../game';
 import { SETS, TEMPLATES, makeItem, statText, mainValue, rarityName, recycleValue, subRange, upgradeCostFor } from '../items';
 import { Item, emptyBonuses } from '../model';
@@ -1924,4 +1925,36 @@ test('Tour : coffre de palier au premier passage seulement ; rejouer le palier r
   next.battle.result = 'win';
   expect(next.finishWave()!.towerReward?.floor).toBe(130);
   expect(s.towerRewards).toHaveLength(1);
+});
+
+test('Balls quotidiennes : une fois par jour, et reculer l’horloge ne les redonne pas', () => {
+  const s = newGame();
+  const balls = s.balls.poke;
+  const noon = new Date(2026, 9, 2, 12).getTime(); // 2 octobre 2026, midi (fuseau des tests : Europe/Paris)
+  const D = 86_400_000;
+  expect(grantDailyBalls(s, noon)).toBe(FREE_BALLS_PER_DAY);
+  expect(grantDailyBalls(s, noon + 3600_000)).toBe(0); // même jour
+  expect(grantDailyBalls(s, noon - D)).toBe(0); // horloge reculée d'un jour (avant : redonnées)
+  expect(grantDailyBalls(s, noon)).toBe(0); // revenue au jour même (avant : redonnées une 2e fois)
+  expect(grantDailyBalls(s, noon + D)).toBe(FREE_BALLS_PER_DAY); // le lendemain
+  expect(s.balls.poke).toBe(balls + 2 * FREE_BALLS_PER_DAY);
+});
+
+test('completeDex : une évolution qui échoue (donnée incohérente) arrête la boucle au lieu de figer le jeu', () => {
+  const s = newGame();
+  chooseStarter(s, 4, seededRng(1));
+  addMon(s, makeMon(10, 5, seededRng(2)));
+  addMon(s, makeMon(16, 5, seededRng(3))); // équipe complète : les Bulbizarre vont en boîte
+  for (let i = 0; i < 3; i++) { const m = makeMon(1, 40, seededRng(10 + i)); addMon(s, m); m.locked = false; }
+  // Herbizarre ne peut plus évoluer, alors que la lignée (et le niveau) disent qu'il le peut
+  const real = dataModule.evolutionTargets;
+  const spy = jest.spyOn(dataModule, 'evolutionTargets').mockImplementation((id, dexMax) => (id === 2 ? [] : real(id, dexMax)));
+  try {
+    const n = completeDex(s); // avant : boucle infinie sur l'évolution Herbizarre → Florizarre
+    expect(n).toBe(2); // 2 Bulbizarre → Herbizarre, puis arrêt
+    expect(Object.values(s.mons).filter((m) => m.speciesId === 2)).toHaveLength(2);
+    expect(Object.values(s.mons).some((m) => m.speciesId === 3)).toBe(false);
+  } finally {
+    spy.mockRestore();
+  }
 });

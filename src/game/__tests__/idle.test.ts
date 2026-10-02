@@ -1,5 +1,6 @@
 import { BIOMES, REGIONS, regionLastBiome } from '../content';
 import { addMon, chooseStarter, equip, makeMon, newGame, setTowerIdlePick, teamMaxLevel, toggleTowerSet, towerIdleActive, towerIdleFloor } from '../game';
+import * as gameModule from '../game';
 import { makeItem, template } from '../items';
 import { IDLE_CAP_MS, applyIdleGains, computeIdleGains, idleRun, teamXpPerHour } from '../idle';
 import { seededRng } from '../rng';
@@ -390,4 +391,27 @@ test('entraînement hors ligne dans la Tour : les Chromatiques suivent les 3 pan
   const g = computeIdleGains(s, 2 * H, seededRng(4))!;
   expect(g.bagItems.length).toBeGreaterThan(1);
   expect(g.bagItems.every((it) => focus.includes(template(it.templateId).set!))).toBe(true);
+});
+
+test('hors ligne : sauvages adoucis pour une équipe de 1-2 Pokémon, comme au premier plan (SOLO_MALUS, 2026-10-02)', () => {
+  const spy = jest.spyOn(gameModule, 'wildFighter');
+  try {
+    // zone, 1 seul Pokémon (taux de la pension et gains d'absence : même échantillon de combats)
+    const solo = newGame();
+    chooseStarter(solo, 4, seededRng(1));
+    teamXpPerHour(solo, seededRng(2));
+    expect(spy).toHaveBeenCalled();
+    expect(spy.mock.calls.every((c) => c[2]?.teamSize === 1)).toBe(true);
+    // Tour, 2 Pokémon
+    spy.mockClear();
+    const s = towerGame();
+    s.team = s.team.slice(0, 2);
+    s.towerBest = 23;
+    setTowerIdlePick(s, 3);
+    expect(computeIdleGains(s, 2 * H, seededRng(4))!.tower).toBeDefined();
+    expect(spy).toHaveBeenCalled();
+    expect(spy.mock.calls.every((c) => c[2]?.teamSize === 2)).toBe(true);
+  } finally {
+    spy.mockRestore();
+  }
 });

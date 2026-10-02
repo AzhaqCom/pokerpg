@@ -98,7 +98,9 @@ function sampleWaves(s: GameState, rng: Rng, target: number, biome = s.biome, zo
     for (const wave of waves) {
       if (sampled >= target) break;
       const allies = s.team.map((u) => allyFighter(s, u, hp[u]));
-      const enemies = wave.map((e, j) => wildFighter(`idle${sampled}-${j}`, e.mon, { boss: e.boss, hpMult: e.hpMult, wild: e.wild, wildMult: e.wildMult }));
+      // `teamSize` : sauvages adoucis pour une équipe de 1-2 Pokémon, comme au premier plan (`SOLO_MALUS`, oublié avant le
+      // 2026-10-02 : l'absence était plus dure que le jeu tant que l'équipe n'avait pas 3 membres)
+      const enemies = wave.map((e, j) => wildFighter(`idle${sampled}-${j}`, e.mon, { boss: e.boss, hpMult: e.hpMult, wild: e.wild, wildMult: e.wildMult, teamSize: s.team.length }));
       const battle = new Battle([...allies, ...enemies], rng);
       battle.runToEnd();
       totalMs += battle.t * 1000 + BETWEEN_WAVES_MS;
@@ -330,7 +332,7 @@ function sampleTowerFloor(s: GameState, rng: Rng, floor: number, n = SAMPLE_WAVE
   for (let i = 0; i < n; i++) {
     const wave = towerWaves(floor, rng)[0];
     const allies = s.team.map((u) => allyFighter(s, u));
-    const enemies = wave.map((e, j) => wildFighter(`tower${i}-${j}`, e.mon, { wild: e.wild, wildMult: e.wildMult }));
+    const enemies = wave.map((e, j) => wildFighter(`tower${i}-${j}`, e.mon, { wild: e.wild, wildMult: e.wildMult, teamSize: s.team.length }));
     const battle = new Battle([...allies, ...enemies], rng);
     battle.runToEnd();
     totalMs += battle.t * 1000 + BETWEEN_WAVES_MS;

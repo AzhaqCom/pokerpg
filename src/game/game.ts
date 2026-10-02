@@ -742,7 +742,13 @@ export function completeDex(s: GameState, dryRun = false, opts: { keepEvolutionM
         if (idx < 0) continue;
         if (dryRun) return 1;
         const [mon] = freeSpares.splice(idx, 1);
-        while (mon.speciesId !== target) { evolve(s, mon.uid); count++; }
+        // garde-fou (2026-10-02) : une évolution qui échoue (donnée incohérente) arrête la boucle au lieu de figer le jeu
+        for (let k = 0; mon.speciesId !== target && k < chain.length; k++) {
+          const before = mon.speciesId;
+          evolve(s, mon.uid);
+          if (mon.speciesId === before) break;
+          count++;
+        }
       }
     }
   }
@@ -2253,7 +2259,9 @@ export function buyUniversalMegas(s: GameState, n: number): boolean {
 
 export function grantDailyBalls(s: GameState, now = Date.now()) {
   const day = Math.floor((now - new Date(now).getTimezoneOffset() * 60_000) / 86_400_000);
-  if (day === s.lastFreeBallsDay) return 0;
+  // `<=` et pas `===` (2026-10-02) : reculer l'horloge du téléphone ne redonne plus les Balls (avant, reculer d'un jour
+  // puis revenir les redonnait deux fois)
+  if (day <= s.lastFreeBallsDay) return 0;
   s.lastFreeBallsDay = day;
   s.balls.poke += FREE_BALLS_PER_DAY;
   return FREE_BALLS_PER_DAY;
