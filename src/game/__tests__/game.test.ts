@@ -10,7 +10,7 @@ import {
   removeExploration, feedCandy, buyUniversalMegas, upgradeItemTimes, toggleTowerSet, towerDropPool, towerFocusChoices, towerPreviewItem,
   autoTeamOrder, grantDailyBalls, FREE_BALLS_PER_DAY,
 } from '../game';
-import { SETS, TEMPLATES, makeItem, statText, mainValue, rarityName, recycleValue, subRange, upgradeCostFor } from '../items';
+import { SETS, TEMPLATES, makeItem, statText, mainValue, rarityName, recycleValue, subMax, subRange, upgradeCostFor } from '../items';
 import { Item, emptyBonuses } from '../model';
 import { cadence, kitContext, kitRate } from '../optimize';
 import { Rng, seededRng } from '../rng';
@@ -1795,7 +1795,7 @@ test('sauvegarde d’avant le 2026-10-01 : sous-stats Vitesse / Recharge convert
   expect(subs[0].value).toBeLessThan(30); // ~+130 % → ~+21 %
   expect(subs[0].value).toBeGreaterThan(subs[1].value / 17 * 7); // jet max contre jet à 70 %
   expect(subs[2].value).toBe(20);
-  expect(out.balanceVersion).toBe(4);
+  expect(out.balanceVersion).toBe(5);
   const again = migrateSave(JSON.parse(JSON.stringify(out))) as unknown as GameState;
   expect(again.items[it.uid].subs[0].value).toBe(subs[0].value); // pas de double conversion
 });
@@ -1807,9 +1807,9 @@ test('sauvegarde d’avant le 2026-10-02 : une sous-stat sous le jet minimum de 
   it.subs = [{ stat: 'hpPct', value: 1 }, { stat: 'defPct', value: defMax }];
   s.items[it.uid] = it;
   const out = migrateSave(JSON.parse(JSON.stringify({ ...s, balanceVersion: 3 }))) as unknown as GameState;
-  expect(out.items[it.uid].subs[0].value).toBe(subRange('hpPct', 50, 2).min); // venue d'une pièce plus basse
-  expect(out.items[it.uid].subs[1].value).toBe(defMax); // dans sa fourchette : intacte
-  expect(out.balanceVersion).toBe(4);
+  expect(out.items[it.uid].subs[0].value).toBeCloseTo(subRange('hpPct', 50, 2).min, 1); // venue d'une pièce plus basse
+  expect(out.items[it.uid].subs[1].value).toBeCloseTo(defMax, 1); // dans sa fourchette : intacte
+  expect(out.balanceVersion).toBe(5);
 });
 
 test('boutique : méga bonbons universels par 10 ou 100, tout ou rien', () => {
@@ -1957,4 +1957,17 @@ test('completeDex : une évolution qui échoue (donnée incohérente) arrête la
   } finally {
     spy.mockRestore();
   }
+});
+
+test('sauvegarde d’avant le correctif des arrondis : une sous-stat sortie de sa fourchette y revient, les autres intactes', () => {
+  const s = newGame();
+  const it: Item = { ...makeItem('griffe-sylve', 6, 200, seededRng(2)), plus: 2 };
+  const typeMax = subMax('typeDmgPct', 200, 2);
+  const inside = Math.round(subMax('hpPct', 200, 2) * 0.9 * 10) / 10;
+  it.subs = [{ stat: 'typeDmgPct', value: Math.round(typeMax * 1.012 * 10) / 10 }, { stat: 'hpPct', value: inside }];
+  s.items[it.uid] = it;
+  const out = migrateSave(JSON.parse(JSON.stringify({ ...s, balanceVersion: 4 }))) as unknown as GameState;
+  expect(out.items[it.uid].subs[0].value).toBeCloseTo(typeMax, 2); // au-dessus du maximum (arrondis accumulés) → le maximum
+  expect(out.items[it.uid].subs[1].value).toBe(inside); // dans sa fourchette : intacte
+  expect(out.balanceVersion).toBe(5);
 });

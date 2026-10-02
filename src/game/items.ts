@@ -321,8 +321,9 @@ export const STAT_LABEL: Record<BonusStat, string> = {
 };
 
 /** « Attaque +12 % », « Recharge +30 % » (depuis le 2026-10-01, la Recharge n'est plus une réduction plafonnée). */
+/** « Attaque +106.2 % » : au dixième (les sous-stats sont gardées à 3 décimales, voir `roundSub`). */
 export function statText(stat: BonusStat, value: number): string {
-  return `${STAT_LABEL[stat]} +${value} %`;
+  return `${STAT_LABEL[stat]} +${round1(value)} %`;
 }
 
 export function template(id: string): ItemTemplate {
@@ -335,6 +336,13 @@ const lvlMult = (level: number) => 1 + 0.08 * (level - 1);
 /** Croissance lente avec le niveau (Vitesse, Recharge) : racine de `lvlMult` (×1 au Nv.1, ×2,4 au Nv.62, ×3,2 au Nv.120). */
 const slowLvlMult = (level: number) => Math.sqrt(lvlMult(level));
 const round1 = (v: number) => Math.round(v * 10) / 10;
+/**
+ * Arrondi des sous-stats en mémoire : 3 décimales (2026-10-02) ; l'affichage reste au dixième (`statText`). Avant,
+ * chaque amélioration arrondissait au dixième et les arrondis s'accumulaient : jusqu'à 33 points de jet décalés de
+ * Nv.1 à 300, ~100 à Nv.1 000 (la Vitesse, qui grimpe lentement, montait trop vite puis restait bloquée) ; ici 0,25
+ * au pire jusqu'à Nv.1 500 (`tools/scratch/sub_drift4.ts`).
+ */
+const roundSub = (v: number) => Math.round(v * 1000) / 1000;
 
 /** Chance de critique fixe d'un objet Critique mixte (0 pour les autres). */
 export function bonusCritValue(item: Item): number {
@@ -394,8 +402,15 @@ export const SUB_ROLL_MIN = 70;
 export const REROLL_ROLL_MIN = 85;
 
 /** Jet maximum (100 %) d'une sous-stat à ce niveau et à ce cran Chromatique +N (+10 % par cran). */
-function subMax(stat: BonusStat, level: number, plus = 0): number {
+export function subMax(stat: BonusStat, level: number, plus = 0): number {
   return SUB_BASE[stat] * subLvlMult(stat, level) * (1 + PLUS_SUB_STEP * plus);
+}
+
+/** Une sous-stat ramenée dans sa fourchette (jet de 70 à 100 % à ce niveau et à ce cran), à 3 décimales (`roundSub`) :
+ *  après une amélioration, une fusion ou un cran +N, elle n'en sort jamais (2026-10-02). */
+export function clampSub(stat: BonusStat, level: number, plus: number, value: number): number {
+  const max = subMax(stat, level, plus);
+  return roundSub(Math.min(max, Math.max((max * SUB_ROLL_MIN) / 100, value)));
 }
 
 /**
@@ -412,7 +427,7 @@ function rollSub(rng: Rng, level: number, exclude: BonusStat[], plus = 0, minRol
   const pool = SUB_POOL.filter((s) => !exclude.includes(s));
   const stat = pool[rng.int(pool.length)];
   const roll = minRoll / 100 + rng.int(101 - minRoll) / 100; // 70–100 % (85–100 % pour un changement de sous-stat)
-  return { stat, value: round1(subMax(stat, level, plus) * roll) };
+  return { stat, value: roundSub(subMax(stat, level, plus) * roll) };
 }
 
 let seq = 0;
@@ -556,8 +571,10 @@ export function upgradeCostFor(item: Item, n: number): number {
 export const MAX_ITEM_LEVEL = 100;
 
 export function upgrade(item: Item): Item {
-  const scale = (stat: BonusStat) => subLvlMult(stat, item.level + 1) / subLvlMult(stat, item.level);
-  return { ...item, level: item.level + 1, subs: item.subs.map((s) => ({ ...s, value: round1(s.value * scale(s.stat)) })) };
+  const level = item.level + 1;
+  const scale = (stat: BonusStat) => subLvlMult(stat, level) / subLvlMult(stat, item.level);
+  // 3 décimales et bornée à sa fourchette : plus de dérive par arrondis successifs (`roundSub`, `clampSub`)
+  return { ...item, level, subs: item.subs.map((s) => ({ ...s, value: clampSub(s.stat, level, plusOf(item), s.value * scale(s.stat)) })) };
 }
 
 export function rerollCost(item: Item): number {
@@ -604,7 +621,7 @@ export function fuse(items: Item[], rng: Rng, endgame = false): Item {
     }
   }
   const subs = [...best.entries()].sort((a, b) => subScore(b[0], b[1], level) - subScore(a[0], a[1], level)).slice(0, RARITY_SUBS[rarity])
-    .map(([stat, value]) => ({ stat, value: round1(value * subScale) }));
+    .map(([stat, value]) => ({ stat, value: clampSub(stat, level, plus, value * subScale) }));
   while (subs.length < RARITY_SUBS[rarity]) subs.push(rollSub(rng, level, [...mainStats(t), ...subs.map((s) => s.stat)], plus));
   const tier = Math.max(...items.map((i) => i.tier ?? 1));
   const out: Item = { uid: newUid('i'), templateId: t.id, rarity, level, subs };

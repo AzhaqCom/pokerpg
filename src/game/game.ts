@@ -8,7 +8,7 @@ import {
   BADGE_BONUS, BIOMES, REGIONS, REGION_START, STAGES_PER_ZONE, WAVES_PER_STAGE, ZoneDef, regionLastBiome, regionOf,
 } from './content';
 import { ALL_SPECIES, EVOLUTION_CHOICES, PType, learnedMoves, evolutionTargets, move, movesAtLevel, preEvolution, species } from './data';
-import { biomeTier, convertFlatSub, SUB_WORTH, subScore, MAX_ITEM_LEVEL, PLUS_SUB_STEP, SETS, addItemBonuses, berryScore, combatValue, setOfBiome, TEMPLATES, berryHeal, fuse, canFuse, itemScore, makeItem, newUid, recycleValue, rerollCost, rerollSub, rollLoot, rollRarity, slotOf, subRange, template, upgrade, upgradeCost, upgradeCostFor } from './items';
+import { biomeTier, clampSub, convertFlatSub, SUB_WORTH, subScore, MAX_ITEM_LEVEL, PLUS_SUB_STEP, SETS, addItemBonuses, berryScore, combatValue, setOfBiome, TEMPLATES, berryHeal, fuse, canFuse, itemScore, makeItem, newUid, recycleValue, rerollCost, rerollSub, rollLoot, rollRarity, slotOf, subRange, template, upgrade, upgradeCost, upgradeCostFor } from './items';
 import { BattleBonuses, BonusStat, Item, ItemSlot, ItemTemplate, MAX_RARITY, Mon, emptyBonuses } from './model';
 import { Rng, seededRng } from './rng';
 import { MAX_LEVEL, auraBonuses, combatPower, finalStats, levelFromXp, monBonuses, monStars, sumBonuses, xpForLevel } from './stats';
@@ -160,7 +160,7 @@ export function newGame(): GameState {
     prestige: 0,
     startedAt: Date.now(), prestigeOffered: false, adventureStart: Date.now(), endingSeen: false,
     shinyCharmSeen: false, boosts: noBoosts(), universalMega: 0,
-    towerBest: 0, towerFloor: null, towerRewards: [], towerIdle: true, towerIdlePick: null, towerAuto: false, towerSets: [], balanceVersion: 4,
+    towerBest: 0, towerFloor: null, towerRewards: [], towerIdle: true, towerIdlePick: null, towerAuto: false, towerSets: [], balanceVersion: 5,
   };
 }
 
@@ -319,9 +319,16 @@ export function migrateSave(raw: Record<string, unknown>): Record<string, unknow
       for (const sub of it.subs ?? []) sub.value = Math.max(sub.value, subRange(sub.stat, it.level ?? 1, it.plus ?? 0).min);
     }
   }
+  // arrondis des améliorations (2026-10-02) : une sous-stat sortie de sa fourchette par l'accumulation des arrondis au
+  // dixième y revient (au-dessus du maximum → le maximum) ; celles restées dedans ne bougent pas
+  if ((raw.balanceVersion as number | undefined ?? 1) < 5 && raw.items && typeof raw.items === 'object') {
+    for (const it of Object.values(raw.items as Record<string, { level?: number; plus?: number; subs?: { stat: BonusStat; value: number }[] }>)) {
+      for (const sub of it.subs ?? []) sub.value = clampSub(sub.stat, it.level ?? 1, it.plus ?? 0, sub.value);
+    }
+  }
   // début de l'aventure : les anciennes sauvegardes n'ont que le début de la région en cours
   if (typeof raw.adventureStart !== 'number') raw.adventureStart = typeof raw.startedAt === 'number' ? raw.startedAt : Date.now();
-  raw.balanceVersion = 4;
+  raw.balanceVersion = 5;
   return raw;
 }
 
@@ -2194,7 +2201,7 @@ export function claimTowerReward(s: GameState, index: number, templateId: string
   if (reward.plus > 0) {
     it.plus = reward.plus;
     const scale = 1 + PLUS_SUB_STEP * reward.plus;
-    it.subs = it.subs.map((sub) => ({ ...sub, value: Math.round(sub.value * scale * 10) / 10 }));
+    it.subs = it.subs.map((sub) => ({ ...sub, value: clampSub(sub.stat, it.level, reward.plus, sub.value * scale) }));
   }
   s.items[it.uid] = it;
   s.towerRewards.splice(index, 1);

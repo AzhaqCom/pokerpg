@@ -1,4 +1,4 @@
-import { BIOME_SET, CRIT_BY_RARITY, SETS, bonusCritValue, combatValue, TEMPLATES, addItemBonuses, canFuse, convertFlatSub, flatBonus, recycleRefund, upgradeCost, SUB_WORTH, setBonusText, subRollRef, subScore, subTier, fuse, itemScore, makeItem, mainValue, recycleValue, rerollSub, rollLoot, setOfBiome, subRange, template, upgrade } from '../items';
+import { BIOME_SET, CRIT_BY_RARITY, SETS, bonusCritValue, combatValue, TEMPLATES, addItemBonuses, canFuse, convertFlatSub, flatBonus, recycleRefund, upgradeCost, SUB_WORTH, setBonusText, subRollRef, subScore, subTier, fuse, itemScore, makeItem, mainValue, recycleValue, rerollSub, rollLoot, setOfBiome, subRange, template, upgrade, subMax, statText } from '../items';
 import { BonusStat, Item, critOverflow, emptyBonuses } from '../model';
 import { seededRng } from '../rng';
 import { newGame, upgradeItem } from '../game';
@@ -302,4 +302,25 @@ describe('sous-stats : fourchette, changement à 85-100 %, fusion recalée (2026
     near(out.subs.find((s) => s.stat === 'hpPct')!.value, subRange('hpPct', 50).max, 0.15);
     near(out.subs.find((s) => s.stat === 'typeDmgPct')!.value, subRange('typeDmgPct', 50).max, 0.15);
   });
+});
+
+test('amélioration : une sous-stat garde sa place dans sa fourchette de Nv.1 à 1 000, sans dérive d’arrondis (2026-10-02)', () => {
+  // avant : arrondie au dixième à chaque niveau, une sous-stat pouvait se décaler de 33 points de jet de Nv.1 à 300
+  // (sortir de sa fourchette ou perdre de la valeur), ~100 à Nv.1 000 (la Vitesse restait bloquée)
+  const stats: BonusStat[] = ['atkPct', 'defPct', 'hpPct', 'spePct', 'critPct', 'critDmgPct', 'typeDmgPct', 'cdrPct'];
+  for (const stat of stats) for (const plus of [0, 3]) for (const roll of [70, 85, 100]) {
+    let it: Item = { uid: 'x', templateId: 'griffe-sylve', rarity: 6, level: 1, plus, subs: [{ stat, value: (subMax(stat, 1, plus) * roll) / 100 }] };
+    for (let l = 1; l < 1000; l++) it = upgrade(it);
+    const max = subMax(stat, 1000, plus);
+    const v = it.subs[0].value;
+    expect(Math.abs((v / max) * 100 - roll)).toBeLessThan(0.5);
+    expect(v).toBeLessThanOrEqual(max + 0.001);
+    expect(v).toBeGreaterThanOrEqual(max * 0.7 - 0.001);
+  }
+});
+
+test('sous-stats : gardées à 3 décimales, affichées au dixième', () => {
+  expect(statText('atkPct', 106.2345)).toBe('Attaque +106.2 %');
+  const it = makeItem('griffe-sylve', 6, 250, seededRng(5));
+  expect(it.subs.every((s) => Math.abs(s.value * 1000 - Math.round(s.value * 1000)) < 1e-6)).toBe(true);
 });

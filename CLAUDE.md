@@ -197,8 +197,15 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   sous-stat » à **85-100 %** (`REROLL_ROLL_MIN`) et avec le bonus du cran +N (oublié avant). **Fusion recalée** : chaque
   sous-stat gardée est d'abord remise au niveau de l'objet obtenu (comme `upgrade`) ; avant, celle d'une pièce plus basse
   gardait sa petite valeur. Pas de simulation longue relancée (choix d'Arno : effet faible, le bot fusionne).
+  **Sous-stats gardées à 3 décimales** (`roundSub`, 2026-10-02), affichées au dixième (`statText`) : avant, chaque
+  amélioration arrondissait au dixième et les arrondis s'accumulaient (jusqu'à 33 points de jet décalés de Nv.1 à 300,
+  ~100 à Nv.1 000 : la Vitesse montait trop vite puis restait bloquée ; des sous-stats sortaient de leur fourchette ou
+  perdaient de la valeur). Maintenant 0,25 point au pire jusqu'à Nv.1 500 (`tools/scratch/sub_drift4.ts`), et une
+  sous-stat est ramenée dans sa fourchette après chaque amélioration, fusion ou cran +N (`clampSub`).
   Anciennes sauvegardes : sous-stats converties une fois (`balanceVersion` ; 4 = sous-stat sous son jet minimum remontée
-  à ce minimum, `subRange`). Recyclage en éclats (`recycleValue` = `recycleBase` + `recycleRefund`, 2026-10-01) : la plus grande entre
+  à ce minimum, `subRange` ; 5 = sous-stat sortie de sa fourchette par les arrondis ramenée dedans, les autres
+  intactes : une sous-stat déjà descendue par les arrondis sans sortir de sa fourchette garde sa valeur, son jet
+  d'origine n'étant enregistré nulle part). Recyclage en éclats (`recycleValue` = `recycleBase` + `recycleRefund`, 2026-10-01) : la plus grande entre
   2 × (rareté + 1 + cran)² + niveau et 10 % du coût d'un niveau d'amélioration (Chromatique Nv.200 : 700 au lieu de 298),
   + 50 % des éclats dépensés à la main en améliorations (`Item.invested`, additionné à la fusion, compté depuis le
   2026-10-01).
