@@ -104,7 +104,7 @@ export function ItemCard({ item, onPress, selected, wornBy, compare, animated, f
       {wornBy && full && <View style={styles.wornBadge}><Text style={styles.wornTxt}>Porté par {species(wornBy.speciesId).name}</Text></View>}
       {full ? (
         <Text style={styles.rarity}>
-          {tier ? <><ChromaText plus={plus} text={rarityName(item)} />{` (${tier.name})`}</> : RARITIES[item.rarity]} · Nv.{item.level}{setName ? ` · ${setName}` : ''}{item.locked ? ' · 🔒' : ''}
+          {tier ? <ChromaText plus={plus} text={rarityName(item)} /> : RARITIES[item.rarity]} · Nv.{item.level}{setName ? ` · ${setName}` : ''}{item.locked ? ' · 🔒' : ''}
         </Text>
       ) : (
         // carte compacte : le cran est porté par la bordure et la pastille, comme la rareté par la couleur
