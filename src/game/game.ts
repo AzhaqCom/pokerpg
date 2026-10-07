@@ -138,8 +138,8 @@ export interface GameState {
   towerIdlePick: number | null;
   /** Combat continu dans la Tour (jeu actif) : une défaite fait reprendre plus bas au lieu de sortir (`towerRetryFloor`). */
   towerAuto: boolean;
-  /** Panoplies visées dans la Tour (`toggleTowerSet`) : avec 3, ses Chromatiques ne tombent plus que dans celles-là
-   *  (`towerDropPool`) ; moins de 3 = tirage sur les 20 panoplies du jeu. */
+  /** Panoplies visées dans la Tour (`toggleTowerSet`, 1 à 3) : ses Chromatiques ne tombent plus que dans celles-là
+   *  (`towerDropPool`) ; aucune = tirage sur les 20 panoplies du jeu. */
   towerSets: string[];
   /** Version d'équilibrage des objets déjà convertie (2 = poids mesurés du 2026-09-24, voir `migrateSave`). */
   balanceVersion: number;
@@ -2074,11 +2074,12 @@ export function setTowerAuto(s: GameState, on: boolean) {
 
 /**
  * Entraînement hors ligne dans la Tour (fin de jeu) : l'absence rejoue un étage déjà franchi au lieu de farmer la zone
- * (dont le butin ne sert plus à rien après la Tour). Moins de butin qu'en jouant, mais que du Chromatique au niveau de
- * l'étage : 1 tous les `TOWER_IDLE_ITEM_EVERY` étages gagnés, éclats ÷ 2, jamais de Chromatique +N (jeu actif seulement).
- * Désactivable pour chasser les chromatiques et les cibles 🎯, qui n'existent qu'en zone.
+ * (dont le butin ne sert plus à rien après la Tour). Moins d'objets qu'en jouant, au niveau et au cran de l'étage
+ * (`towerDropPlus`) : 1 tous les `TOWER_IDLE_ITEM_EVERY` étages gagnés (10 avant le 2026-10-07), mêmes éclats qu'en
+ * combat (÷ 2 avant), jamais de coffre de palier (jeu actif seulement). Désactivable pour chasser les chromatiques et
+ * les cibles 🎯, qui n'existent qu'en zone.
  */
-export const TOWER_IDLE_ITEM_EVERY = 10;
+export const TOWER_IDLE_ITEM_EVERY = 5;
 
 /** L'absence se passe-t-elle dans la Tour ? (au moins un étage franchi, réglage activé) */
 export function towerIdleActive(s: GameState): boolean {
@@ -2100,9 +2101,10 @@ export function setTowerIdlePick(s: GameState, floor: number | null) {
   s.towerIdlePick = floor === null ? null : Math.max(1, Math.min(s.towerBest, Math.round(floor)));
 }
 
-/** Éclats par étage franchi. */
+/** Éclats par étage franchi, en combat comme hors ligne (2026-10-07 : doublés, et plus divisés par 2 hors ligne ; avant,
+ *  500 + 50 × étage). */
 export function towerShards(floor: number): number {
-  return 500 + 50 * floor;
+  return 1000 + 100 * floor;
 }
 
 let towerLoot: ItemTemplate[] | null = null;
@@ -2117,8 +2119,8 @@ export function towerLootTemplates(): ItemTemplate[] {
   return towerLoot;
 }
 
-/** Nombre de panoplies à viser pour que les Chromatiques de la Tour s'y limitent : 3 (9 objets au lieu de 60, chaque
- *  objet visé tombe près de 7 fois plus souvent) ; 1 ou 2 accéléreraient trop les crans +N (×20, ×10). */
+/** Panoplies qu'on peut viser au plus : de 1 à 3 (2026-10-07, demande d'Arno ; avant, exactement 3). 1 panoplie = 3 objets,
+ *  ceux d'un seul Pokémon : leurs crans montent plus vite (~1 de plus par nuit), mais les 2 autres ne reçoivent rien. */
 export const TOWER_FOCUS_SETS = 3;
 
 /** Panoplies de la Tour : les 20 du jeu (tirage sans panoplies visées, choix des panoplies visées, coffre de palier),
@@ -2143,13 +2145,12 @@ function towerFocus(s: GameState): string[] {
 }
 
 /**
- * Objets que fait tomber un étage de la Tour (combat et hors ligne) : ceux des 3 panoplies visées (2026-10-02, demande
- * d'Arno : 9 objets au lieu de 60, des fusions +N bien plus rapides sur ce qu'on porte), sinon ceux des 20 panoplies
- * (`towerLootTemplates`).
+ * Objets que fait tomber un étage de la Tour (combat et hors ligne) : ceux des panoplies visées (1 à 3 : 3 à 9 objets
+ * au lieu de 60, des fusions +N bien plus rapides sur ce qu'on porte), sinon ceux des 20 panoplies (`towerLootTemplates`).
  */
 export function towerDropPool(s: GameState): ItemTemplate[] {
   const focus = towerFocus(s);
-  return focus.length < TOWER_FOCUS_SETS ? towerLootTemplates() : TEMPLATES.filter((t) => t.set && focus.includes(t.set));
+  return focus.length === 0 ? towerLootTemplates() : TEMPLATES.filter((t) => t.set && focus.includes(t.set));
 }
 
 /** Vise ou retire une panoplie dans la Tour ; refusé (`false`) si on en vise déjà `TOWER_FOCUS_SETS`. */
@@ -2167,8 +2168,31 @@ export function towerRewardPlus(floor: number): number {
 }
 
 /**
- * Récompenses d'un étage franchi : éclats, 1 objet **Chromatique** Nv.100 + étage (panoplies visées, sinon les 20 :
- * `towerDropPool`), et un
+ * Cran du Chromatique qui tombe à chaque étage (2026-10-07, demande d'Arno ; avant, toujours +0) : celui du coffre de
+ * palier moins `TOWER_DROP_GAP`, par paliers fixes (jamais de hasard : des crans mélangés au même étage freineraient la
+ * fusion). +0 jusqu'à l'étage 149, +1 dès 150, +3 dès 190, +8 dès 290, +11 dès 350. Une nuit hors ligne produit alors
+ * ~3 crans sous le coffre de l'étage rejoué avec 3 panoplies visées, ~2 avec 1 seule (étage 360 : +14 / +15). Un écart
+ * de 1 donnait l'équipement d'un joueur à l'étage 366 (+14 à +17) en une nuit ; la moitié du coffre, rien d'utile.
+ */
+export const TOWER_DROP_GAP = 6;
+export function towerDropPlus(floor: number): number {
+  return Math.max(0, towerRewardPlus(floor) - TOWER_DROP_GAP);
+}
+
+/** Chromatique de la Tour : objet `templateId` au niveau donné, au cran `plus` (sous-stats +10 % par cran). */
+export function makeTowerItem(templateId: string, level: number, plus: number, rng: Rng): Item {
+  const it = makeItem(templateId, MAX_RARITY, level, rng, BIOMES.length - 1);
+  if (plus > 0) {
+    it.plus = plus;
+    const scale = 1 + PLUS_SUB_STEP * plus;
+    it.subs = it.subs.map((sub) => ({ ...sub, value: clampSub(sub.stat, it.level, plus, sub.value * scale) }));
+  }
+  return it;
+}
+
+/**
+ * Récompenses d'un étage franchi : éclats, 1 objet **Chromatique** Nv.100 + étage au cran `towerDropPlus` (panoplies
+ * visées, sinon les 20 : `towerDropPool`), et un
  * Chromatique +N à choisir tous les 10 étages — **au premier passage seulement** (étage au-delà du record, 2026-10-01 :
  * avant, chaque palier regagné redonnait son coffre, un +5 au choix toutes les 10 victoires vers l'étage 120 en combat
  * continu). Toujours Chromatique : la Tour ne doit jamais être bloquée par un manque de rareté, seulement par la
@@ -2180,7 +2204,7 @@ function towerFloorRewards(s: GameState, floor: number, rng: Rng): WaveRewards {
   s.shards += shards;
   out.shards = shards;
   const pool = towerDropPool(s);
-  const it = makeItem(pool[rng.int(pool.length)].id, MAX_RARITY, TOWER_LEVEL + floor, rng, BIOMES.length - 1);
+  const it = makeTowerItem(pool[rng.int(pool.length)].id, TOWER_LEVEL + floor, towerDropPlus(floor), rng);
   s.items[it.uid] = it;
   out.loot.push(it);
   // `towerBest` n'est mis à jour qu'après les récompenses (`onStageWon`) : c'est encore le record d'avant ce combat
@@ -2197,12 +2221,7 @@ function towerFloorRewards(s: GameState, floor: number, rng: Rng): WaveRewards {
 export function claimTowerReward(s: GameState, index: number, templateId: string, rng: Rng): Item | null {
   const reward = s.towerRewards[index];
   if (!reward || !TEMPLATES.some((t) => t.id === templateId)) return null;
-  const it = makeItem(templateId, MAX_RARITY, reward.level, rng, BIOMES.length - 1);
-  if (reward.plus > 0) {
-    it.plus = reward.plus;
-    const scale = 1 + PLUS_SUB_STEP * reward.plus;
-    it.subs = it.subs.map((sub) => ({ ...sub, value: clampSub(sub.stat, it.level, reward.plus, sub.value * scale) }));
-  }
+  const it = makeTowerItem(templateId, reward.level, reward.plus, rng);
   s.items[it.uid] = it;
   s.towerRewards.splice(index, 1);
   return it;

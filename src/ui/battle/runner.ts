@@ -12,8 +12,8 @@ import {
   canPrestige, captureTarget, exitTower, isTargeted, maxBattleSpeed, SPEED_UNLOCKS, touchLastActive, tryCapture,
 } from '../../game/game';
 import { MAX_RARITY, RARITIES, RARITY_COLOR } from '../../game/model';
-import { template } from '../../game/items';
-import { chromaTier } from '../helpers';
+import { plusOf } from '../../game/items';
+import { chromaTier, fmtNum, fmtShort, itemColor, itemDisplayName } from '../helpers';
 import { rng, useGame } from '../../store/game';
 import { CollectionGoal, wantedForBox } from '../../game/collection';
 import { useSettings } from '../../store/settings';
@@ -198,13 +198,14 @@ class Runner {
       // un seul message par Pokémon, toutes ses nouvelles capacités ensemble
       if (lu.newMoves.length) toast(`${species(m.speciesId).name} apprend ${lu.newMoves.map((id) => move(id).name).join(', ')}`);
     }
-    // butin : un seul message par vague, coloré à la rareté du meilleur objet
+    // butin : un seul message par vague, le meilleur objet en couleur ; comme le message de fusion, un Chromatique +N
+    // porte son cran après le nom, à la couleur du palier (`itemDisplayName`, `itemColor` : butin de la Tour)
     if (r.loot.length) {
-      const best = r.loot.reduce((a, b) => (b.rarity > a.rarity ? b : a));
-      const bestName = template(best.templateId).name;
-      const others = r.loot.filter((it) => it !== best).map((it) => template(it.templateId).name);
+      const best = r.loot.reduce((a, b) => (b.rarity > a.rarity || (b.rarity === a.rarity && plusOf(b) > plusOf(a)) ? b : a));
+      const bestName = itemDisplayName(best);
+      const others = r.loot.filter((it) => it !== best).map(itemDisplayName);
       // Tour de Combat : les éclats de l'étage dans le même message que son objet
-      toast(`+ ${[bestName, ...others].join(', ')}${r.shards ? ` · +${r.shards} 💎` : ''}`, RARITY_COLOR[best.rarity], bestName);
+      toast(`+ ${[bestName, ...others].join(', ')}${r.shards ? ` · +${fmtNum(r.shards)} 💎` : ''}`, itemColor(best), bestName);
     }
     if (r.towerReward) {
       sfx('medal');
@@ -270,14 +271,17 @@ class Runner {
       case 'damage': {
         const an = a(e.target);
         if (an) { an.action = 'hurt'; an.since = this.clock; an.flashUntil = this.clock + 130; }
+        // immunité (×0) : seulement une attaque de zone, qui touche au moins un autre adversaire
+        if (e.eff === 0) { this.float(e.target, 'Immunisé', '#90a4ae'); break; }
         const color = e.eff > 1 ? '#ffd54f' : e.eff < 1 ? '#b0bec5' : '#ffffff';
-        this.float(e.target, `${e.amount}${e.crit ? '!' : ''}`, e.crit ? '#ff7043' : color, e.crit || e.eff > 1);
+        // critique : orange et en grand (plus de « ! » depuis le 2026-10-07)
+        this.float(e.target, fmtShort(e.amount), e.crit ? '#ff7043' : color, e.crit || e.eff > 1);
         if (e.eff > 1) sfx('play');
         break;
       }
       case 'miss': this.float(e.target, 'Esquive', '#90caf9'); break;
-      case 'tick': this.float(e.target, `${e.amount}`, e.ailment === 'burn' ? '#ff8a65' : '#ce93d8'); break;
-      case 'heal': this.float(e.target, `+${e.amount}`, '#69f0ae'); break;
+      case 'tick': this.float(e.target, fmtShort(e.amount), e.ailment === 'burn' ? '#ff8a65' : '#ce93d8'); break;
+      case 'heal': this.float(e.target, `+${fmtShort(e.amount)}`, '#69f0ae'); break;
       case 'status': this.float(e.target, STATUS_LABEL[e.ailment], STATUS_COLOR[e.ailment]); break;
       case 'buff': this.float(e.target, e.up ? '▲' : '▼', e.up ? '#69f0ae' : '#ff8a80'); break;
       case 'faint': { const an = a(e.target); if (an) an.faintAt = this.clock; break; }

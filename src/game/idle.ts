@@ -14,13 +14,13 @@ import { Battle } from './battle';
 import { BIOMES, STAGES_PER_ZONE, WAVES_PER_STAGE } from './content';
 import {
   BETWEEN_WAVES_MS, BOOSTS, BallKind, CAPTURE_OFFER_CHANCE, GameState, TOWER_IDLE_ITEM_EVERY, TOWER_LEVEL, boostCoverage,
-  towerDropPool, towerIdleActive, towerIdleFloor, towerShards, towerWaves, LOOT_CHANCE, PENSION_CAP_MS, RELEASE_CANDIES, shinyOdds,
+  makeTowerItem, towerDropPlus, towerDropPool, towerIdleActive, towerIdleFloor, towerShards, towerWaves, LOOT_CHANCE, PENSION_CAP_MS, RELEASE_CANDIES, shinyOdds,
   addMon, allyFighter, bestStarsOf, captureChance, genesMinForBadges, giveXp, idleFarmTarget, isRareInZone, isTargeted,
   keepTargetCapture, lineBase, makeMon, makeWaves, pickSpecies, teamMaxLevel, wildFighter, xpGapMult,
 } from './game';
-import { makeItem, recycleValue, rollLoot } from './items';
+import { recycleValue, rollLoot } from './items';
 import { CollectionGoal, needTracker } from './collection';
-import { Item, MAX_RARITY, Mon } from './model';
+import { Item, Mon } from './model';
 import { monStars } from './stats';
 import { Rng } from './rng';
 
@@ -346,9 +346,10 @@ const TOWER_IDLE_DEPTH = 10;
 
 /**
  * Absence en fin de jeu : l'équipe rejoue l'étage `towerIdleFloor` de la Tour (une défaite la fait redescendre d'un étage,
- * une victoire remonter, jamais au-delà de l'étage choisi). Chaque étage gagné : la moitié de ses éclats ; tous les
+ * une victoire remonter, jamais au-delà de l'étage choisi). Chaque étage gagné : ses éclats, comme en combat ; tous les
  * `TOWER_IDLE_ITEM_EVERY` étages gagnés, un Chromatique (panoplies visées, sinon les 20 du jeu : `towerDropPool`) au
- * niveau 100 + étage. Ni XP, ni chromatiques, ni captures (propres aux zones). Ne modifie pas `s`.
+ * niveau 100 + étage et au cran de l'étage (`towerDropPlus`). Ni XP, ni chromatiques, ni captures (propres aux zones).
+ * Ne modifie pas `s`.
  */
 function towerIdleGains(s: GameState, absenceMs: number, durationMs: number, rng: Rng): IdleGains {
   const top = towerIdleFloor(s);
@@ -365,9 +366,9 @@ function towerIdleGains(s: GameState, absenceMs: number, durationMs: number, rng
     t += Math.max(500, smp.avgMs);
     if (rng.int(10000) < smp.winRate * 10000) {
       won++;
-      shards += Math.floor(towerShards(floor) / 2);
+      shards += towerShards(floor);
       if (won % TOWER_IDLE_ITEM_EVERY === 0) {
-        gains.bagItems.push(makeItem(pool[rng.int(pool.length)].id, MAX_RARITY, TOWER_LEVEL + floor, rng, BIOMES.length - 1));
+        gains.bagItems.push(makeTowerItem(pool[rng.int(pool.length)].id, TOWER_LEVEL + floor, towerDropPlus(floor), rng));
       }
       floor = Math.min(top, floor + 1);
     } else {

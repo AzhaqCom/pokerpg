@@ -381,16 +381,34 @@ export function rarityName(item: Item): string {
   return plusOf(item) ? `${RARITIES[item.rarity]} +${plusOf(item)}` : RARITIES[item.rarity];
 }
 
-/** Valeur de la stat principale (0 pour les baies, qui agissent en combat). */
+/** Valeur de la stat principale. Baies : leurs PV au-delà du soin plafonné (`berryHpPct`), 0 sinon (elles agissent
+ *  en combat). */
 export function mainValue(item: Item): number {
   const t = template(item.templateId);
+  if (t.berry) return berryHpPct(item);
   return round1(t.base * (item.tier ?? 1) * lvlMult(item.level) * rarityMult(item));
 }
 
-/** Soin d'une baie en % des PV (augmente avec la rareté). */
+/**
+ * Soin des baies plafonné à 100 % des PV (2026-10-07, demande d'Arno : soigner au-delà ne sert à rien), atteint en
+ * Chromatique +8 (25 % × 4,0). Chaque cran au-delà donne des PV % (`berryHpPct`, la stat principale déclarée des baies),
+ * autant qu'un cran sur un objet défensif PV de la Tour : base `BERRY_HP_BASE` (= `START_SCORE.defense` au dernier
+ * biome, ÷ poids des PV ≈ 8,45) × niveau × 0,2 par cran au-delà du plafond. Baie Nv.1 300 +17 : ~+1 600 % de PV.
+ */
+export const BERRY_HEAL_CAP = 100;
+
+/** Soin d'une baie en % des PV (augmente avec la rareté, plafonné à `BERRY_HEAL_CAP`). */
 export function berryHeal(item: Item): number {
   const t = template(item.templateId);
-  return t.berry?.heal ? Math.round(t.berry.heal * rarityMult(item)) : 0;
+  return t.berry?.heal ? Math.min(BERRY_HEAL_CAP, Math.round(t.berry.heal * rarityMult(item))) : 0;
+}
+
+/** PV % d'une baie dont le soin dépasserait le plafond : la part du multiplicateur de rareté au-delà du plafond. */
+export function berryHpPct(item: Item): number {
+  const t = template(item.templateId);
+  if (!t.berry?.heal) return 0;
+  const over = rarityMult(item) - BERRY_HEAL_CAP / t.berry.heal;
+  return over > 1e-9 ? round1(BERRY_HP_BASE * lvlMult(item.level) * over) : 0;
 }
 
 /** Qualité d'un jet de sous-stat, en % du maximum : 70 à 100 % au butin et à la fusion. */
@@ -654,7 +672,7 @@ export function wornSets(held: Item[]): Map<string, { count: number; level: numb
 export function addItemBonuses(b: BattleBonuses, held: Item[]) {
   for (const it of held) {
     const t = template(it.templateId);
-    if (t.base > 0) b[t.main] += mainValue(it);
+    if (t.base > 0 || t.berry) b[t.main] += mainValue(it);
     b.critPct += bonusCritValue(it);
     const flat = flatBonus(it);
     if (flat) b[flat.stat] += flat.value;
@@ -680,6 +698,10 @@ export const STAT_WEIGHT: Record<NumericBonusStat, number> = {
   lifestealPct: 0.73, dodgePct: 1.34,
 };
 
+/** Base des PV % d'une baie au-delà du soin plafonné : celle d'un objet défensif PV du dernier biome (`biomeTier`),
+ *  comme les objets de la Tour (≈ 8,45). */
+const BERRY_HP_BASE = (START_SCORE.defense! * (1 + REGION_SLOPE)) / STAT_WEIGHT.hpPct;
+
 /**
  * Valeur de combat d'un ensemble de bonus, en « % d'Attaque équivalent » (modèle multiplicatif calé sur les mesures
  * 3 contre 3). Critique et Dégâts critiques y sont liés : le gain d'un critique = chance × (0,5 + dégâts critiques),
@@ -702,9 +724,10 @@ export function combatValue(b: BattleBonuses): number {
   return (f - 1) * 100;
 }
 
-/** Score d'une baie (soin et rareté) : les baies se comparent entre elles, pas aux autres objets. */
+/** Score d'une baie (soin, rareté, PV au-delà du soin plafonné) : les baies se comparent entre elles, pas aux autres
+ *  objets. */
 export function berryScore(item: Item): number {
-  return (berryHeal(item) || 20) + item.level + item.rarity * 10;
+  return (berryHeal(item) || 20) + item.level + item.rarity * 10 + berryHpPct(item);
 }
 
 /** Valeur d'un objet seul (tri du sac, comparaison hors contexte d'un Pokémon). */

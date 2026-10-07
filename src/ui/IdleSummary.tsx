@@ -3,8 +3,9 @@ import { Text } from './components/Text';
 import { move, species } from '../game/data';
 import { GameState } from '../game/game';
 import { IdleGains } from '../game/idle';
-import { template } from '../game/items';
-import { RARITIES, RARITY_COLOR } from '../game/model';
+import { plusOf } from '../game/items';
+import { Item } from '../game/model';
+import { fmtNum, itemColor, itemDisplayName } from './helpers';
 import { useGame } from '../store/game';
 import { runner } from './battle/runner';
 import { Button } from './components/Button';
@@ -18,16 +19,17 @@ function formatDuration(ms: number): string {
   return `${h} h ${String(m).padStart(2, '0')}`;
 }
 
-/** Regroupe les objets identiques (même modèle, même rareté), les plus rares d'abord. */
+/** Regroupe les objets identiques (même modèle, même rareté, même cran +N), les plus rares d'abord : une absence dans
+ *  la Tour qui franchit un palier de cran (`towerDropPlus`) ne mélange pas des +10 et des +11 sur une ligne. */
 function groupLoot(items: IdleGains['bagItems']) {
-  const map = new Map<string, { templateId: (typeof items)[number]['templateId']; rarity: (typeof items)[number]['rarity']; count: number }>();
+  const map = new Map<string, { key: string; item: Item; count: number }>();
   for (const it of items) {
-    const k = `${it.templateId}-${it.rarity}`;
-    const g = map.get(k);
+    const key = `${it.templateId}-${it.rarity}-${plusOf(it)}`;
+    const g = map.get(key);
     if (g) g.count++;
-    else map.set(k, { templateId: it.templateId, rarity: it.rarity, count: 1 });
+    else map.set(key, { key, item: it, count: 1 });
   }
-  return [...map.values()].sort((a, b) => b.rarity - a.rarity || b.count - a.count);
+  return [...map.values()].sort((a, b) => b.item.rarity - a.item.rarity || plusOf(b.item) - plusOf(a.item) || b.count - a.count);
 }
 
 /** Regroupe les chromatiques d'une même espèce ; niveau seul s'il est unique, sinon la plage « Nv.a-b ». */
@@ -70,7 +72,7 @@ export function IdleSummary({ gains, onClose }: { gains: IdleGains | null; onClo
                 {gains.tower ? (
                   <>
                     <Text style={styles.line}>🗼 Entraînement dans la Tour (étage {gains.tower.floor}) : {gains.wavesWon} étage{gains.wavesWon > 1 ? 's' : ''} gagné{gains.wavesWon > 1 ? 's' : ''}</Text>
-                    <Text style={styles.line}>💎 +{gains.tower.shards} éclats</Text>
+                    <Text style={styles.line}>💎 +{fmtNum(gains.tower.shards)} éclats</Text>
                   </>
                 ) : (
                   <Text style={styles.line}>⚔️ {gains.wavesWon} vague{gains.wavesWon > 1 ? 's' : ''} gagnée{gains.wavesWon > 1 ? 's' : ''}</Text>
@@ -86,9 +88,10 @@ export function IdleSummary({ gains, onClose }: { gains: IdleGains | null; onClo
                     </Text>
                   );
                 })}
+                {/* comme le message de fusion : nom et cran +N à la couleur de la rareté ou du palier, rareté non écrite */}
                 {groupLoot(gains.bagItems).map((g) => (
-                  <Text key={`${g.templateId}-${g.rarity}`} style={[styles.line, { color: RARITY_COLOR[g.rarity] }]}>
-                    + {template(g.templateId).name}{g.count > 1 ? ` ×${g.count}` : ''}{gains.tower ? ` (${RARITIES[g.rarity]})` : ''}
+                  <Text key={g.key} style={styles.line}>
+                    + <Text style={{ color: itemColor(g.item) }}>{itemDisplayName(g.item)}</Text>{g.count > 1 ? ` ×${g.count}` : ''}
                   </Text>
                 ))}
                 {gains.shardsFromRecycle > 0 && <Text style={styles.line}>💎 +{gains.shardsFromRecycle} éclats (recyclage auto)</Text>}

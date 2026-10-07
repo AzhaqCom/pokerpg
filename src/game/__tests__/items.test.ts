@@ -1,10 +1,40 @@
-import { BIOME_SET, CRIT_BY_RARITY, SETS, bonusCritValue, combatValue, TEMPLATES, addItemBonuses, canFuse, convertFlatSub, flatBonus, recycleRefund, upgradeCost, SUB_WORTH, setBonusText, subRollRef, subScore, subTier, fuse, itemScore, makeItem, mainValue, recycleValue, rerollSub, rollLoot, setOfBiome, subRange, template, upgrade, subMax, statText } from '../items';
+import { BERRY_HEAL_CAP, berryHeal, berryHpPct, BIOME_SET, CRIT_BY_RARITY, SETS, bonusCritValue, combatValue, TEMPLATES, addItemBonuses, canFuse, convertFlatSub, flatBonus, recycleRefund, upgradeCost, SUB_WORTH, setBonusText, subRollRef, subScore, subTier, fuse, itemScore, makeItem, mainValue, recycleValue, rerollSub, rollLoot, setOfBiome, subRange, template, upgrade, subMax, statText } from '../items';
 import { BonusStat, Item, critOverflow, emptyBonuses } from '../model';
 import { seededRng } from '../rng';
+import { BIOMES } from '../content';
 import { newGame, upgradeItem } from '../game';
 import { ACTION_LOCK, actionLock, cdFactor } from '../battle';
 
 const rng = seededRng(7);
+
+test('baies : soin plafonné à 100 %, chaque cran au-delà de +8 donne des PV % (2026-10-07)', () => {
+  const berry = (plus: number, level: number) => {
+    const it: Item = { uid: `b${plus}`, templateId: 'pecha', rarity: 6, level, subs: [] };
+    if (plus) it.plus = plus;
+    return it;
+  };
+  // jusqu'à +8 : comme avant (25 % × 2,4 = 60 %, … 25 % × 4,0 = 100 %), aucun PV
+  expect([0, 4, 8].map((p) => berryHeal(berry(p, 300)))).toEqual([60, 80, 100]);
+  expect([0, 8].map((p) => berryHpPct(berry(p, 300)))).toEqual([0, 0]);
+  // au-delà : soin bloqué à 100 %, PV % = 8,45 × niveau × 0,2 par cran (objet défensif PV de la Tour)
+  expect(berryHeal(berry(9, 300))).toBe(BERRY_HEAL_CAP);
+  expect(berryHeal(berry(17, 1300))).toBe(BERRY_HEAL_CAP);
+  const lvl = 1 + 0.08 * 1299;
+  expect(berryHpPct(berry(17, 1300))).toBeCloseTo((5.6 * 1.6 / 1.06) * lvl * 1.8, 0); // ~1 600 %
+  expect(mainValue(berry(17, 1300))).toBe(berryHpPct(berry(17, 1300)));
+  // chaque cran au-delà de +8 vaut un cran d'un objet défensif PV de la Tour
+  const cape = (plus: number) => {
+    const it = makeItem('toison-prairie', 6, 1300, seededRng(1), BIOMES.length - 1);
+    it.plus = plus;
+    return mainValue(it);
+  };
+  expect(berryHpPct(berry(17, 1300)) - berryHpPct(berry(16, 1300))).toBeCloseTo(cape(17) - cape(16), 0);
+  // compté dans les bonus du porteur, et dans le score de la baie (fusion, tri)
+  const b = emptyBonuses();
+  addItemBonuses(b, [berry(17, 1300)]);
+  expect(b.hpPct).toBe(berryHpPct(berry(17, 1300)));
+  expect(itemScore(berry(10, 300))).toBeGreaterThan(itemScore(berry(9, 300)));
+});
 
 test('rareté : nombre de bonus secondaires', () => {
   expect(makeItem('griffe-sylve', 0, 5, rng).subs).toHaveLength(0);

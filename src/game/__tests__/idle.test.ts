@@ -1,5 +1,5 @@
 import { BIOMES, REGIONS, regionLastBiome } from '../content';
-import { addMon, chooseStarter, equip, makeMon, newGame, setTowerIdlePick, teamMaxLevel, toggleTowerSet, towerIdleActive, towerIdleFloor } from '../game';
+import { addMon, chooseStarter, equip, makeMon, newGame, setTowerIdlePick, teamMaxLevel, toggleTowerSet, towerIdleActive, towerIdleFloor, towerShards } from '../game';
 import * as gameModule from '../game';
 import { makeItem, template } from '../items';
 import { IDLE_CAP_MS, applyIdleGains, computeIdleGains, idleRun, teamXpPerHour } from '../idle';
@@ -357,7 +357,7 @@ function towerGame() {
   return s;
 }
 
-test('entraînement hors ligne dans la Tour : 1 Chromatique tous les 10 étages gagnés, éclats ÷ 2, zone inchangée', () => {
+test('entraînement hors ligne dans la Tour : 1 Chromatique tous les 5 étages gagnés, éclats pleins, zone inchangée', () => {
   const s = towerGame();
   expect(towerIdleActive(s)).toBe(false); // aucun étage franchi : absence en zone
   s.towerBest = 23;
@@ -369,8 +369,11 @@ test('entraînement hors ligne dans la Tour : 1 Chromatique tous les 10 étages 
   const g = computeIdleGains(s, 2 * H, seededRng(4))!;
   expect(g.tower?.floor).toBe(3);
   expect(g.wavesWon).toBeGreaterThan(20);
-  expect(g.bagItems).toHaveLength(Math.floor(g.wavesWon / 10));
-  expect(g.bagItems.every((it) => it.rarity === 6 && it.level >= 101 && !it.plus)).toBe(true);
+  expect(g.bagItems).toHaveLength(Math.floor(g.wavesWon / 5));
+  expect(g.bagItems.every((it) => it.rarity === 6 && it.level >= 101 && !it.plus)).toBe(true); // +0 sous l'étage 150
+  // mêmes éclats qu'en combat (2026-10-07 : plus divisés par 2), étages 1 à 3
+  expect(g.tower!.shards).toBeGreaterThanOrEqual(g.wavesWon * towerShards(1));
+  expect(g.tower!.shards).toBeLessThanOrEqual(g.wavesWon * towerShards(3));
   expect(g.shinies).toHaveLength(0);
   expect(g.perMon.every((p) => p.xp === 0)).toBe(true);
   const { biome, zone, stage, shards } = s;
@@ -391,6 +394,22 @@ test('entraînement hors ligne dans la Tour : les Chromatiques suivent les 3 pan
   const g = computeIdleGains(s, 2 * H, seededRng(4))!;
   expect(g.bagItems.length).toBeGreaterThan(1);
   expect(g.bagItems.every((it) => focus.includes(template(it.templateId).set!))).toBe(true);
+});
+
+test('entraînement hors ligne dans la Tour : 1 seule panoplie visée, Chromatiques au cran de l\'étage (2026-10-07)', () => {
+  const s = towerGame();
+  s.towerBest = 23;
+  setTowerIdlePick(s, 3);
+  toggleTowerSet(s, 'ruche');
+  // cran de l'étage rejoué (l'équipe de test ne tient pas l'étage 150 : cran simulé)
+  const spy = jest.spyOn(gameModule, 'towerDropPlus').mockReturnValue(4);
+  try {
+    const g = computeIdleGains(s, 2 * H, seededRng(4))!;
+    expect(g.bagItems.length).toBeGreaterThan(1);
+    expect(g.bagItems.every((it) => template(it.templateId).set === 'ruche' && it.plus === 4)).toBe(true);
+  } finally {
+    spy.mockRestore();
+  }
 });
 
 test('hors ligne : sauvages adoucis pour une équipe de 1-2 Pokémon, comme au premier plan (SOLO_MALUS, 2026-10-02)', () => {

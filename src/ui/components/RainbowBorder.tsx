@@ -14,9 +14,11 @@ export function RainbowText({ text, colors = RAINBOW }: { text: string; colors?:
   return <>{[...text].map((ch, i) => <Text key={i} style={{ color: cols[i % cols.length], fontWeight: '900' }}>{ch}</Text>)}</>;
 }
 
-/** « Chromatique +N » (ou tout autre texte) aux couleurs du palier du cran. */
+/** « Chromatique +N » (ou tout autre texte) aux couleurs du palier du cran ; matière trop sombre pour du texte (Onyx) :
+ *  la couleur du nom de l'objet. */
 export function ChromaText({ plus, text }: { plus: number; text: string }) {
-  return <RainbowText text={text} colors={chromaTier(plus).colors} />;
+  const t = chromaTier(plus);
+  return <RainbowText text={text} colors={chromaTextColors(t.colors).length ? t.colors : [t.text, t.text]} />;
 }
 
 /**
@@ -27,7 +29,8 @@ export function ChromaPill({ plus, overlay }: { plus: number; overlay?: boolean 
   const t = chromaTier(plus);
   const dark = t.colors === RAINBOW; // arc-en-ciel : fond sombre, chiffres aux couleurs de la bordure
   return (
-    <View pointerEvents="none" style={[styles.pill, { backgroundColor: t.pill }, dark && styles.pillDark, overlay && styles.pillOverlay]}>
+    <View pointerEvents="none" style={[styles.pill, { backgroundColor: t.pill }, dark && styles.pillDark,
+      t.pillBorder ? { borderWidth: 1, borderColor: t.pillBorder } : null, overlay && styles.pillOverlay]}>
       <Text style={[styles.pillTxt, { color: t.ink }]}>{dark ? <RainbowText text={`+${plus}`} /> : `+${plus}`}</Text>
     </View>
   );
@@ -42,12 +45,14 @@ const GLOW = 6;
  * Bordure d'un Chromatique +N, aux couleurs de son palier (`chromaTier`), posée sur une carte (position absolue, sous le
  * contenu, ne capte aucun toucher). Fixe par défaut : une seule forme dessinée, sans horloge, pour les listes de milliers
  * d'objets. `animated` (une seule carte à l'écran, fiche détaillée) : le dégradé tourne lentement, seul ce composant se
- * redessine. Halo (Or et au-delà) : copie floutée de la bordure, dans un canevas qui déborde de `GLOW` autour de la carte.
+ * redessine. Halo (Or et au-delà, sauf Onyx) : copie floutée de la bordure, dans un canevas qui déborde de `GLOW` autour
+ * de la carte. +11 et plus : liseré intérieur d'un 2e ton (`inner`).
  */
 export function RainbowBorder({ plus, radius, animated = false }: { plus: number; radius: number; animated?: boolean }) {
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
   const tier = chromaTier(plus);
-  const pad = tier.glow ? GLOW : 0;
+  // halo plus flou (au-delà du Divin) : canevas un peu plus large pour ne pas le couper
+  const pad = tier.glow ? GLOW + Math.max(0, (tier.glowBlur ?? 4) - 4) : 0;
   const onLayout = (e: LayoutChangeEvent) => {
     const { width: w, height: h } = e.nativeEvent.layout;
     if (!size || size.w !== w || size.h !== h) setSize({ w, h });
@@ -76,7 +81,7 @@ function Ring({ w, h, pad, radius, plus, animated }: { w: number; h: number; pad
         <Group opacity={0.55}>
           <RoundedRect x={rings[0].x} y={rings[0].y} width={rings[0].width} height={rings[0].height} r={rings[0].r} style="stroke" strokeWidth={t.width + 3}>
             <SweepGradient c={c} colors={t.colors} origin={c} transform={[{ rotate: angle }]} />
-            <BlurMask blur={4} style="normal" />
+            <BlurMask blur={t.glowBlur ?? 4} style="normal" />
           </RoundedRect>
         </Group>
       )}

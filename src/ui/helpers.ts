@@ -8,6 +8,23 @@ import { AURA } from '../game/talents';
 /** « 48 250 » : séparateur de milliers (sans `Intl`, pas toujours complet sous Hermes). */
 export const fmtNum = (n: number) => String(Math.floor(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
+const SHORT_UNITS = ['K', 'M', 'B', 'T', 'Qa', 'Qi'];
+/**
+ * Grands nombres abrégés (chiffres flottants du combat, 2026-10-07) : tel quel jusqu'à 9 999 (« 8 750 »), puis 3 chiffres
+ * significatifs à la virgule française et K, M, B (milliards), T, Qa, Qi (« 12,3K », « 123K », « 1,23M »). Un arrondi
+ * qui atteint 1 000 passe à l'unité suivante (999 950 → « 1M », jamais « 1000K »).
+ */
+export function fmtShort(n: number): string {
+  const v = Math.round(n);
+  if (v < 10_000) return fmtNum(v);
+  let x = v;
+  let unit = -1;
+  while (x >= 1000 && unit < SHORT_UNITS.length - 1) { x /= 1000; unit++; }
+  let r = Number(x.toFixed(x >= 100 ? 0 : x >= 10 ? 1 : 2));
+  if (r >= 1000 && unit < SHORT_UNITS.length - 1) { r = 1; unit++; }
+  return `${String(r).replace('.', ',')}${SHORT_UNITS[unit]}`;
+}
+
 /** Couleur par type. Sol plus brun (#c9a05a au lieu de #e0c068) pour ne plus se confondre avec Électrik. */
 export const TYPE_COLOR: Record<PType, string> = {
   normal: '#9e9e7a', fire: '#f0803c', water: '#6890f0', grass: '#78c850', electric: '#f8d030', ice: '#98d8d8',
@@ -43,7 +60,7 @@ export interface ChromaTier {
   name: string;
   /** dégradé circulaire de la bordure, en boucle fermée */
   colors: string[];
-  /** Légende (+11 et plus) : liseré intérieur aux couleurs du cran − 10 */
+  /** +11 et plus : liseré intérieur d'un 2e ton (or, argent, ou une teinte de la matière) */
   inner?: string[];
   /** épaisseur de la bordure */
   width: number;
@@ -54,13 +71,21 @@ export interface ChromaTier {
   /** pastille « +N » : fond et chiffres (fond sombre et chiffres aux couleurs de la bordure pour l'arc-en-ciel) */
   pill: string;
   ink: string;
+  /** contour de la pastille (fond sombre : Onyx, Abysse, Néant, au-delà du Divin) */
+  pillBorder?: string;
+  /** flou du halo (4 par défaut ; plus fort au-delà du Divin) */
+  glowBlur?: number;
 }
 
 const GOLD = ['#fff8c4', '#ffc400', '#ff8f00', '#ffc400', '#fff8c4'];
+const GOLD_LINE = ['#ffd740', '#fff8c4', '#ffd740'];
+const SILVER_LINE = ['#ffffff', '#b0bec5', '#ffffff'];
 /**
  * Un look par cran, jamais partagé (retour d'Arno, 2026-10-01) : du froid au chaud puis au précieux de +1 à +6,
- * Diamant, Cosmos, Éclipse, puis l'arc-en-ciel (avant : tous les +N) réservé au +10. Au-delà, Légende : bordure dorée
- * épaisse et liseré intérieur du cran − 10 (+11 Aurore, +12 Lagon…), unique jusqu'à +20 (étage 410 de la Tour).
+ * Diamant, Cosmos, Éclipse, puis l'arc-en-ciel (avant : tous les +N) réservé au +10. De +11 à +20 (2026-10-07, retour
+ * d'Arno : la Légende dorée commune rendait +11 à +20 indiscernables), une matière par cran, chacune sa famille de
+ * couleurs, jamais celle d'un cran plus bas : bordure épaisse (3,5 px, 4 dès +16, 5 au +20) et liseré d'un 2e ton.
+ * Le rang se lit à l'épaisseur ; les matières sombres (Onyx, Magma, Abysse, Néant) tranchent sur le fond du jeu.
  */
 const CHROMA_TIERS: ChromaTier[] = [
   { name: 'Aurore', colors: ['#ff5ec4', '#c792ff', '#ff5ec4'], width: 2, glow: false, text: '#ff8fd8', pill: '#e077e0', ink: '#3d0a2c' },
@@ -73,13 +98,25 @@ const CHROMA_TIERS: ChromaTier[] = [
   { name: 'Cosmos', colors: ['#536dfe', '#d500f9', '#00e5ff', '#536dfe'], width: 2.5, glow: true, text: '#b388ff', pill: '#7c4dff', ink: '#ffffff' },
   { name: 'Éclipse', colors: ['#ffe57f', '#ff6d00', '#2b1200', '#ff6d00', '#ffe57f'], width: 2.5, glow: true, text: '#ffb74d', pill: '#ff9100', ink: '#3d1f00' },
   { name: 'Arc-en-ciel', colors: RAINBOW, width: 3, glow: true, text: '#ffffff', pill: '#1b1f2a', ink: '#ffffff' },
+  // +11 à +20 : une matière par cran
+  { name: 'Rubis', colors: ['#ff1744', '#8b0021', '#ff5c7a', '#8b0021', '#ff1744'], inner: GOLD_LINE, width: 3.5, glow: true, text: '#ff6b81', pill: '#d50032', ink: '#ffffff' },
+  { name: 'Saphir', colors: ['#2979ff', '#0d1b6e', '#82b1ff', '#0d1b6e', '#2979ff'], inner: SILVER_LINE, width: 3.5, glow: true, text: '#82b1ff', pill: '#2962ff', ink: '#ffffff' },
+  { name: 'Jade', colors: ['#00c853', '#003d1f', '#69f0ae', '#003d1f', '#00c853'], inner: GOLD_LINE, width: 3.5, glow: true, text: '#69f0ae', pill: '#00873a', ink: '#ffffff' },
+  { name: 'Onyx', colors: ['#0a0a0a', '#5a5a5a', '#0a0a0a', '#5a5a5a', '#0a0a0a'], inner: SILVER_LINE, width: 3.5, glow: false, text: '#e0e0e0', pill: '#000000', ink: '#ffffff', pillBorder: '#9e9e9e' },
+  { name: 'Platine', colors: ['#f5f5f5', '#9e9e9e', '#ffffff', '#78909c', '#f5f5f5'], inner: ['#18ffff', '#b3e5fc', '#18ffff'], width: 3.5, glow: true, text: '#eceff1', pill: '#cfd8dc', ink: '#263238' },
+  { name: 'Magma', colors: ['#1a0000', '#ff3d00', '#ffea00', '#ff3d00', '#1a0000'], inner: ['#ffea00', '#ff3d00', '#ffea00'], width: 4, glow: true, text: '#ff6e40', pill: '#dd2c00', ink: '#ffffff' },
+  { name: 'Sakura', colors: ['#ffd1e8', '#ffffff', '#ff80bf', '#ffffff', '#ffd1e8'], inner: ['#c51162', '#ff4081', '#c51162'], width: 4, glow: true, text: '#ffc1e3', pill: '#ff80bf', ink: '#4a0026' },
+  { name: 'Abysse', colors: ['#000a2e', '#00e5ff', '#000a2e', '#1de9b6', '#000a2e'], inner: ['#00e5ff', '#1de9b6', '#00e5ff'], width: 4, glow: true, text: '#40e0ff', pill: '#001f5c', ink: '#40e0ff', pillBorder: '#00e5ff' },
+  { name: 'Néant', colors: ['#12001f', '#aa00ff', '#12001f', '#ff00e5', '#12001f'], inner: ['#ff00e5', '#aa00ff', '#ff00e5'], width: 4, glow: true, text: '#d580ff', pill: '#2a0045', ink: '#e1a6ff', pillBorder: '#aa00ff' },
+  { name: 'Divin', colors: GOLD, inner: RAINBOW, width: 5, glow: true, text: '#fff3c4', pill: '#ffd740', ink: '#3d2a00' },
 ];
-const LEGEND = { name: 'Légende', colors: GOLD, width: 4, glow: true, text: '#fff3c4', pill: '#ffd740', ink: '#3d2a00' };
+/** Au-delà de +20 : le Divin, halo plus fort et pastille sombre cerclée d'or (« au-delà du Divin »), plutôt que de
+ *  recycler les couleurs des crans plus bas. */
+const BEYOND: ChromaTier = { ...CHROMA_TIERS[CHROMA_TIERS.length - 1], glowBlur: 7, pill: '#3d2a00', ink: '#ffd740', pillBorder: '#ffd740' };
 
 /** Palier d'un Chromatique +N (`plus` ≥ 1). */
 export function chromaTier(plus: number): ChromaTier {
-  if (plus <= CHROMA_TIERS.length) return CHROMA_TIERS[Math.max(1, plus) - 1];
-  return { ...LEGEND, inner: CHROMA_TIERS[(plus - 1) % CHROMA_TIERS.length].colors };
+  return plus <= CHROMA_TIERS.length ? CHROMA_TIERS[Math.max(1, plus) - 1] : BEYOND;
 }
 
 /** Couleur du nom d'un objet : sa rareté, ou le palier de son cran pour un Chromatique +N (cartes, message de fusion). */

@@ -97,6 +97,9 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   Lisibilité du combat (2026-09-25) : zone de combat haute de 72 % de la largeur ; messages 1,6 s, 2 max à l'écran
   (`TOAST_MS`/`TOAST_MAX`, `store/ui.ts`), un seul par événement (butin groupé par vague, capacités groupées par
   Pokémon, « ✨ X chromatique capturé ! ») ; offre de capture `CaptureBar` sur une seule ligne compacte.
+  Chiffres flottants (2026-10-07) : dégâts, brûlure, poison et soins abrégés par `fmtShort` (`ui/helpers.ts` : tel quel
+  jusqu'à 9 999, puis « 12,3K », « 1,23M », B, T, Qa, Qi) ; une immunité (×0, seulement possible sur une attaque de zone)
+  affiche « Immunisé » au lieu de « 0 » ; critique = orange et en grand, sans « ! ».
   Décors abstraits fixes par type de zone et pour les arènes (`battle/Backdrop.tsx` : `BackdropBack` derrière le sol,
   `BackdropFront` sur le sol, sous les sprites), palette `SKIES` dans `BattleView.tsx`. Types de zone (`ZoneDef.biome`,
   purement visuel) : prairie, forêt, grotte, eau, électrique, marais, temple, volcan, désert, **ligue** (salles de Ligue
@@ -213,13 +216,21 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   (`critOverflow`, en combat et dans `combatValue`). Les 5 objets Critique sont **mixtes** (`bonusCrit`) : Critique fixe par
   rareté (`CRIT_BY_RARITY` 8→25 %) + Dégâts critiques qui grimpent avec le niveau (`CRIT_HYBRID_BASE`, calés pour valoir
   l'objet Attaque équivalent à ~30 % de Critique) ; les objets déjà possédés suivent (valeur recalculée depuis le modèle).
+- **Baies** (2026-10-07) : soin = 25 % × multiplicateur de rareté, **plafonné à 100 %** (`BERRY_HEAL_CAP`, atteint en
+  Chromatique +8). Chaque cran au-delà donne des PV % (`berryHpPct`, stat principale des baies, via `mainValue` et
+  `addItemBonuses`) : `BERRY_HP_BASE` (objet défensif PV du dernier biome, ≈ 8,45) × `lvlMult` × 0,2 par cran au-delà,
+  soit autant qu'un cran sur un objet défensif PV de la Tour (Pêcha Nv.1 300 +17 : ~+1 600 %, ~31 % d'une Cape
+  équivalente). Compté dans `berryScore`. Le combat ne change pas (un soin au-delà de 100 % était déjà perdu).
 - **Fin de jeu** (`endgameUnlocked` : dernier Champion battu, 2026-09-30) : **Chromatique +N** (`Item.plus`) = fusion de 3
   Chromatiques +N identiques (`fuseKey` : objet, rareté, cran) → +N+1, sans plafond ; stat principale +0,2 au
   multiplicateur de rareté par cran (`rarityMult`, ×2,4 → ×2,6…), secondaires +10 % par cran (`PLUS_SUB_STEP`),
   recyclage/amélioration plus chers. Niveau des objets déplafonné (`itemLevelCap`). Cartes +N : **un look par cran, jamais
   partagé** (`chromaTier` dans `ui/helpers.ts`, 2026-10-01) : +1 Aurore, +2 Lagon, +3 Émeraude, +4 Améthyste, +5 Brasier,
-  +6 Or, +7 Diamant, +8 Cosmos, +9 Éclipse, +10 Arc-en-ciel (avant : tous les +N), +11 et plus Légende (bordure dorée
-  épaisse + liseré du cran − 10). Bordure dégradée (`RainbowBorder`, fixe dans les listes, tournante seulement dans la fiche
+  +6 Or, +7 Diamant, +8 Cosmos, +9 Éclipse, +10 Arc-en-ciel (avant : tous les +N), puis une matière par cran
+  (2026-10-07 ; avant, Légende dorée commune + liseré du cran − 10, indiscernable) : +11 Rubis, +12 Saphir, +13 Jade,
+  +14 Onyx, +15 Platine (3,5 px), +16 Magma, +17 Sakura, +18 Abysse, +19 Néant (4 px), +20 Divin (or 5 px, liseré
+  arc-en-ciel), chacune avec un liseré d'un 2e ton (`inner`) ; au-delà de +20, le Divin avec un halo plus fort et une
+  pastille sombre cerclée d'or (`BEYOND`, `glowBlur`, `pillBorder`). Bordure dégradée (`RainbowBorder`, fixe dans les listes, tournante seulement dans la fiche
   détaillée ; halo flouté dès l'Or), pastille « +N » à cheval sur le coin haut-gauche (`ChromaPill`), nom de l'objet et
   « Chromatique +N » de la fiche aux couleurs du palier (`ChromaText`).
 - **Tour de Combat** (fin de jeu, onglet « 🗼 Tour de Combat » après le dernier biome de la Carte, `TowerSection`, 2026-09-30) : `StageKind` `'tower'`, 1 combat par étage
@@ -232,25 +243,32 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   Défaite = sortie sans pénalité ; jamais hors ligne. **Combat continu** (`towerAuto`, interrupteur 🔁, défaut désactivé,
   2026-10-01) : une défaite fait reprendre au début du palier de 10 en cours, ou du précédent sur son 1er étage
   (`towerRetryFloor`). **Coffres de palier au premier passage seulement** (étage gagné > record, 2026-10-01) : rejouer
-  des étages ne rapporte que leurs éclats et leur Chromatique (avant, un +5 au choix toutes les 10 victoires vers l'étage 120). Récompenses (`towerFloorRewards`) : `towerShards` éclats, 1 objet
-  **Chromatique** Nv.100 + étage tiré parmi les 60 objets des **20 panoplies du jeu** (`towerLootTemplates`, 2026-10-02 ;
+  des étages ne rapporte que leurs éclats et leur Chromatique (avant, un +5 au choix toutes les 10 victoires vers l'étage 120). Récompenses (`towerFloorRewards`) : `towerShards` éclats
+  (1 000 + 100 × étage depuis le 2026-10-07 ; avant, 500 + 50 × étage), 1 objet
+  **Chromatique** Nv.100 + étage au cran `towerDropPlus` (2026-10-07 : coffre − `TOWER_DROP_GAP` (6), paliers fixes,
+  +0 jusqu'à l'étage 149, +1 dès 150, +3 dès 190, +8 dès 290, +11 dès 350 ; une nuit hors ligne donne ~3 crans sous le
+  coffre de l'étage rejoué avec 3 panoplies, ~2 avec 1 ; calé avec Arno, record 366 et équipement +14 à +17 : écart 1
+  trop généreux, moitié du coffre inutile ; `makeTowerItem`, aussi celui des coffres) tiré parmi les 60 objets des **20 panoplies du jeu** (`towerLootTemplates`, 2026-10-02 ;
   avant, les 15 de Sinnoh : la Tour n'a plus qu'une liste de panoplies, celle du coffre et des panoplies visées ;
   puissance identique quelle que soit la panoplie, créés au niveau du dernier biome), tous les 10 étages (premier
   passage) un Chromatique +`towerRewardPlus`
   (+1 tous les 20 étages, 10 % de chance d'un cran de plus) à choisir objet par objet (`towerRewards`, `claimTowerReward`).
   **Panoplies visées** (2026-10-02, carte « 🎯 » de l'onglet de la Tour, `GameState.towerSets`, `toggleTowerSet`) :
-  exactement 3 parmi les 20 (`towerFocusChoices`) → chaque Chromatique de la Tour, en combat comme hors ligne, ne tombe
-  plus que dans leurs 9 objets au lieu de 60 (`towerDropPool`) : chaque objet visé près de 7 fois plus souvent. Moins de
-  3 = tirage sur les 20 ; 1 ou 2 ne sont pas permis (×20 / ×10 : courbe des +N écrasée). Toucher une panoplie ouvre sa
+  1 à 3 parmi les 20 (`towerFocusChoices` ; exactement 3 avant le 2026-10-07) → chaque Chromatique de la Tour, en combat
+  comme hors ligne, ne tombe plus que dans leurs 3 à 9 objets au lieu de 60 (`towerDropPool`). Aucune = tirage sur les
+  20. 1 panoplie = les 3 objets d'un seul Pokémon : ~1 cran de plus par nuit sur eux, rien pour les 2 autres (pas de
+  contrepartie, le choix se compense de lui-même). Toucher une panoplie ouvre sa
   fiche (`SetInfoModal` : 3 objets avec leur stat principale, bonus 2 et 3 pièces, chiffrés pour un Chromatique au
   niveau du record via `towerPreviewItem`, figés à l'ouverture) d'où on la vise ou la retire. Sous les puces, les bonus
   des panoplies visées sans valeur (`setBonusLabel`) ; la carte (`TowerFocusCard`, mémorisée) ne lit que la sélection
   et ne se redessine pas à chaque étage. Pas de simulation (le bot ne joue pas la Tour).
   **Entraînement hors ligne** (`towerIdle`, activé par défaut, interrupteur dans l'onglet de la Tour) : dès un étage
   franchi, l'absence rejoue `towerIdleFloor` (dernier palier de 10, ou `towerIdlePick`, jamais au-delà du record ; une
-  défaite fait redescendre d'un étage, 10 au plus) au lieu de farmer la zone : 1 Chromatique Nv.100 + étage tous les
-  `TOWER_IDLE_ITEM_EVERY` (10) étages gagnés, éclats ÷ 2, ni XP, ni chromatiques, ni captures, ni +N (`towerIdleGains`
-  dans `idle.ts`). Mesuré : 230 à 390 Chromatiques par nuit de 8 h.
+  défaite fait redescendre d'un étage, 10 au plus) au lieu de farmer la zone : 1 Chromatique Nv.100 + étage, au cran
+  `towerDropPlus` de l'étage, tous les `TOWER_IDLE_ITEM_EVERY` (5 depuis le 2026-10-07, 10 avant) étages gagnés, mêmes
+  éclats qu'en combat (÷ 2 avant), ni XP, ni chromatiques, ni captures, ni coffre (`towerIdleGains` dans `idle.ts`).
+  Mesuré avant le passage à 5 : 230 à 390 Chromatiques par nuit de 8 h (donc ~460 à 780 maintenant ; ~200 Ko de
+  sauvegarde par nuit si on ne fusionne pas).
 - **Qualité génétique** : gènes 0-15 (PV/Atq/Déf/Vit) tirés à la capture, jamais modifiés (sauf méga bonbons). Étoiles :
   4★ parfait, 3★ ≥ 80 %, 2★ ≥ 50 %. Plancher garanti par badge (`genesMinForBadges` : ≥ 8 dès 4 badges, ≥ 12 dès 8).
 - **Sous-stats** (depuis le 2026-09-24) : Attaque, Défense, PV, Vitesse, Critique, Dégâts critiques, Dégâts du type,

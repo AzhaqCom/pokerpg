@@ -8,7 +8,7 @@ import {
   releaseExcess, releaseNotShiny, remainingEvolutions, removePension, selectStage, setAutoAdvance, START_BALLS, startPrestige,
   CAPTURE_PITY, RELEASE_CANDIES, applyMegaCandy as applyMega, lineForms, BALL_PRICE, buyBalls, autoMoves, captureTarget, setTeam, toggleLock, challengesReady, postponePrestige, idleFarmTarget, isTargeted, toggleTarget, zoneHasTarget, teamMaxLevel, tryCapture, unequipBox, xpGapMult,
   removeExploration, feedCandy, buyUniversalMegas, upgradeItemTimes, toggleTowerSet, towerDropPool, towerFocusChoices, towerPreviewItem,
-  autoTeamOrder, grantDailyBalls, FREE_BALLS_PER_DAY,
+  autoTeamOrder, grantDailyBalls, FREE_BALLS_PER_DAY, towerShards, towerDropPlus, TOWER_DROP_GAP,
 } from '../game';
 import { SETS, TEMPLATES, makeItem, statText, mainValue, rarityName, recycleValue, subMax, subRange, upgradeCostFor } from '../items';
 import { Item, emptyBonuses } from '../model';
@@ -1707,14 +1707,16 @@ test('Tour : sans panoplies visées, les 20 panoplies du jeu (60 objets), comme 
   expect(Math.abs(mainValue(towerPreviewItem('gantelet-champion', 150)) - mainValue(preview))).toBeLessThan(0.5);
 });
 
-test('Tour : 3 panoplies visées parmi les 20 → les Chromatiques ne tombent plus que dans leurs 9 objets (2026-10-02)', () => {
+test('Tour : 1 à 3 panoplies visées parmi les 20 → les Chromatiques ne tombent plus que dans leurs objets (2026-10-07)', () => {
   const s = endgameState();
   chooseStarter(s, 387, seededRng(1));
   expect(towerFocusChoices()).toHaveLength(20); // comme le coffre de palier
   expect(towerDropPool(s)).toHaveLength(60);
   expect(toggleTowerSet(s, 'ruche')).toBe(true); // absente de Sinnoh : ne tombait jamais dans la Tour
+  expect(towerDropPool(s)).toHaveLength(3); // une seule panoplie : ses 3 objets
+  expect(towerDropPool(s).every((t) => t.set === 'ruche')).toBe(true);
   expect(toggleTowerSet(s, 'circuit')).toBe(true);
-  expect(towerDropPool(s)).toHaveLength(60); // moins de 3 : tirage habituel
+  expect(towerDropPool(s)).toHaveLength(6);
   expect(toggleTowerSet(s, 'dragon2')).toBe(true);
   expect(toggleTowerSet(s, 'sylve')).toBe(false); // déjà 3
   expect(toggleTowerSet(s, 'inconnue')).toBe(false);
@@ -1730,10 +1732,42 @@ test('Tour : 3 panoplies visées parmi les 20 → les Chromatiques ne tombent pl
     const r = run.finishWave()!;
     expect(focus.has(TEMPLATES.find((t) => t.id === r.loot[0].templateId)!.set!)).toBe(true);
   }
-  // retirer une panoplie : retour au tirage habituel
+  // retirer des panoplies : tirage sur celles qui restent, puis sur les 20 quand il n'en reste aucune
   expect(toggleTowerSet(s, 'circuit')).toBe(true);
   expect(s.towerSets).toEqual(['ruche', 'dragon2']);
+  expect(towerDropPool(s)).toHaveLength(6);
+  toggleTowerSet(s, 'ruche');
+  toggleTowerSet(s, 'dragon2');
   expect(towerDropPool(s)).toHaveLength(60);
+});
+
+test('Tour : éclats doublés, cran du butin = coffre − 6 par paliers fixes (2026-10-07)', () => {
+  expect([1, 100, 366].map(towerShards)).toEqual([1100, 11000, 37600]);
+  // coffre : +0 aux étages 10-29 … +17 aux 350-369 ; butin : 6 crans dessous, jamais négatif
+  expect([1, 149, 150, 189, 190, 290, 350, 366].map(towerDropPlus)).toEqual([0, 0, 1, 2, 3, 8, 11, 11]);
+  for (let f = 1; f <= 500; f++) expect(towerDropPlus(f)).toBe(Math.max(0, towerRewardPlus(f) - TOWER_DROP_GAP));
+  // en combat : l'objet de l'étage tombe à ce cran, sous-stats +10 % par cran comme un coffre
+  const s = endgameState();
+  chooseStarter(s, 387, seededRng(1));
+  s.towerBest = 400;
+  s.towerFloor = 360;
+  const run = new StageRun(s, 'tower', seededRng(2));
+  run.battle.result = 'win';
+  const r = run.finishWave()!;
+  expect(r.shards).toBe(towerShards(360));
+  expect(r.loot[0].plus).toBe(11);
+  expect(r.loot[0].level).toBe(460);
+  expect(r.loot[0].rarity).toBe(6);
+  for (const sub of r.loot[0].subs) {
+    const range = subRange(sub.stat, 460, 11);
+    expect(sub.value).toBeGreaterThanOrEqual(range.min - 0.05);
+    expect(sub.value).toBeLessThanOrEqual(range.max + 0.05);
+  }
+  // sous l'étage 150 : +0 comme avant (pas de champ `plus`)
+  s.towerFloor = 120;
+  const low = new StageRun(s, 'tower', seededRng(3));
+  low.battle.result = 'win';
+  expect(low.finishWave()!.loot[0].plus).toBeUndefined();
 });
 
 test('vitesse de combat : ×2 dès le 1er badge, ×3 dès le 4e, retour à ×1 après un Nouveau départ', () => {

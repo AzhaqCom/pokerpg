@@ -3,7 +3,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-na
 import { Text } from './components/Text';
 import {
   GameState, TOWER_FOCUS_SETS, TOWER_IDLE_ITEM_EVERY, TOWER_LEVEL, claimTowerReward, enterTower, exitTower, setTowerAuto, setTowerIdle,
-  setTowerIdlePick, toggleTowerSet, towerFocusChoices, towerIdleFloor, towerPreviewItem, towerRewardPlus, towerShards, towerStart, towerWildMult,
+  setTowerIdlePick, toggleTowerSet, towerDropPlus, towerFocusChoices, towerIdleFloor, towerPreviewItem, towerRewardPlus, towerShards, towerStart, towerWildMult,
 } from '../game/game';
 import { SETS, TEMPLATES, setBonusLabel, setBonusText } from '../game/items';
 import { RARITY_COLOR } from '../game/model';
@@ -38,9 +38,10 @@ export function TowerSection() {
   const floor = s.towerFloor ?? start; // étage en cours, ou celui de la prochaine entrée
   // coffre de palier : seulement au premier passage, donc le 1er palier au-delà du record
   const nextChest = (Math.floor(s.towerBest / 10) + 1) * 10;
-  // panoplies visées (2026-10-02) : avec 3, les Chromatiques ne tombent plus que dans celles-là (`towerDropPool`)
+  // panoplies visées (1 à 3) : les Chromatiques ne tombent plus que dans celles-là (`towerDropPool`)
   const focus = (s.towerSets ?? []).filter((id) => SETS[id]);
-  const dropsFrom = focus.length >= TOWER_FOCUS_SETS ? focus.map((id) => SETS[id].name).join(', ') : 'une des 20 panoplies';
+  const dropsFrom = focus.length > 0 ? focus.map((id) => SETS[id].name).join(', ') : 'une des 20 panoplies';
+  const idleFloor = towerIdleFloor(s);
   return (
     <View style={{ gap: 10 }}>
       <View style={styles.card}>
@@ -50,7 +51,8 @@ export function TowerSection() {
         </View>
         <Text style={styles.sub}>
           Étages infinis contre 3 Pokémon Nv.100 aux gènes parfaits, de plus en plus forts. Chaque étage donne un Chromatique
-          de l'une des 20 panoplies du jeu, ou de tes 3 panoplies visées : fusionne les identiques pour monter en +N. Une
+          de l'une des 20 panoplies du jeu, ou de tes panoplies visées, à un cran +N qui monte avec l'étage (dès l'étage
+          150) : fusionne les identiques pour monter en +N. Une
           défaite te ramène à ta zone, sans pénalité (sauf en combat continu) ; tu reprends ensuite au dernier palier de 10.
         </Text>
         {inTower ? (
@@ -63,7 +65,7 @@ export function TowerSection() {
       <View style={styles.card}>
         <Text style={styles.name}>{inTower ? `Étage ${floor}` : `Prochain étage : ${floor}`}</Text>
         <Text style={styles.line}>⚔ Adversaires : PV et Attaque ×{Math.round(towerWildMult(floor))}</Text>
-        <Text style={styles.line}>💎 {towerShards(floor)} éclats et 1 <ChromaLabel plus={0} /> Nv.{100 + floor} ({dropsFrom})</Text>
+        <Text style={styles.line}>💎 {towerShards(floor)} éclats et 1 <ChromaLabel plus={towerDropPlus(floor)} /> Nv.{100 + floor} ({dropsFrom})</Text>
         <Text style={styles.line}>
           🎁 Étage {nextChest} (1er passage) : <ChromaLabel plus={towerRewardPlus(nextChest)} /> de l'objet de ton choix
         </Text>
@@ -91,13 +93,14 @@ export function TowerSection() {
         {s.towerIdle && s.towerBest >= 1 ? (
           <>
             <Text style={styles.sub}>
-              Pendant ton absence, ton équipe rejoue un étage déjà franchi : la moitié de ses éclats et 1{' '}
-              <ChromaLabel plus={0} /> Nv.{100 + towerIdleFloor(s)} tous les {TOWER_IDLE_ITEM_EVERY} étages gagnés. Désactive
+              Pendant ton absence, ton équipe rejoue un étage déjà franchi : ses éclats ({towerShards(idleFloor)} par
+              étage gagné) et 1 <ChromaLabel plus={towerDropPlus(idleFloor)} /> Nv.{100 + idleFloor} tous les{' '}
+              {TOWER_IDLE_ITEM_EVERY} étages gagnés. Désactive
               pour chasser les chromatiques et les cibles 🎯 dans ta zone.
             </Text>
             <View style={styles.row}>
               <Pressable style={styles.step} onPress={() => act((g) => setTowerIdlePick(g, towerIdleFloor(g) - 1))}><Text style={styles.stepTxt}>−</Text></Pressable>
-              <Text style={styles.line}>Étage {towerIdleFloor(s)}{s.towerIdlePick === null ? ' (dernier palier)' : ''}</Text>
+              <Text style={styles.line}>Étage {idleFloor}{s.towerIdlePick === null ? ' (dernier palier)' : ''}</Text>
               <Pressable style={styles.step} onPress={() => act((g) => setTowerIdlePick(g, towerIdleFloor(g) + 1))}><Text style={styles.stepTxt}>+</Text></Pressable>
               {s.towerIdlePick !== null && (
                 <Pressable style={styles.auto} onPress={() => act((g) => setTowerIdlePick(g, null))}><Text style={styles.stepTxt}>Auto</Text></Pressable>
@@ -124,8 +127,8 @@ export function TowerSection() {
 }
 
 /**
- * Panoplies visées (2026-10-02) : les 20 panoplies en puces ; toucher une puce ouvre sa fiche (`SetInfoModal`), d'où on
- * la vise ou la retire. Avec 3 panoplies visées, les Chromatiques de la Tour ne tombent plus que dans leurs 9 objets.
+ * Panoplies visées (2026-10-02 ; de 1 à 3 depuis le 2026-10-07) : les 20 panoplies en puces ; toucher une puce ouvre sa
+ * fiche (`SetInfoModal`), d'où on la vise ou la retire. Les Chromatiques de la Tour ne tombent plus que dans leurs objets.
  * Composant à part, mémorisé, qui ne lit que la sélection : il ne se redessine pas à chaque étage (le reste de l'onglet,
  * si). Sous les puces, les bonus des panoplies choisies sont rappelés sans valeur ; les valeurs sont dans la fiche.
  */
@@ -133,14 +136,13 @@ const TowerFocusCard = memo(function TowerFocusCard() {
   const key = useGame((g) => (g.s?.towerSets ?? []).join(','));
   const [info, setInfo] = useState<{ id: string; level: number } | null>(null);
   const focus = key ? key.split(',').filter((id) => SETS[id]) : [];
-  const left = TOWER_FOCUS_SETS - focus.length;
   return (
     <View style={styles.card}>
       <Text style={styles.name}>🎯 Panoplies visées · {Math.min(focus.length, TOWER_FOCUS_SETS)}/{TOWER_FOCUS_SETS}</Text>
       <Text style={styles.sub}>
-        {left <= 0
-          ? 'Chaque Chromatique de la Tour, en combat comme hors ligne, tombe dans l’une de ces 3 panoplies : 9 objets au lieu de 60, des doublons près de 7 fois plus fréquents à fusionner.'
-          : `Touche une panoplie pour voir ses objets et ses bonus, et la viser. Encore ${left} à choisir : avec 3, les Chromatiques ne tombent plus que dans leurs 9 objets au lieu de 60, des doublons près de 7 fois plus fréquents.`}
+        {focus.length === 0
+          ? 'Touche une panoplie pour voir ses objets et ses bonus, et la viser (3 au plus). Les Chromatiques de la Tour ne tomberont plus que dans leurs objets : avec 1 panoplie, 3 objets au lieu de 60 (ceux d’un seul Pokémon) ; avec 3, 9 objets pour toute l’équipe.'
+          : `Chaque Chromatique de la Tour, en combat comme hors ligne, tombe dans ${focus.length === 1 ? 'cette panoplie' : `l’une de ces ${focus.length} panoplies`} : ${focus.length * 3} objets au lieu de 60, des doublons ${Math.round(60 / (focus.length * 3))} fois plus fréquents à fusionner.`}
       </Text>
       <View style={styles.wrap}>
         {towerFocusChoices().map((id) => {

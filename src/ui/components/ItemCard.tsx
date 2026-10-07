@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from './Text';
-import { SETS, STAT_LABEL, setBonusText, statText, subRange, subTier, berryHeal, bonusCritValue, flatBonus, mainValue, plusOf, rarityName, template } from '../../game/items';
+import { SETS, STAT_LABEL, setBonusText, statText, subRange, subTier, BERRY_HEAL_CAP, berryHeal, berryHpPct, bonusCritValue, flatBonus, mainValue, plusOf, rarityName, template } from '../../game/items';
 import { BonusStat, Item, ItemTemplate, Mon, RARITIES } from '../../game/model';
 import { species } from '../../game/data';
 import { MonThumb } from './MonThumb';
@@ -43,6 +43,9 @@ export function itemMainText(it: Item, short = false) {
     const parts: string[] = [];
     if (t.berry.heal) parts.push(short ? `Soin ${berryHeal(it)} % des PV` : `Soigne ${berryHeal(it)} % des PV sous 30 %`);
     if (t.berry.cures) parts.push(`${short ? 'soigne' : 'Soigne'} ${CURE_LABEL[t.berry.cures] ?? t.berry.cures}`);
+    // soin plafonné à 100 % : les crans au-delà donnent des PV (`berryHpPct`)
+    const hp = berryHpPct(it);
+    if (hp > 0) parts.push(short ? `PV +${Math.round(hp)} %` : statText('hpPct', hp));
     return parts.join(' · ');
   }
   const txt = (stat: BonusStat, v: number) => (short ? `${STAT_SHORT[stat]} +${Math.round(v)} %` : statText(stat, v));
@@ -111,6 +114,9 @@ export function ItemCard({ item, onPress, selected, wornBy, compare, animated, f
         <Text style={styles.rarity} numberOfLines={1}>Nv.{item.level}{item.locked ? ' 🔒' : ''}</Text>
       )}
       <Text style={styles.main}>{itemMainText(item, !full)}</Text>
+      {full && t.berry?.heal && berryHeal(item) >= BERRY_HEAL_CAP && (
+        <Text style={styles.setTxt}>Soin plafonné à {BERRY_HEAL_CAP} % : chaque cran au-delà de +8 donne des PV.</Text>
+      )}
       {full && t.set && (setWorn ? (
         // porté : chaque bonus en vert dès qu'il est débloqué, gris tant qu'il manque des pièces
         <Text style={styles.setTxt}>
