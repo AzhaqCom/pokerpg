@@ -8,7 +8,7 @@ import {
   releaseExcess, releaseNotShiny, remainingEvolutions, removePension, selectStage, setAutoAdvance, START_BALLS, startPrestige,
   CAPTURE_PITY, RELEASE_CANDIES, applyMegaCandy as applyMega, lineForms, BALL_PRICE, buyBalls, autoMoves, captureTarget, setTeam, toggleLock, challengesReady, postponePrestige, idleFarmTarget, isTargeted, toggleTarget, zoneHasTarget, teamMaxLevel, tryCapture, unequipBox, xpGapMult,
   removeExploration, feedCandy, buyUniversalMegas, upgradeItemTimes, toggleTowerSet, towerDropPool, towerFocusChoices, towerPreviewItem,
-  autoTeamOrder, grantDailyBalls, FREE_BALLS_PER_DAY, towerShards, towerDropPlus, TOWER_DROP_GAP, plusRecycleCandidates,
+  autoTeamOrder, grantDailyBalls, FREE_BALLS_PER_DAY, towerShards, towerDropPlus, TOWER_DROP_GAP, plusRecycleCandidates, boostPrice, boostMaxMs, shopBoosts,
 } from '../game';
 import { SETS, TEMPLATES, makeItem, statText, mainValue, rarityName, recycleValue, subMax, subRange, upgradeCostFor } from '../items';
 import { Item, emptyBonuses } from '../model';
@@ -1739,6 +1739,49 @@ test('Tour : 1 à 3 panoplies visées parmi les 20 → les Chromatiques ne tombe
   toggleTowerSet(s, 'ruche');
   toggleTowerSet(s, 'dragon2');
   expect(towerDropPool(s)).toHaveLength(60);
+});
+
+test('bonus de la Tour : prix selon le record, réserve de 12 h, seulement une fois la Tour débloquée (2026-10-07)', () => {
+  const early = newGame();
+  early.shards = 1e9;
+  expect(buyBoost(early, 'cran', 0)).toBe(false); // Tour pas encore débloquée
+  expect(shopBoosts(early).some((k) => BOOSTS[k].tower)).toBe(false);
+  const s = endgameState();
+  chooseStarter(s, 387, seededRng(1));
+  s.towerBest = 303;
+  expect(boostPrice(s, 'elixir')).toBe(626_000); // 20 étages × 31 300
+  expect(boostPrice(s, 'xp')).toBe(BOOSTS.xp.price); // les autres bonus gardent leur prix fixe
+  s.shards = 1e9;
+  for (let i = 0; i < 12; i++) expect(buyBoost(s, 'magnet', 0)).toBe(true);
+  expect(buyBoost(s, 'magnet', 0)).toBe(false); // 12 h de réserve au plus
+  expect(s.shards).toBe(1e9 - 12 * 626_000);
+  expect(boostMaxMs('xp')).toBe(8 * 3600_000);
+});
+
+test('bonus de la Tour en jeu : Élixir (+25 % Attaque et PV), Pierre de cran (+1), Aimant (2e objet) (2026-10-07)', () => {
+  const s = endgameState();
+  chooseStarter(s, 387, seededRng(1));
+  s.towerBest = 400;
+  const fight = (seed: number) => {
+    s.towerFloor = 360;
+    const run = new StageRun(s, 'tower', seededRng(seed));
+    run.battle.result = 'win';
+    return { run, r: run.finishWave()! };
+  };
+  const base = fight(2);
+  const ally = (run: StageRun) => run.battle.fighters.find((f) => f.side === 0)!;
+  const later = Date.now() + 3600_000;
+  s.boosts = { ...s.boosts, elixir: later, cran: later, magnet: later };
+  const boosted = fight(2);
+  expect(ally(boosted.run).stats.atk).toBe(Math.round(ally(base.run).stats.atk * 1.25));
+  expect(ally(boosted.run).maxHp).toBeGreaterThan(ally(base.run).maxHp * 1.2);
+  expect(base.r.loot.every((it) => it.plus === 11)).toBe(true);
+  expect(boosted.r.loot.every((it) => it.plus === 12)).toBe(true);
+  // Aimant : un 2e objet environ 2 fois sur 3
+  let total = 0;
+  for (let i = 0; i < 60; i++) total += fight(100 + i).r.loot.length;
+  expect(total / 60).toBeGreaterThan(1.5);
+  expect(total / 60).toBeLessThan(1.85);
 });
 
 test('recycler les petits crans : Chromatiques +0 à +N, jamais verrouillés ni portés, panoplie optionnelle (2026-10-07)', () => {

@@ -119,10 +119,18 @@ export function chromaTier(plus: number): ChromaTier {
   return plus <= CHROMA_TIERS.length ? CHROMA_TIERS[Math.max(1, plus) - 1] : BEYOND;
 }
 
-/** Couleur du nom d'un objet : sa rareté, ou le palier de son cran pour un Chromatique +N (cartes, message de fusion). */
+/**
+ * Couleur du nom d'un objet : sa rareté, ou le palier de son cran pour un Chromatique +N. **Seule source** de la couleur
+ * d'un objet en texte uni (cartes, fiche, fiche Pokémon, messages de butin, de fusion et du coffre, résumé du retour) ;
+ * le mot « Chromatique +N » lui-même s'écrit en dégradé (`ChromaText`) là où la place le permet.
+ */
 export function itemColor(it: Item): string {
-  const plus = plusOf(it);
-  return plus > 0 ? chromaTier(plus).text : RARITY_COLOR[it.rarity];
+  return plusOf(it) > 0 ? plusColor(plusOf(it)) : RARITY_COLOR[it.rarity];
+}
+
+/** Couleur d'un Chromatique de cran `plus` (0 = Chromatique simple) : un coffre de la Tour, avant de choisir l'objet. */
+export function plusColor(plus: number): string {
+  return plus > 0 ? chromaTier(plus).text : RARITY_COLOR[RARITY_COLOR.length - 1];
 }
 
 /** « Cape du Vainqueur +3 » : nom d'un objet et son cran Chromatique +N, sans la rareté (messages de fusion et du coffre

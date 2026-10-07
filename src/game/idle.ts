@@ -14,7 +14,7 @@ import { Battle } from './battle';
 import { BIOMES, STAGES_PER_ZONE, WAVES_PER_STAGE } from './content';
 import {
   BETWEEN_WAVES_MS, BOOSTS, BallKind, CAPTURE_OFFER_CHANCE, GameState, TOWER_IDLE_ITEM_EVERY, TOWER_LEVEL, boostCoverage,
-  TowerReward, makeTowerItem, towerChest, towerClimbStart, towerDropPlus, towerDropPool, towerIdleActive, towerIdleFloor, towerShards, towerWaves, LOOT_CHANCE, PENSION_CAP_MS, RELEASE_CANDIES, shinyOdds,
+  BoostKind, TowerReward, makeTowerItem, withTowerElixir, towerChest, towerClimbStart, towerDropPlus, towerDropPool, towerIdleActive, towerIdleFloor, towerShards, towerWaves, LOOT_CHANCE, PENSION_CAP_MS, RELEASE_CANDIES, shinyOdds,
   addMon, allyFighter, bestStarsOf, captureChance, genesMinForBadges, giveXp, idleFarmTarget, isRareInZone, isTargeted,
   keepTargetCapture, lineBase, makeMon, makeWaves, pickSpecies, teamMaxLevel, wildFighter, xpGapMult,
 } from './game';
@@ -328,12 +328,12 @@ function idleTargetCaptures(
 }
 
 /** Taux de victoire et durée moyenne d'un étage de la Tour (équipe fraîche à chaque étage, comme en jouant). */
-function sampleTowerFloor(s: GameState, rng: Rng, floor: number, n = SAMPLE_WAVES): { winRate: number; avgMs: number } {
+function sampleTowerFloor(s: GameState, rng: Rng, floor: number, n = SAMPLE_WAVES, elixir = false): { winRate: number; avgMs: number } {
   let wins = 0;
   let totalMs = 0;
   for (let i = 0; i < n; i++) {
     const wave = towerWaves(floor, rng)[0];
-    const allies = s.team.map((u) => allyFighter(s, u));
+    const allies = s.team.map((u) => (elixir ? withTowerElixir(allyFighter(s, u)) : allyFighter(s, u)));
     const enemies = wave.map((e, j) => wildFighter(`tower${i}-${j}`, e.mon, { wild: e.wild, wildMult: e.wildMult, teamSize: s.team.length }));
     const battle = new Battle([...allies, ...enemies], rng);
     battle.runToEnd();
@@ -345,6 +345,8 @@ function sampleTowerFloor(s: GameState, rng: Rng, floor: number, n = SAMPLE_WAVE
 
 /** Étages rejoués sous l'étage choisi après des défaites (on redescend d'un étage à chaque défaite, puis on regrimpe). */
 const TOWER_IDLE_DEPTH = 10;
+/** Aimant à butin (Boutique) : hors ligne, 1 Chromatique tous les 3 étages gagnés au lieu de `TOWER_IDLE_ITEM_EVERY`. */
+export const TOWER_MAGNET_ITEM_EVERY = 3;
 
 /**
  * Absence en fin de jeu, dans la Tour. Deux modes :
@@ -360,8 +362,11 @@ const TOWER_IDLE_DEPTH = 10;
 function towerIdleGains(s: GameState, absenceMs: number, durationMs: number, rng: Rng): IdleGains {
   const climb = s.towerIdleClimb ?? true;
   const start = climb ? towerClimbStart(s) : towerIdleFloor(s);
-  const samples: Record<number, { winRate: number; avgMs: number }> = {};
-  const sample = (f: number) => (samples[f] ??= sampleTowerFloor(s, rng, f));
+  // bonus de la Boutique : actifs pendant la part de l'absence qu'ils couvrent (ms depuis le départ)
+  const until = (k: BoostKind) => (s.boosts?.[k] ?? 0) - s.lastActive;
+  const elixirEnd = until('elixir'), magnetEnd = until('magnet'), cranEnd = until('cran');
+  const samples: Record<string, { winRate: number; avgMs: number }> = {};
+  const sample = (f: number, elixir: boolean) => (samples[`${f}${elixir ? 'e' : ''}`] ??= sampleTowerFloor(s, rng, f, undefined, elixir));
   const gains = emptyGains(s, absenceMs, durationMs);
   const pool = towerDropPool(s);
   const rewards: TowerReward[] = [];
@@ -369,15 +374,21 @@ function towerIdleGains(s: GameState, absenceMs: number, durationMs: number, rng
   let reached = start; // plus haut étage tenté : la descente après une défaite s'arrête 10 étages dessous
   let best = s.towerBest;
   let won = 0;
+  let sinceItem = 0; // étages gagnés depuis le dernier Chromatique
   let shards = 0;
   for (let t = 0; t < durationMs;) {
-    const smp = sample(floor);
+    const smp = sample(floor, t < elixirEnd);
+    const now = t;
     t += Math.max(500, smp.avgMs);
     if (rng.int(10000) < smp.winRate * 10000) {
       won++;
+      sinceItem++;
       shards += towerShards(floor);
-      if (won % TOWER_IDLE_ITEM_EVERY === 0) {
-        gains.bagItems.push(makeTowerItem(pool[rng.int(pool.length)].id, TOWER_LEVEL + floor, towerDropPlus(floor), rng));
+      // Aimant à butin : 1 Chromatique tous les 3 étages gagnés au lieu de 5 ; Pierre de cran : +1 cran
+      if (sinceItem >= (now < magnetEnd ? TOWER_MAGNET_ITEM_EVERY : TOWER_IDLE_ITEM_EVERY)) {
+        sinceItem = 0;
+        const plus = towerDropPlus(floor) + (now < cranEnd ? 1 : 0);
+        gains.bagItems.push(makeTowerItem(pool[rng.int(pool.length)].id, TOWER_LEVEL + floor, plus, rng));
       }
       if (floor > best) {
         // premier passage : nouveau record, et le coffre de son palier

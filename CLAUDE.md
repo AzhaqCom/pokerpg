@@ -82,6 +82,10 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   rafale dans la fenêtre) ; bonus en grille 2×2 avec jauge de réserve (8 h) ; un bouton inaccessible affiche ce qui manque
   (« −6 750 »). Fenêtre et bouton partagés : `components/QuantityModal.tsx` (`QuantityModal`, `BuyButton`). Le Sac
   n'affiche plus que le stock de Balls.
+  **Couleur d'un objet** (règle unique, vérifiée le 2026-10-07) : nom en texte uni = `itemColor` (rareté, ou palier du
+  cran +N ; `plusColor` pour un coffre pas encore choisi), partout (cartes, fiche, fiche Pokémon, messages de butin, de
+  fusion et du coffre, résumé du retour) ; le mot « Chromatique +N » en dégradé (`ChromaText`) dans la fiche d'un
+  objet, l'onglet de la Tour et le résumé du retour. Un message (`toast`) ne colore que le passage passé en 3e argument.
   Cartes d'objets (`ItemCard`, 2026-10-01) : compactes par défaut (nom sur 2 lignes, « Nv. » sans la panoplie, rareté portée
   par la couleur (`itemColor` : rareté, ou palier du cran +N), sous-stats en pastilles abrégées `STAT_SHORT`, colorées par `subTier` (vert : PV, Type, Vitesse, Attaque ; jaune : Défense ; d'après `SUB_WORTH` et `SUB_TIER`), porteur en
   pastille miniature sur le coin haut-droit, jamais une ligne de plus) ;
@@ -159,7 +163,14 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   (`GameState.boosts` = horodatage de fin ; 1 h par achat, 8 h de réserve au plus, perdus au prestige) : Mini Charme Chroma
   3 000 (chromatiques ×1,5, cumulable : 1/171, 1/85), Encens 800 (offres de capture ×2), Parfum rare 1 500 (poids des
   espèces rares < 10 ×3, `pickSpecies(…, rareMult)`), Multi Exp 1 000 (XP de l'équipe ×1,5). Hors ligne, chaque bonus
-  compte au prorata de l'absence couverte (`boostCoverage`). Méga bonbon universel 2 000 (`universalMega`, gardé au
+  compte au prorata de l'absence couverte (`boostCoverage`). **Bonus de la Tour** (2026-10-07, section « 🗼 » de la
+  Boutique une fois la Tour débloquée, `shopBoosts` ; la Boutique ne servait plus à rien en fin de jeu) : 🧪 Élixir de
+  la Tour (Attaque et PV +25 % dans la Tour, `withTowerElixir`), 🧲 Aimant à butin (hors ligne 1 Chromatique tous les 3
+  étages au lieu de 5, `TOWER_MAGNET_ITEM_EVERY` ; en jeu un 2e objet 2 fois sur 3), 💠 Pierre de cran (butin d'étage
+  +1 cran) ; prix d'1 h = éclats de `TOWER_BOOST_FLOORS` (20) étages au record (`boostPrice` : record 303 → 626 000 ;
+  150 puis 50 jugés trop chers par Arno, à recaler sur son gain réel d'une nuit), réserve 12 h (`boostMaxMs`). Hors
+  ligne, chacun ne joue que sur la part de l'absence qu'il couvre (`towerIdleGains` : fin du bonus − `lastActive`).
+  Méga bonbon universel 2 000 (`universalMega`, gardé au
   prestige ; `applyMegaCandy` prend ceux de la lignée d'abord). Minuteurs des bonus actifs dans `HudTop`.
 - **Nouvelle partie / prestige** : `runner.newGame()` efface l'offre de capture en cours (bug du 2026-09-30 : Arceus de
   Sinnoh capturé à Kanto) ; `tryCapture` refuse toute espèce > `dexMax` ; `migrateSave` purge le Pokédex hors région.

@@ -11,9 +11,8 @@ import {
   BETWEEN_WAVES_MS, CaptureOffer, GameState, StageKind, StageRun, WaveRewards, arenaAvailable, autoCaptureBall, bestStarsOf, bossAvailable,
   canPrestige, captureTarget, exitTower, isTargeted, maxBattleSpeed, SPEED_UNLOCKS, touchLastActive, tryCapture,
 } from '../../game/game';
-import { MAX_RARITY, RARITIES, RARITY_COLOR } from '../../game/model';
 import { plusOf } from '../../game/items';
-import { chromaTier, fmtNum, fmtShort, itemColor, itemDisplayName } from '../helpers';
+import { fmtNum, fmtShort, itemColor, itemDisplayName, plusColor } from '../helpers';
 import { rng, useGame } from '../../store/game';
 import { CollectionGoal, wantedForBox } from '../../game/collection';
 import { useSettings } from '../../store/settings';
@@ -208,13 +207,18 @@ class Runner {
       const best = r.loot.reduce((a, b) => (b.rarity > a.rarity || (b.rarity === a.rarity && plusOf(b) > plusOf(a)) ? b : a));
       const bestName = itemDisplayName(best);
       const others = r.loot.filter((it) => it !== best).map(itemDisplayName);
+      const names = [bestName, ...others].join(', ');
+      // objets tous de la même couleur (Tour : même cran, 2 objets avec l'Aimant à butin) : tous les noms en couleur ;
+      // sinon le meilleur seulement (un message ne colore qu'un passage)
+      const sameColor = r.loot.every((it) => itemColor(it) === itemColor(best));
       // Tour de Combat : les éclats de l'étage dans le même message que son objet
-      toast(`+ ${[bestName, ...others].join(', ')}${r.shards ? ` · +${fmtNum(r.shards)} 💎` : ''}`, itemColor(best), bestName);
+      toast(`+ ${names}${r.shards ? ` · +${fmtNum(r.shards)} 💎` : ''}`, itemColor(best), sameColor ? names : bestName);
     }
     if (r.towerReward) {
       sfx('medal');
-      toast(`🎁 Étage ${r.towerReward.floor} : Chromatique${r.towerReward.plus ? ` +${r.towerReward.plus}` : ''} à choisir sur la Carte`,
-        r.towerReward.plus ? chromaTier(r.towerReward.plus).text : RARITY_COLOR[MAX_RARITY]);
+      // la couleur ne s'applique qu'au passage indiqué (3e argument) : sans lui, le message restait blanc
+      const label = `Chromatique${r.towerReward.plus ? ` +${r.towerReward.plus}` : ''}`;
+      toast(`🎁 Étage ${r.towerReward.floor} : ${label} à choisir sur la Carte`, plusColor(r.towerReward.plus), label);
     }
     if (r.capture) {
       const capture = r.capture;

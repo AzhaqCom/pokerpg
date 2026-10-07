@@ -9,7 +9,7 @@ import {
   evolve, feedCandy, heldItems, holder, lineBase, rankUpTalent, autoTalents, autoMoves, equipGain, release, resetTalents, setMoves, setTeam, unequip,
 } from '../game/game';
 import { SETS, itemScore, plusOf, setBonusText, slotOf, template, wornSets } from '../game/items';
-import { BattleBonuses, ItemSlot, RARITY_COLOR, critOverflow } from '../game/model';
+import { BattleBonuses, ItemSlot, critOverflow } from '../game/model';
 import { TIER_REQ, eligibleAffinityTypes, spentPoints, talentPoints, talentTree } from '../game/talents';
 import { MAX_LEVEL } from '../game/stats';
 import { AnimatedSprite } from '../sprites/AnimatedSprite';
@@ -26,7 +26,7 @@ import { MonThumb } from './components/MonThumb';
 import { Stars } from './components/Stars';
 import { feedback } from './components/feedback';
 import { TypeBadge } from './components/TypeBadge';
-import { TYPE_COLOR, chromaTier, cpColor, monName, monStats, textOn, typeLabel, xpProgress } from './helpers';
+import { TYPE_COLOR, cpColor, itemColor, monName, monStats, textOn, typeLabel, xpProgress } from './helpers';
 import { runner } from './battle/runner';
 import { C } from './theme';
 
@@ -287,12 +287,12 @@ export function MonSheet() {
                     return (
                       <View key={slot} style={styles.miniCol}>
                         <Pressable onPress={() => setPicker(slot)}
-                          style={[styles.miniItem, { borderColor: !it ? C.panel2 : plusOf(it) > 0 ? 'transparent' : RARITY_COLOR[it.rarity] }]}>
+                          style={[styles.miniItem, { borderColor: !it ? C.panel2 : plusOf(it) > 0 ? 'transparent' : itemColor(it) }]}>
                           {it && t ? (
                             <>
                               {/* Chromatique +N : bordure fixe aux couleurs du palier du cran, comme dans le Sac */}
                               {plusOf(it) > 0 && <RainbowBorder plus={plusOf(it)} radius={10} />}
-                              <Text style={[styles.miniName, { color: plusOf(it) > 0 ? chromaTier(plusOf(it)).text : RARITY_COLOR[it.rarity] }]} numberOfLines={2}>{SLOT_ICON[slot]} {t.name}</Text>
+                              <Text style={[styles.miniName, { color: itemColor(it) }]} numberOfLines={2}>{SLOT_ICON[slot]} {t.name}</Text>
                               <View style={styles.miniLvRow}>
                                 {plusOf(it) > 0 && <ChromaPill plus={plusOf(it)} />}
                                 <Text style={styles.miniLv}>Nv.{it.level}</Text>

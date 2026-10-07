@@ -4,9 +4,9 @@ import { move, species } from '../game/data';
 import { GameState } from '../game/game';
 import { IdleGains } from '../game/idle';
 import { plusOf, template } from '../game/items';
-import { Item, MAX_RARITY, RARITY_COLOR } from '../game/model';
-import { chromaTier, fmtNum, itemColor } from './helpers';
-import { ChromaPill } from './components/RainbowBorder';
+import { Item } from '../game/model';
+import { fmtNum, itemColor, plusColor } from './helpers';
+import { ChromaPill, ChromaText } from './components/RainbowBorder';
 import { useGame } from '../store/game';
 import { runner } from './battle/runner';
 import { Button } from './components/Button';
@@ -87,9 +87,12 @@ export function IdleSummary({ gains, onClose }: { gains: IdleGains | null; onClo
                         {gains.tower.rewards.map((r, i) => (
                           <View key={i} style={styles.lootRow}>
                             {r.plus > 0 && <ChromaPill plus={r.plus} />}
-                            <Text style={[styles.lootTxt, { color: r.plus ? chromaTier(r.plus).text : RARITY_COLOR[MAX_RARITY] }]}>
-                              Chromatique{r.plus ? ` +${r.plus}` : ''} · étage {r.floor}
-                            </Text>
+                            {/* « Chromatique +N » en dégradé, comme dans l'onglet de la Tour et la fiche d'un objet */}
+                            {/* lettres côte à côte dans une rangée, sans texte imbriqué (une couleur imbriquée ne s'affichait pas ici) */}
+                            <View style={styles.chromaRow}>
+                              {r.plus ? <ChromaText plus={r.plus} text={`Chromatique +${r.plus}`} /> : <Text style={[styles.lootTxt, { color: plusColor(0) }]}>Chromatique</Text>}
+                            </View>
+                            <Text style={[styles.lootTxt, { color: C.sub }]}>· étage {r.floor}</Text>
                           </View>
                         ))}
                       </>
@@ -156,4 +159,5 @@ const styles = StyleSheet.create({
   line: { color: C.text, fontSize: 13, fontWeight: '600', marginBottom: 6 },
   lootRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
   lootTxt: { flexShrink: 1, fontSize: 13, fontWeight: '800' },
+  chromaRow: { flexDirection: 'row' },
 });

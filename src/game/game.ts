@@ -1646,7 +1646,12 @@ export class StageRun {
   }
 
   private makeBattle(): Battle {
-    const allies = this.s.team.map((u) => allyFighter(this.s, u, this.hp[u]));
+    // Élixir de la Tour (Boutique) : Attaque et PV +25 % dans la Tour
+    const elixir = this.kind === 'tower' && boostActive(this.s, 'elixir');
+    const allies = this.s.team.map((u) => {
+      const f = allyFighter(this.s, u, this.hp[u]);
+      return elixir ? withTowerElixir(f) : f;
+    });
     const enemies = this.waves[this.waveIndex].map((e, i) => {
       addUnique(this.s.dex.seen, e.mon.speciesId);
       return wildFighter(`w${this.waveIndex}-${i}`, e.mon, { boss: e.boss, hpMult: e.hpMult, wild: e.wild, wildMult: e.wildMult, teamSize: this.s.team.length });
@@ -2242,9 +2247,14 @@ function towerFloorRewards(s: GameState, floor: number, rng: Rng): WaveRewards {
   s.shards += shards;
   out.shards = shards;
   const pool = towerDropPool(s);
-  const it = makeTowerItem(pool[rng.int(pool.length)].id, TOWER_LEVEL + floor, towerDropPlus(floor), rng);
-  s.items[it.uid] = it;
-  out.loot.push(it);
+  // bonus de la Boutique : Pierre de cran (+1 cran), Aimant à butin (un 2e objet 2 fois sur 3)
+  const plus = towerDropPlus(floor) + (boostActive(s, 'cran') ? 1 : 0);
+  const count = 1 + (boostActive(s, 'magnet') && rng.int(3) < 2 ? 1 : 0);
+  for (let i = 0; i < count; i++) {
+    const it = makeTowerItem(pool[rng.int(pool.length)].id, TOWER_LEVEL + floor, plus, rng);
+    s.items[it.uid] = it;
+    out.loot.push(it);
+  }
   // `towerBest` n'est mis à jour qu'après les récompenses (`onStageWon`) : c'est encore le record d'avant ce combat
   if (floor % 10 === 0 && floor > s.towerBest) {
     const reward = towerChest(floor, rng);
@@ -2265,22 +2275,54 @@ export function claimTowerReward(s: GameState, index: number, templateId: string
 }
 
 // ---------------------------------------------------------------- boutique
-export type BoostKind = 'charm' | 'incense' | 'lure' | 'xp';
+export type BoostKind = 'charm' | 'incense' | 'lure' | 'xp' | 'elixir' | 'magnet' | 'cran';
 /** Durée ajoutée par achat ; plusieurs achats s'additionnent, jusqu'à `BOOST_MAX_MS` restant. */
 export const BOOST_MS = 3600_000;
 export const BOOST_MAX_MS = 8 * 3600_000;
 /** Bonus temporaires de la boutique : actifs en combat comme hors ligne, perdus au prestige. */
-export const BOOSTS: Record<BoostKind, { name: string; icon: string; price: number; mult: number; desc: string }> = {
+export const BOOSTS: Record<BoostKind, { name: string; icon: string; price: number; mult: number; desc: string; tower?: true }> = {
   charm: { name: 'Mini Charme Chroma', icon: '✨', price: 3000, mult: 1.5, desc: 'Chromatiques ×1,5 (se cumule avec le Charme Chroma)' },
   incense: { name: 'Encens', icon: '🕯', price: 800, mult: 2, desc: 'Offres de capture 2 fois plus fréquentes (35 % → 70 % des vagues)' },
   lure: { name: 'Parfum rare', icon: '🌸', price: 1500, mult: 3, desc: 'Espèces rares de la zone 3 fois plus fréquentes' },
   xp: { name: 'Multi Exp', icon: '📘', price: 1000, mult: 1.5, desc: 'XP de l’équipe ×1,5 en combat' },
+  // Tour de Combat (2026-10-07) : la Boutique ne servait plus à rien en fin de jeu ; prix selon le record (`boostPrice`)
+  elixir: { name: 'Élixir de la Tour', icon: '🧪', price: 0, mult: 1.25, tower: true, desc: 'Attaque et PV de l’équipe +25 % dans la Tour (environ 9 étages de plus)' },
+  magnet: { name: 'Aimant à butin', icon: '🧲', price: 0, mult: 5 / 3, tower: true, desc: 'Chromatiques de la Tour +67 % : hors ligne, 1 tous les 3 étages au lieu de 5 ; en jeu, un 2e objet 2 fois sur 3' },
+  cran: { name: 'Pierre de cran', icon: '💠', price: 0, mult: 1, tower: true, desc: 'Butin des étages de la Tour un cran plus haut (+1)' },
 };
 export const BOOST_KINDS = Object.keys(BOOSTS) as BoostKind[];
 export const UNIVERSAL_MEGA_PRICE = 2000;
 
+/**
+ * Bonus de la Tour : prix d'1 h = les éclats de `TOWER_BOOST_FLOORS` étages au record (record 303 : 626 000 ; choix
+ * d'Arno, 2026-10-07 : 150 puis 50 étages étaient trop chers), réserve de 12 h comme l'absence (`TOWER_BOOST_MAX_MS`).
+ */
+export const TOWER_BOOST_FLOORS = 20;
+export const TOWER_BOOST_MAX_MS = 12 * 3600_000;
+
+/** Prix d'1 h de bonus : fixe, ou selon le record pour un bonus de la Tour. */
+export function boostPrice(s: GameState, kind: BoostKind): number {
+  return BOOSTS[kind].tower ? towerShards(Math.max(1, s.towerBest)) * TOWER_BOOST_FLOORS : BOOSTS[kind].price;
+}
+
+/** Réserve maximale d'un bonus : 8 h, 12 h pour un bonus de la Tour. */
+export function boostMaxMs(kind: BoostKind): number {
+  return BOOSTS[kind].tower ? TOWER_BOOST_MAX_MS : BOOST_MAX_MS;
+}
+
+/** Bonus proposés dans la Boutique : ceux de la Tour seulement une fois la Tour débloquée. */
+export function shopBoosts(s: GameState): BoostKind[] {
+  return BOOST_KINDS.filter((k) => !BOOSTS[k].tower || endgameUnlocked(s));
+}
+
+/** Élixir de la Tour : Attaque et PV d'un allié +25 %. */
+export function withTowerElixir(f: FighterInit): FighterInit {
+  const m = BOOSTS.elixir.mult;
+  return { ...f, stats: { ...f.stats, atk: Math.round(f.stats.atk * m), hp: Math.round(f.stats.hp * m) } };
+}
+
 export function noBoosts(): Record<BoostKind, number> {
-  return { charm: 0, incense: 0, lure: 0, xp: 0 };
+  return { charm: 0, incense: 0, lure: 0, xp: 0, elixir: 0, magnet: 0, cran: 0 };
 }
 
 /** Temps restant (ms) d'un bonus de la boutique, 0 s'il est inactif. */
@@ -2298,11 +2340,14 @@ export function boostCoverage(s: GameState, kind: BoostKind, from: number, durat
   return Math.max(0, Math.min(1, ((s.boosts?.[kind] ?? 0) - from) / durationMs));
 }
 
-/** Achète 1 h de bonus (ajoutée au temps restant) ; refusé si trop peu d'éclats ou si on dépasserait 8 h. */
+/** Achète 1 h de bonus (ajoutée au temps restant) ; refusé si trop peu d'éclats, si on dépasserait la réserve (8 h,
+ *  12 h pour la Tour) ou pour un bonus de la Tour avant de l'avoir débloquée. */
 export function buyBoost(s: GameState, kind: BoostKind, now = Date.now()): boolean {
   const left = boostRemaining(s, kind, now);
-  if (s.shards < BOOSTS[kind].price || left + BOOST_MS > BOOST_MAX_MS) return false;
-  s.shards -= BOOSTS[kind].price;
+  const price = boostPrice(s, kind);
+  if (BOOSTS[kind].tower && !endgameUnlocked(s)) return false;
+  if (s.shards < price || left + BOOST_MS > boostMaxMs(kind)) return false;
+  s.shards -= price;
   s.boosts = { ...noBoosts(), ...s.boosts, [kind]: now + left + BOOST_MS };
   return true;
 }

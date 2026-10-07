@@ -418,6 +418,31 @@ test('entraînement hors ligne dans la Tour : 1 seule panoplie visée, Chromatiq
   }
 });
 
+test('bonus de la Tour hors ligne : Aimant (1 objet / 3 étages) et Pierre de cran (+1) sur la part couverte (2026-10-07)', () => {
+  const mk = () => {
+    const s = towerGame();
+    s.towerBest = 23;
+    s.towerIdleClimb = false;
+    setTowerIdlePick(s, 3);
+    s.lastActive = 1_000_000;
+    return s;
+  };
+  const plain = computeIdleGains(mk(), 2 * H, seededRng(4))!;
+  // bonus couvrant toute l'absence
+  const s = mk();
+  s.boosts = { ...s.boosts, magnet: s.lastActive + 3 * H, cran: s.lastActive + 3 * H };
+  const g = computeIdleGains(s, 2 * H, seededRng(4))!;
+  expect(g.bagItems).toHaveLength(Math.floor(g.wavesWon / 3));
+  expect(g.bagItems.every((it) => it.plus === 1)).toBe(true); // +0 sous l'étage 150, +1 avec la Pierre
+  expect(plain.bagItems.every((it) => !it.plus)).toBe(true);
+  // bonus couvrant la moitié de l'absence : entre les deux
+  const half = mk();
+  half.boosts = { ...half.boosts, magnet: half.lastActive + 1 * H };
+  const h = computeIdleGains(half, 2 * H, seededRng(4))!;
+  expect(h.bagItems.length).toBeGreaterThan(Math.floor(h.wavesWon / 5));
+  expect(h.bagItems.length).toBeLessThan(Math.floor(h.wavesWon / 3));
+});
+
 test('ascension hors ligne : départ au dernier palier, record qui monte, un coffre par palier franchi (2026-10-07)', () => {
   const s = towerGame();
   s.towerBest = 23;

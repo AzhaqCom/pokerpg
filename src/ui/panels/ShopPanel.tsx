@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../components/Text';
 import {
-  BALL_PRICE, BALLS, BOOST_KINDS, BOOST_MAX_MS, BOOST_MS, BOOSTS, BallKind, BoostKind, GameState, UNIVERSAL_MEGA_PRICE,
-  boostRemaining, buyBall, buyBalls, buyBoost, buyUniversalMega, buyUniversalMegas,
+  BALL_PRICE, BALLS, BOOST_KINDS, BOOST_MS, BOOSTS, BallKind, BoostKind, GameState, TOWER_BOOST_FLOORS, UNIVERSAL_MEGA_PRICE,
+  boostMaxMs, boostPrice, boostRemaining, shopBoosts, buyBall, buyBalls, buyBoost, buyUniversalMega, buyUniversalMegas,
 } from '../../game/game';
 import { useGame } from '../../store/game';
 import { toast } from '../../store/ui';
@@ -26,6 +26,7 @@ export function formatLeft(ms: number): string {
 /** Effet d'un bonus en quelques mots (tuiles de la grille ; la description complète s'affiche au toucher). */
 const BOOST_SHORT: Record<BoostKind, string> = {
   charm: 'Chromatiques ×1,5', incense: 'Offres de capture ×2', lure: 'Espèces rares ×3', xp: 'XP de l’équipe ×1,5',
+  elixir: 'Attaque et PV +25 %', magnet: 'Chromatiques +67 %', cran: 'Butin +1 cran',
 };
 
 /** Article achetable en quantité (maintenir sa tuile) : une Ball ou le méga bonbon universel. */
@@ -88,20 +89,22 @@ function BulkModal({ kind, onClose }: { kind: BulkKind | null; onClose: () => vo
   );
 }
 
-/** Tuile d'un bonus temporaire : effet court, jauge de réserve (jusqu'à 8 h), temps restant, achat d'1 h. */
+/** Tuile d'un bonus temporaire : effet court, jauge de réserve (8 h, 12 h pour la Tour), temps restant, achat d'1 h. */
 function BoostTile({ kind }: { kind: BoostKind }) {
   const s = useGame((g) => g.s)!;
   const act = useGame((g) => g.act);
   const b = BOOSTS[kind];
   const left = boostRemaining(s, kind);
-  const full = left + BOOST_MS > BOOST_MAX_MS;
+  const max = boostMaxMs(kind);
+  const price = boostPrice(s, kind);
+  const full = left + BOOST_MS > max;
   return (
     <Pressable onPress={() => toast(`${b.icon} ${b.desc}`)} style={[styles.boost, left > 0 && styles.boostOn]}>
       <Text style={styles.name} numberOfLines={1}>{b.icon} {b.name}</Text>
       <Text style={styles.desc} numberOfLines={1}>{BOOST_SHORT[kind]}</Text>
-      <View style={styles.gauge}><View style={[styles.gaugeFill, { width: `${Math.min(100, (left / BOOST_MAX_MS) * 100)}%` }]} /></View>
+      <View style={styles.gauge}><View style={[styles.gaugeFill, { width: `${Math.min(100, (left / max) * 100)}%` }]} /></View>
       <Text style={[styles.desc, left > 0 && styles.active]}>{left > 0 ? `actif · ${formatLeft(left)}` : 'inactif'}</Text>
-      <BuyButton cost={b.price} shards={s.shards} text={`+1 h · ${fmt(b.price)} 💎`} label={full ? 'réserve pleine' : undefined}
+      <BuyButton cost={price} shards={s.shards} text={`+1 h · ${fmt(price)} 💎`} label={full ? 'réserve pleine' : undefined}
         onPress={() => { if (act((g) => buyBoost(g, kind))) { feedback('medal'); toast(`${b.icon} ${b.name} : +1 h`, C.gold); } }} />
     </Pressable>
   );
@@ -132,9 +135,20 @@ export function ShopPanel() {
 
         <Text style={styles.section}>Bonus temporaires <Text style={styles.desc}>· 1 h par achat, 8 h au plus, perdus au nouveau départ</Text></Text>
         <View style={styles.grid}>
-          {BOOST_KINDS.map((k) => <BoostTile key={k} kind={k} />)}
+          {BOOST_KINDS.filter((k) => !BOOSTS[k].tower).map((k) => <BoostTile key={k} kind={k} />)}
         </View>
         <Text style={styles.hint}>Toucher un bonus pour lire son effet en détail.</Text>
+
+        {/* bonus de la Tour (2026-10-07) : seulement une fois la Tour débloquée, prix selon le record */}
+        {shopBoosts(s).some((k) => BOOSTS[k].tower) && (
+          <>
+            <Text style={styles.section}>🗼 Bonus de la Tour <Text style={styles.desc}>· 1 h par achat, 12 h au plus, en jeu comme hors ligne</Text></Text>
+            <View style={styles.grid}>
+              {shopBoosts(s).filter((k) => BOOSTS[k].tower).map((k) => <BoostTile key={k} kind={k} />)}
+            </View>
+            <Text style={styles.hint}>Prix d'1 h : les éclats de {TOWER_BOOST_FLOORS} étages à ton record (étage {s.towerBest}).</Text>
+          </>
+        )}
 
         <Text style={styles.section}>Objets</Text>
         <View style={styles.megaCard}>
