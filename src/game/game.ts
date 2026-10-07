@@ -1289,6 +1289,17 @@ export function setRecycleCandidates(s: GameState, setId: string): Item[] {
   return Object.values(s.items).filter((it) => template(it.templateId).set === setId && !it.locked && !held.has(it.uid));
 }
 
+/**
+ * « ♻ Recycler les petits crans » du Sac (2026-10-07, demande d'Arno) : les Chromatiques de +0 à +`maxPlus` qu'on ne
+ * fusionnera plus jamais (le butin de la Tour tombe à des crans plus hauts), ni verrouillés 🔒 ni portés ; limités à
+ * la panoplie `setId` si elle est donnée (filtre du Sac).
+ */
+export function plusRecycleCandidates(s: GameState, maxPlus: number, setId: string | null = null): Item[] {
+  const held = heldBy(s);
+  return Object.values(s.items).filter((it) => it.rarity === MAX_RARITY && (it.plus ?? 0) <= maxPlus && !it.locked
+    && !held.has(it.uid) && (!setId || template(it.templateId).set === setId));
+}
+
 export function recycle(s: GameState, itemUids: string[]): number {
   let gain = 0;
   const held = heldBy(s);

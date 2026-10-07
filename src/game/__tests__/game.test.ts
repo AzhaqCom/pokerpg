@@ -8,7 +8,7 @@ import {
   releaseExcess, releaseNotShiny, remainingEvolutions, removePension, selectStage, setAutoAdvance, START_BALLS, startPrestige,
   CAPTURE_PITY, RELEASE_CANDIES, applyMegaCandy as applyMega, lineForms, BALL_PRICE, buyBalls, autoMoves, captureTarget, setTeam, toggleLock, challengesReady, postponePrestige, idleFarmTarget, isTargeted, toggleTarget, zoneHasTarget, teamMaxLevel, tryCapture, unequipBox, xpGapMult,
   removeExploration, feedCandy, buyUniversalMegas, upgradeItemTimes, toggleTowerSet, towerDropPool, towerFocusChoices, towerPreviewItem,
-  autoTeamOrder, grantDailyBalls, FREE_BALLS_PER_DAY, towerShards, towerDropPlus, TOWER_DROP_GAP,
+  autoTeamOrder, grantDailyBalls, FREE_BALLS_PER_DAY, towerShards, towerDropPlus, TOWER_DROP_GAP, plusRecycleCandidates,
 } from '../game';
 import { SETS, TEMPLATES, makeItem, statText, mainValue, rarityName, recycleValue, subMax, subRange, upgradeCostFor } from '../items';
 import { Item, emptyBonuses } from '../model';
@@ -1739,6 +1739,39 @@ test('Tour : 1 à 3 panoplies visées parmi les 20 → les Chromatiques ne tombe
   toggleTowerSet(s, 'ruche');
   toggleTowerSet(s, 'dragon2');
   expect(towerDropPool(s)).toHaveLength(60);
+});
+
+test('recycler les petits crans : Chromatiques +0 à +N, jamais verrouillés ni portés, panoplie optionnelle (2026-10-07)', () => {
+  const s = endgameState();
+  chooseStarter(s, 387, seededRng(1));
+  s.items = {};
+  const rng = seededRng(2);
+  const add = (id: string, rarity: number, plus: number) => {
+    const it = makeItem(id, rarity, 150, rng);
+    if (plus) it.plus = plus;
+    s.items[it.uid] = it;
+    return it;
+  };
+  const p0 = add('gantelet-champion', 6, 0);
+  const p3 = add('cape-champion', 6, 3);
+  const p6 = add('griffe-sylve', 6, 6);
+  const p7 = add('gantelet-champion', 6, 7); // au-dessus du cran choisi
+  add('gantelet-champion', 5, 0); // pas Chromatique
+  const locked = add('cape-champion', 6, 1);
+  locked.locked = true;
+  const worn = add('baie-champion', 6, 2);
+  equip(s, s.team[0], worn.uid);
+  const uids = (list: Item[]) => list.map((i) => i.uid).sort();
+  expect(uids(plusRecycleCandidates(s, 6))).toEqual(uids([p0, p3, p6]));
+  expect(uids(plusRecycleCandidates(s, 2))).toEqual(uids([p0]));
+  expect(uids(plusRecycleCandidates(s, 6, 'champion'))).toEqual(uids([p0, p3]));
+  // le recyclage rend les éclats et ne touche qu'à ceux-là
+  const shards = s.shards;
+  const gain = recycle(s, plusRecycleCandidates(s, 6).map((i) => i.uid));
+  expect(gain).toBeGreaterThan(0);
+  expect(s.shards).toBe(shards + gain);
+  expect(s.items[p7.uid] && s.items[locked.uid] && s.items[worn.uid]).toBeTruthy();
+  expect(plusRecycleCandidates(s, 6)).toHaveLength(0);
 });
 
 test('Tour : éclats doublés, cran du butin = coffre − 6 par paliers fixes (2026-10-07)', () => {

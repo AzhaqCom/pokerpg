@@ -21,11 +21,15 @@ import { getSprite } from '../../sprites/manifest';
 import { preloadImage } from '../../sprites/imageCache';
 import { toast } from '../../store/ui';
 
+/** Durée du recul d'un coup reçu (ms de combat). */
+export const RECOIL_MS = 160;
+
 export interface FighterAnim {
   action: 'idle' | 'attack' | 'hurt';
   since: number; // ms (horloge du combat)
   lungeUntil: number;
-  flashUntil: number;
+  /** fin du recul d'un coup reçu (le Pokémon recule de quelques pixels ; remplace le flash blanc depuis le 2026-10-07) */
+  recoilUntil: number;
   faintAt: number | null;
 }
 
@@ -109,7 +113,7 @@ class Runner {
   private resetAnims() {
     this.anims = {};
     for (const f of this.run!.battle.fighters) {
-      this.anims[f.id] = { action: 'idle', since: this.clock, lungeUntil: 0, flashUntil: 0, faintAt: f.alive ? null : this.clock - 1000 };
+      this.anims[f.id] = { action: 'idle', since: this.clock, lungeUntil: 0, recoilUntil: 0, faintAt: f.alive ? null : this.clock - 1000 };
     }
   }
 
@@ -265,12 +269,21 @@ class Runner {
     switch (e.kind) {
       case 'use': {
         const an = a(e.actor);
-        if (an) { an.action = 'attack'; an.since = this.clock; an.lungeUntil = this.clock + 220; }
+        // animation indépendante de la cadence (2026-10-07) : une action pendant qu'une attaque se joue ne la relance pas ;
+        // le geste va au bout à sa vitesse normale (`FighterDraw` repasse en attente à la fin), le suivant part à
+        // l'action d'après. Un Pokémon très rapide fait donc un geste complet pour 2 ou 3 coups, plutôt que des gestes
+        // coupés ou accélérés.
+        if (an && an.action !== 'attack') { an.action = 'attack'; an.since = this.clock; an.lungeUntil = this.clock + 220; }
         break;
       }
       case 'damage': {
         const an = a(e.target);
-        if (an) { an.action = 'hurt'; an.since = this.clock; an.flashUntil = this.clock + 130; }
+        // un coup reçu n'interrompt jamais une attaque en cours (elle va au bout, voir `FighterDraw`) : l'animation de
+        // blessure ne joue que si le Pokémon ne faisait rien ; le recul, lui, se voit toujours
+        if (an) {
+          if (an.action !== 'attack') { an.action = 'hurt'; an.since = this.clock; }
+          an.recoilUntil = this.clock + RECOIL_MS;
+        }
         // immunité (×0) : seulement une attaque de zone, qui touche au moins un autre adversaire
         if (e.eff === 0) { this.float(e.target, 'Immunisé', '#90a4ae'); break; }
         const color = e.eff > 1 ? '#ffd54f' : e.eff < 1 ? '#b0bec5' : '#ffffff';

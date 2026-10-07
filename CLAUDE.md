@@ -93,13 +93,25 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   Fiche Pokémon : sous les 3 objets, « 🎒 Panoplie 2/3 : bonus ✓ » en vert dès 2 pièces ; sélecteur d'objet : panoplie
   de chaque carte et, en vert, le bonus que l'équiper activerait avec les 2 autres objets (`setHintFor`).
   Sac : filtre par panoplie (puces défilantes) et « ♻ Recycler <panoplie> » avec confirmation (`setRecycleCandidates` :
-  toutes raretés, jamais les objets verrouillés 🔒 ni portés).
+  toutes raretés, jamais les objets verrouillés 🔒 ni portés). « ♻ Petits crans » (2026-10-07, dès qu'il y a un
+  Chromatique dans le Sac) : fenêtre `PlusRecycleModal`, Chromatiques de +0 jusqu'au cran choisi (−/+, dernier choix
+  retenu dans le réglage `recyclePlusMax`, +6 par défaut), limités à la panoplie filtrée s'il y en a une
+  (`plusRecycleCandidates` : jamais verrouillés ni portés), décompte et éclats en direct, double toucher pour confirmer.
   Lisibilité du combat (2026-09-25) : zone de combat haute de 72 % de la largeur ; messages 1,6 s, 2 max à l'écran
   (`TOAST_MS`/`TOAST_MAX`, `store/ui.ts`), un seul par événement (butin groupé par vague, capacités groupées par
   Pokémon, « ✨ X chromatique capturé ! ») ; offre de capture `CaptureBar` sur une seule ligne compacte.
   Chiffres flottants (2026-10-07) : dégâts, brûlure, poison et soins abrégés par `fmtShort` (`ui/helpers.ts` : tel quel
   jusqu'à 9 999, puis « 12,3K », « 1,23M », B, T, Qa, Qi) ; une immunité (×0, seulement possible sur une attaque de zone)
   affiche « Immunisé » au lieu de « 0 » ; critique = orange et en grand, sans « ! ».
+  Animations en combat (2026-10-07) : sprites PMD extraits en entier (Idle, Walk, Sleep, Hurt, Attack, Pose, une
+  direction ; aucune animation n'atteint la limite de 24 images) mais le combat les coupait (~840 ms d'attaque en
+  médiane pour une action toutes les 700 ms, moins avec de la Vitesse, chaque action la relançait). Maintenant
+  l'animation est indépendante de la cadence : l'attaque se joue en entier à sa vitesse normale, une action pendant
+  qu'elle se joue ne la relance pas (un Pokémon rapide fait un geste pour 2-3 coups, les chiffres montrent chaque
+  coup) ; un coup reçu n'interrompt plus une
+  attaque (animation de blessure seulement si le Pokémon ne fait rien) ; plus de flash blanc : un petit recul
+  (`recoilUntil`, `RECOIL_MS`). Attaques PMD qui pivotent (Pokémon de dos) : seul Dracaufeu est limité
+  (`ATTACK_FRAME_LIMIT`), repérage des autres mis de côté.
   Décors abstraits fixes par type de zone et pour les arènes (`battle/Backdrop.tsx` : `BackdropBack` derrière le sol,
   `BackdropFront` sur le sol, sous les sprites), palette `SKIES` dans `BattleView.tsx`. Types de zone (`ZoneDef.biome`,
   purement visuel) : prairie, forêt, grotte, eau, électrique, marais, temple, volcan, désert, **ligue** (salles de Ligue

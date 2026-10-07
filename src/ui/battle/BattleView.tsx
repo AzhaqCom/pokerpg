@@ -6,11 +6,11 @@ import { Text } from '../components/Text';
 import { Fighter } from '../../game/battle';
 import { BIOMES } from '../../game/content';
 import { ActionKey, attackFrameLimit, getSprite, resolveAction } from '../../sprites/manifest';
-import { PmdSprite, totalMs } from '../../sprites/PmdSprite';
+import { PmdSprite } from '../../sprites/PmdSprite';
 import { useSpriteImage } from '../../sprites/imageCache';
 import { BackdropBack, BackdropFront, BackdropKind } from './Backdrop';
 import { CaptureBar } from './CaptureBar';
-import { STATUS_COLOR, STATUS_LABEL, runner } from './runner';
+import { RECOIL_MS, STATUS_COLOR, STATUS_LABEL, runner } from './runner';
 import { useUi } from '../../store/ui';
 
 /** Positions (fractions du canvas) : front, puis arrière haut, arrière bas. */
@@ -90,15 +90,21 @@ function FighterDraw({ f, image, meta, W, H, px }: {
   // que d'afficher un Pokémon qui semble tourner le dos. Repasser à `action = 'sleep'` pour revenir en arrière.
   if (anim.action !== 'idle') {
     const a = `${anim.action}${dir}` as ActionKey;
-    if (t < totalMs(resolveAction(meta, a))) { action = a; loop = false; }
+    const limit = attackFrameLimit(f.speciesId, a);
+    const frames = resolveAction(meta, a).ms;
+    // l'attaque va toujours au bout, à sa vitesse normale : les actions suivantes ne la relancent pas (voir le runner)
+    const total = (limit ? frames.slice(0, limit) : frames).reduce((x, y) => x + y, 0);
+    if (t < total) { action = a; loop = false; }
     else { anim.action = 'idle'; anim.since = clock; t = 0; }
   }
   const lunge = clock < anim.lungeUntil ? (side === 0 ? 1 : -1) * 14 * Math.sin(((anim.lungeUntil - clock) / 220) * Math.PI) : 0;
+  // coup reçu : petit recul vers l'arrière (remplace le flash blanc)
+  const recoil = clock < anim.recoilUntil ? (side === 0 ? -1 : 1) * 5 * Math.sin(((anim.recoilUntil - clock) / RECOIL_MS) * Math.PI) : 0;
   const fade = anim.faintAt !== null ? Math.max(0, 1 - (clock - anim.faintAt) / 500) : 1;
   if (fade <= 0) return null;
   // les sprites géants sont réduits (compression douce, voir tools/sprite_scale.py) : ils restent les plus grands
   const s = (f.boss ? px + 1 : px) * spriteScale(f.speciesId);
-  const x = pos.x * W + lunge;
+  const x = pos.x * W + lunge + recoil;
   const y = pos.y * H + (anim.faintAt !== null ? (1 - fade) * 10 : 0);
   const idle = meta.actions.idle!;
   const top = Math.max(HUD_MIN_TOP_BY_SLOT[slot] ?? 22, y - idle.fh * s - 8);
@@ -108,7 +114,7 @@ function FighterDraw({ f, image, meta, W, H, px }: {
     <Group opacity={fade}>
       <Oval x={x - 18 * (s / 3)} y={y - 5} width={36 * (s / 3)} height={10} color="#000" opacity={0.2} />
       <PmdSprite image={image} meta={meta} action={action} t={t} loop={loop} x={x} y={y} scale={s}
-        silhouette={clock < anim.flashUntil ? '#ffffff' : undefined} frameLimit={attackFrameLimit(f.speciesId, action)} />
+        frameLimit={attackFrameLimit(f.speciesId, action)} />
       <RoundedRect x={x - barW / 2} y={top} width={barW} height={6} r={3} color="#1b1f2a" opacity={0.85} />
       <RoundedRect x={x - barW / 2 + 1} y={top + 1} width={(barW - 2) * hpPct} height={4} r={2}
         color={hpPct > 0.5 ? '#4caf50' : hpPct > 0.2 ? '#ffb300' : '#e53935'} />

@@ -26,6 +26,8 @@ export interface Settings {
   hideOwnedOffers: boolean;
   /** rareté d'objet maximale incluse dans le recyclage groupé du Sac (0 Commun … 6 Chromatique) */
   recycleMaxRarity: number;
+  /** « ♻ Recycler les petits crans » du Sac : Chromatiques de +0 jusqu'à ce cran (dernier choix retenu) */
+  recyclePlusMax: number;
   /** recycle automatiquement (en éclats) les objets trouvés hors ligne jusqu'à `idleRecycleMaxRarity`,
    *  plutôt que de les ajouter au Sac */
   idleAutoRecycle: boolean;
@@ -51,7 +53,7 @@ export interface Settings {
 const DEFAULTS: Settings = {
   sound: true, music: true, haptics: true, speed: 1,
   autoCapture: false, autoCaptureBestBall: false, autoCaptureUpgrade: false, hideOwnedOffers: false,
-  recycleMaxRarity: 1, idleAutoRecycle: true, idleRecycleMaxRarity: 1, skipOwnedShiny: false,
+  recycleMaxRarity: 1, recyclePlusMax: 6, idleAutoRecycle: true, idleRecycleMaxRarity: 1, skipOwnedShiny: false,
   keepEvolutionMaterial: true, convertTargets: true, keepAwake: false, hideShinyOnlyButton: false, hideStarsOnlyButton: false, collectionGoal: 'off',
 };
 
@@ -78,12 +80,12 @@ export const useSettings = create<Store>((set, get) => ({
     set(patch);
     const {
       sound, music, haptics, speed, autoCapture, autoCaptureBestBall, autoCaptureUpgrade, hideOwnedOffers,
-      recycleMaxRarity, idleAutoRecycle, idleRecycleMaxRarity, skipOwnedShiny, keepEvolutionMaterial, convertTargets, keepAwake,
+      recycleMaxRarity, recyclePlusMax, idleAutoRecycle, idleRecycleMaxRarity, skipOwnedShiny, keepEvolutionMaterial, convertTargets, keepAwake,
       hideShinyOnlyButton, hideStarsOnlyButton, collectionGoal,
     } = { ...get(), ...patch };
     AsyncStorage.setItem(KEY, JSON.stringify({
       sound, music, haptics, speed, autoCapture, autoCaptureBestBall, autoCaptureUpgrade, hideOwnedOffers,
-      recycleMaxRarity, idleAutoRecycle, idleRecycleMaxRarity, skipOwnedShiny, keepEvolutionMaterial, convertTargets, keepAwake,
+      recycleMaxRarity, recyclePlusMax, idleAutoRecycle, idleRecycleMaxRarity, skipOwnedShiny, keepEvolutionMaterial, convertTargets, keepAwake,
       hideShinyOnlyButton, hideStarsOnlyButton, collectionGoal,
     })).catch(() => {});
   },
