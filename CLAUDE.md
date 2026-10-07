@@ -204,6 +204,13 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   sur 10 000 combats neufs) : en 2 passes sur l'équipe, le meilleur équipement d'équipe trouvé dans les 3, avant comme
   après l'allègement (Sac des 20 panoplies : l'équipement qui fait 55 % là où l'ancien « ★ Auto » faisait 50 %, étage
   125). 63 à 80 ms par Pokémon sur PC (100 à 140 avant l'allègement, `tools/scratch/auto_cost.ts`).
+  **Correctif du 2026-10-07** : la difficulté du banc d'essai était cherchée entre ×0,05 et ×5 000 (= étage 255) ;
+  au-delà, adversaires trop faibles, scores égalisés : « ★ Ordre » mettait Heatran devant en +15 Nv.1 300 (31 % au lieu
+  de 50 %) et « ★ Auto » pouvait garder un +10 plutôt que le même objet en +17. Plafond `BENCH_MULT_MAX` = 10 milliards
+  (≈ étage 900), 9 dichotomies. Et « ★ Auto » écarte les objets surclassés (`itemDominates`, `dominatedMap` : même
+  objet, rareté/cran/niveau/puissance au moins égaux, chaque sous-stat au moins égale) et remplace ceux des optimums par
+  leur meilleur exemplaire (pas le bot, `mode: 'quick'`). Vérifié : `tools/scratch/order_check.ts`, test Jest qui échoue
+  avec l'ancien plafond.
   **Limite** : un Pokémon à la fois, sans jamais prendre l'objet d'un coéquipier ;
   une seule passe sur une équipe sans objets peut rester 3 à 6 points sous la 2e (le premier équipé est jugé avec des
   coéquipiers nus et prend ce qui servirait mieux à un autre). Le bot garde `autoEquipBest(…, 'quick')` (ancien calcul seul,

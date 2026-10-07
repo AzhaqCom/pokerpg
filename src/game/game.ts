@@ -1022,7 +1022,16 @@ const BENCH_WAVES = 160;
  *  vagues un ordre à 3 points du meilleur passait devant (Rayquaza + Lugia + Magnézone, `tools/scratch/tower_meta.ts
  *  order`, 2026-10-02). */
 const ORDER_WAVES = 240;
-const BENCH_CALIBRATE_STEPS = 7;
+/**
+ * Recherche de la difficulté du banc d'essai : entre ×0,05 et `BENCH_MULT_MAX`, en `BENCH_CALIBRATE_STEPS` dichotomies.
+ * Avant le 2026-10-07, le plafond était ×5 000, la difficulté de l'étage 255 de la Tour : au-delà, les adversaires du
+ * banc restaient trop faibles (11 fois à l'étage 357), tous les candidats gagnaient presque sans perdre de PV et les
+ * scores s'égalisaient. « ★ Ordre » mettait alors Heatran devant (31 % de victoires au lieu de 50 %) et « ★ Auto »
+ * pouvait garder un +10 plutôt que le même objet en +17. ×10 milliards ≈ étage 900 ; 2 étapes de plus pour la même
+ * précision.
+ */
+const BENCH_MULT_MAX = 1e10;
+const BENCH_CALIBRATE_STEPS = 9;
 const BENCH_CALIBRATE_WAVES = 24;
 const BENCH_SEED = 20261001;
 /** Part minimale des PV perdus (victoire) ou retirés (défaite) comptée par `fightMargin` : marge bornée à ±1,5. */
@@ -1088,7 +1097,7 @@ function teamBench<T>(level: number, alliesOf: (c: T) => FighterInit[], keyOf: (
   };
   const refAllies = alliesOf(ref);
   let lo = Math.log(0.05);
-  let hi = Math.log(5000);
+  let hi = Math.log(BENCH_MULT_MAX);
   for (let k = 0; k < BENCH_CALIBRATE_STEPS; k++) {
     const mid = (lo + hi) / 2;
     let win = 0;
@@ -1115,6 +1124,38 @@ function teamBench<T>(level: number, alliesOf: (c: T) => FighterInit[], keyOf: (
 
 type Combo = (Item | undefined)[];
 const comboKey = (c: Combo) => c.map((it) => it?.uid ?? '-').join('|');
+
+/**
+ * `a` vaut au moins `b` partout (2026-10-07) : même objet, rareté, cran, niveau et puissance de biome au moins égaux, et
+ * chaque sous-stat de `b` présente sur `a` avec une valeur au moins égale. Un +17 aux mêmes sous-stats qu'un +10 le
+ * surclasse : « ★ Auto » ne choisit jamais le +10 (les combats pouvaient ne pas les départager).
+ */
+function itemDominates(a: Item, b: Item): boolean {
+  if (a.templateId !== b.templateId || a.rarity < b.rarity || (a.plus ?? 0) < (b.plus ?? 0) || a.level < b.level) return false;
+  if ((a.tier ?? 1) < (b.tier ?? 1)) return false;
+  return b.subs.every((sb) => a.subs.some((sa) => sa.stat === sb.stat && sa.value >= sb.value));
+}
+
+/**
+ * Objets libres surclassés par un autre objet libre (`itemDominates`) → leur meilleur remplaçant. Deux objets
+ * strictement identiques : le premier par uid est gardé. Comparaisons seulement entre exemplaires d'un même objet.
+ */
+function dominatedMap(free: Item[]): Map<string, Item> {
+  const byTemplate = new Map<string, Item[]>();
+  for (const it of free) byTemplate.set(it.templateId, [...(byTemplate.get(it.templateId) ?? []), it]);
+  const out = new Map<string, Item>();
+  for (const list of byTemplate.values()) {
+    if (list.length < 2) continue;
+    for (const b of list) {
+      const better = list.filter((a) => a !== b && itemDominates(a, b) && (!itemDominates(b, a) || a.uid < b.uid));
+      if (!better.length) continue;
+      // le remplaçant : celui qui n'est lui-même surclassé par aucun autre (cran puis niveau les plus hauts)
+      better.sort((x, y) => (y.plus ?? 0) - (x.plus ?? 0) || y.level - x.level || (x.uid < y.uid ? -1 : 1));
+      out.set(b.uid, better[0]);
+    }
+  }
+  return out;
+}
 
 /** Banc d'essai d'« ★ Auto » : l'équipe du Pokémon (lui + ses coéquipiers actuels), lui équipé de chaque candidat. */
 function equipBench(s: GameState, uid: string, ref: Combo) {
@@ -1156,11 +1197,20 @@ const AUTO_ARROW_CHECKS = 12;
  * `BENCH_WAVES` ; puis un tour de remplacements autour du gagnant, objets que les flèches jugeraient meilleurs compris.
  * Renvoie l'équipement retenu et les objets essayés (les flèches ne les marquent plus ▲ tant qu'il est porté).
  */
-function autoEquipSearch(s: GameState, uid: string, optima: Combo[]): { combo: Combo; tested: string[] } {
+function autoEquipSearch(s: GameState, uid: string, optima0: Combo[]): { combo: Combo; tested: string[]; model: 'duel' | 'quick' | 'measured' } {
   const mon = s.mons[uid];
   const held = heldBy(s);
   const base = monBaseBonuses(s, uid);
-  const free = Object.values(s.items).filter((it) => { const o = held.get(it.uid); return !o || o === mon; });
+  const freeAll = Object.values(s.items).filter((it) => { const o = held.get(it.uid); return !o || o === mon; });
+  // objets surclassés (même objet, en moins bien partout) : jamais essayés, remplacés par leur meilleur exemplaire
+  const dom = dominatedMap(freeAll);
+  const upgrade = (it: Item | undefined) => {
+    let x = it;
+    for (let k = 0; x && k < 20 && dom.has(x.uid); k++) x = dom.get(x.uid);
+    return x;
+  };
+  const free = freeAll.filter((it) => !dom.has(it.uid));
+  const optima = optima0.map((c) => c.map(upgrade));
   const bySlot = EQUIP_SLOTS.map((slot) => free.filter((it) => slotOf(it) === slot));
   // classements d'un objet seul par deux calculs (rapide, mesuré)
   const rank = (fn: (it: Item) => number) => bySlot.map((list) => list.map((it) => ({ it, v: fn(it) })).sort((a, b) => b.v - a.v).map((x) => x.it));
@@ -1207,7 +1257,8 @@ function autoEquipSearch(s: GameState, uid: string, optima: Combo[]): { combo: C
     .filter((x) => x.g > 0.05).sort((a, b) => b.g - a.g).slice(0, AUTO_ARROW_CHECKS)
     .map(({ it, j }) => { const n = [...best]; n[j] = it; return n; });
   best = pickBest([best], [...swapsAround(best), ...arrows]);
-  return { combo: best, tested: [...tested] };
+  // calcul suivi par les flèches : jugé sur les optimums déjà débarrassés des objets surclassés
+  return { combo: best, tested: [...tested], model: equipModelOf(best, optima) };
 }
 
 /** Calcul suivi par les flèches du sélecteur : celui dont l'optimum est l'équipement retenu, sinon l'ancien. */
@@ -1230,11 +1281,10 @@ export function autoEquipBest(s: GameState, uid: string, mode: 'bench' | 'quick'
   if (mode === 'quick') best = bestEquipCombo(s, uid, quickEquipValue);
   else {
     const optima = [equipValue, quickEquipValue, measuredEquipValue].map((fn) => bestEquipCombo(s, uid, fn, AUTO_EQUIP_SET_FILL));
-    const { combo, tested } = autoEquipSearch(s, uid, optima);
+    const { combo, tested, model } = autoEquipSearch(s, uid, optima);
     best = combo;
     // les flèches du sélecteur suivent le calcul dont l'optimum a gagné (l'ancien par défaut), et ne marquent plus ▲ les
     // objets déjà départagés par les combats tant que cet équipement est porté
-    const model = equipModelOf(combo, optima);
     if (model === 'quick') delete mon.equipModel; else mon.equipModel = model;
     mon.equipAuto = { items: combo.map((it) => it?.uid ?? ''), tested };
   }

@@ -1741,6 +1741,59 @@ test('Tour : 1 à 3 panoplies visées parmi les 20 → les Chromatiques ne tombe
   expect(towerDropPool(s)).toHaveLength(60);
 });
 
+/** Giratina, Kyogre et Heatran Nv.100 4★ en Brume Toxique Chromatique +15 Nv.1 300 (fin de jeu, étage ~357). */
+function endgameBrumeTeam() {
+  const s = endgameState();
+  s.starterChosen = true;
+  s.mons = {}; s.team = []; s.items = {};
+  // situation de la mesure du 2026-10-07 (tools/scratch/brume_subs.ts) : chaque objet porte les 3 sous-stats que garde
+  // la fusion (PV, Dégâts du type, Vitesse, puis Attaque), à 93 % de leur maximum
+  const subsOf = (tid: string) => {
+    const t = TEMPLATES.find((x) => x.id === tid)!;
+    const order = ['hpPct', 'typeDmgPct', 'spePct', 'atkPct'] as const;
+    return order.filter((st) => st !== t.main).slice(0, 3)
+      .map((stat) => ({ stat, value: Math.round(subRange(stat, 1300, 15).max * 0.93 * 10) / 10 }));
+  };
+  for (const id of [487, 382, 485]) {
+    const m = makeMon(id, 100, seededRng(1000 + id * 7 + s.team.length), false, 15);
+    addMon(s, m);
+    if (!s.team.includes(m.uid)) s.team.push(m.uid);
+    for (const tid of ['piquant-brume', 'carapace-brume', 'pecha']) {
+      const it = towerPreviewItem(tid, 1300);
+      it.uid = `${tid}-${id}`;
+      it.plus = 15;
+      it.subs = subsOf(tid);
+      s.items[it.uid] = it;
+      equip(s, m.uid, it.uid);
+    }
+  }
+  for (const u of s.team) { autoMoves(s, u); autoTalents(s, u); autoMoves(s, u); }
+  return s;
+}
+
+test('« ★ Ordre » au haut niveau : Giratina devant (banc d\'essai plus plafonné à l\'étage 255, 2026-10-07)', () => {
+  const s = endgameBrumeTeam();
+  autoTeamOrder(s);
+  // mesuré : Giratina devant ~50 % de victoires, Heatran devant ~31 % ; l'ancien plafond (×5 000) choisissait Heatran
+  expect(s.mons[s.team[0]].speciesId).toBe(487);
+});
+
+test('« ★ Auto » : un objet surclassé (même objet, mêmes sous-stats, cran plus bas) n\'est jamais choisi (2026-10-07)', () => {
+  const s = endgameBrumeTeam();
+  const uid = s.team[0]; // Giratina
+  const worn = s.items[s.mons[uid].items.berry!];
+  // le même objet en +17, mêmes sous-stats (valeurs au moins égales), libre dans le Sac
+  const better: Item = { ...worn, uid: 'pecha-17', plus: 17, subs: worn.subs.map((x) => ({ ...x })) };
+  s.items[better.uid] = better;
+  autoEquipBest(s, uid);
+  expect(s.mons[uid].items.berry).toBe('pecha-17');
+  // l'inverse : un +10 aux mêmes sous-stats n'est jamais préféré au +17 porté
+  const worse: Item = { ...better, uid: 'pecha-10', plus: 10, subs: better.subs.map((x) => ({ ...x })) };
+  s.items[worse.uid] = worse;
+  autoEquipBest(s, uid);
+  expect(s.mons[uid].items.berry).toBe('pecha-17');
+});
+
 test('bonus de la Tour : prix selon le record, réserve de 12 h, seulement une fois la Tour débloquée (2026-10-07)', () => {
   const early = newGame();
   early.shards = 1e9;
