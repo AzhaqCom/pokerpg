@@ -3,7 +3,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-na
 import { Text } from './components/Text';
 import {
   GameState, TOWER_FOCUS_SETS, TOWER_IDLE_ITEM_EVERY, TOWER_LEVEL, claimTowerReward, enterTower, exitTower, setTowerAuto, setTowerIdle,
-  setTowerIdlePick, toggleTowerSet, towerDropPlus, towerFocusChoices, towerIdleFloor, towerPreviewItem, towerRewardPlus, towerShards, towerStart, towerWildMult,
+  setTowerIdleClimb, setTowerIdlePick, toggleTowerSet, towerClimbStart, towerDropPlus, towerFocusChoices, towerIdleFloor, towerPreviewItem, towerRewardPlus, towerShards, towerStart, towerWildMult,
 } from '../game/game';
 import { SETS, TEMPLATES, setBonusLabel, setBonusText } from '../game/items';
 import { RARITY_COLOR } from '../game/model';
@@ -14,7 +14,7 @@ import { Button } from './components/Button';
 import { itemMainText } from './components/ItemCard';
 import { ChromaText } from './components/RainbowBorder';
 import { feedback } from './components/feedback';
-import { itemColor, itemDisplayName } from './helpers';
+import { fmtNum, itemColor, itemDisplayName } from './helpers';
 import { C } from './theme';
 
 const SLOT_ICON = { offense: '⚔', defense: '🛡', berry: '🍒' } as const;
@@ -41,7 +41,8 @@ export function TowerSection() {
   // panoplies visées (1 à 3) : les Chromatiques ne tombent plus que dans celles-là (`towerDropPool`)
   const focus = (s.towerSets ?? []).filter((id) => SETS[id]);
   const dropsFrom = focus.length > 0 ? focus.map((id) => SETS[id].name).join(', ') : 'une des 20 panoplies';
-  const idleFloor = towerIdleFloor(s);
+  const climb = s.towerIdleClimb ?? true;
+  const idleFloor = climb ? towerClimbStart(s) : towerIdleFloor(s);
   return (
     <View style={{ gap: 10 }}>
       <View style={styles.card}>
@@ -92,20 +93,34 @@ export function TowerSection() {
         </View>
         {s.towerIdle && s.towerBest >= 1 ? (
           <>
-            <Text style={styles.sub}>
-              Pendant ton absence, ton équipe rejoue un étage déjà franchi : ses éclats ({towerShards(idleFloor)} par
-              étage gagné) et 1 <ChromaLabel plus={towerDropPlus(idleFloor)} /> Nv.{100 + idleFloor} tous les{' '}
-              {TOWER_IDLE_ITEM_EVERY} étages gagnés. Désactive
-              pour chasser les chromatiques et les cibles 🎯 dans ta zone.
-            </Text>
-            <View style={styles.row}>
-              <Pressable style={styles.step} onPress={() => act((g) => setTowerIdlePick(g, towerIdleFloor(g) - 1))}><Text style={styles.stepTxt}>−</Text></Pressable>
-              <Text style={styles.line}>Étage {idleFloor}{s.towerIdlePick === null ? ' (dernier palier)' : ''}</Text>
-              <Pressable style={styles.step} onPress={() => act((g) => setTowerIdlePick(g, towerIdleFloor(g) + 1))}><Text style={styles.stepTxt}>+</Text></Pressable>
-              {s.towerIdlePick !== null && (
-                <Pressable style={styles.auto} onPress={() => act((g) => setTowerIdlePick(g, null))}><Text style={styles.stepTxt}>Auto</Text></Pressable>
-              )}
+            {/* deux modes : ascension (record et coffres) ou étage fixe */}
+            <View style={styles.wrap}>
+              {([[true, '🧗 Grimper'], [false, '📌 Étage fixe']] as const).map(([on, label]) => (
+                <Pressable key={label} style={[styles.pick, climb === on && styles.pickOn]}
+                  onPress={() => { act((g) => setTowerIdleClimb(g, on)); feedback(); }}>
+                  <Text style={[styles.pickTxt, climb === on && styles.pickTxtOn]}>{label}</Text>
+                </Pressable>
+              ))}
             </View>
+            <Text style={styles.sub}>
+              {climb
+                ? <>Pendant ton absence, ton équipe repart de l'étage {idleFloor} et grimpe au-delà de ton record : chaque palier de
+                  10 franchi pour la première fois te donne son coffre, à choisir ici au retour.</>
+                : <>Pendant ton absence, ton équipe rejoue un étage déjà franchi, sans jamais le dépasser.</>}
+              {' '}Par étage gagné, ses éclats ({fmtNum(towerShards(idleFloor))} à l'étage {idleFloor}), et 1{' '}
+              <ChromaLabel plus={towerDropPlus(idleFloor)} /> Nv.{100 + idleFloor} tous les {TOWER_IDLE_ITEM_EVERY} étages
+              gagnés. Désactive pour chasser les chromatiques et les cibles 🎯 dans ta zone.
+            </Text>
+            {!climb && (
+              <View style={styles.row}>
+                <Pressable style={styles.step} onPress={() => act((g) => setTowerIdlePick(g, towerIdleFloor(g) - 1))}><Text style={styles.stepTxt}>−</Text></Pressable>
+                <Text style={styles.line}>Étage {idleFloor}{s.towerIdlePick === null ? ' (dernier palier)' : ''}</Text>
+                <Pressable style={styles.step} onPress={() => act((g) => setTowerIdlePick(g, towerIdleFloor(g) + 1))}><Text style={styles.stepTxt}>+</Text></Pressable>
+                {s.towerIdlePick !== null && (
+                  <Pressable style={styles.auto} onPress={() => act((g) => setTowerIdlePick(g, null))}><Text style={styles.stepTxt}>Auto</Text></Pressable>
+                )}
+              </View>
+            )}
           </>
         ) : (
           <Text style={styles.sub}>

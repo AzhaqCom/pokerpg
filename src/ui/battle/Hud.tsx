@@ -9,6 +9,7 @@ import { MAX_RARITY, RARITIES, RARITY_COLOR } from '../../game/model';
 import { rng, useGame } from '../../store/game';
 import type { CollectionGoal } from '../../game/collection';
 import { useSettings } from '../../store/settings';
+import { useUi } from '../../store/ui';
 import { Button } from '../components/Button';
 import { Dialog, DialogSpec } from '../components/Dialog';
 import { feedback } from '../components/feedback';
@@ -56,6 +57,10 @@ export function HudTop() {
             <Text style={styles.speedTxt}>×{speed}</Text>
           </Pressable>
         )}
+        {/* mode veille : écran noir, le combat continue sans être dessiné (`SleepScreen`) */}
+        <Pressable onPress={() => { feedback(); useUi.getState().setSleep(true); }} hitSlop={8}>
+          <Text style={styles.gear}>🔋</Text>
+        </Pressable>
         <Pressable onPress={() => setOpen(true)} hitSlop={10}><Text style={styles.gear}>⚙</Text></Pressable>
         <SettingsModal open={open} onClose={() => setOpen(false)} />
       </View>

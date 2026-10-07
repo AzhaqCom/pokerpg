@@ -59,7 +59,10 @@ export const CAPTURE_PITY = 3;
 export const FREE_BALLS_PER_DAY = 5;
 /** Boutique : prix des Balls en éclats */
 export const BALL_PRICE: Record<'poke' | 'super' | 'hyper', number> = { poke: 20, super: 60, hyper: 150 };
-export const PENSION_CAP_MS = 8 * 3600_000;
+/** Plafond d'accumulation de la Pension, de l'Exploration et de l'absence (`IDLE_CAP_MS`) : 12 h depuis le 2026-10-07
+ *  (8 h avant ; Arno ne joue qu'hors ligne, tout ce qui dépassait 8 h était perdu), sans réduction de rendement. La
+ *  réserve des bonus de la Boutique reste à 8 h (`BOOST_MAX_MS`). */
+export const PENSION_CAP_MS = 12 * 3600_000;
 /** Pause entre deux vagues affichée à l'écran (runner) ; utilisée aussi par le calcul idle pour estimer la durée d'une vague. */
 export const BETWEEN_WAVES_MS = 1100;
 /** Exploration : farm passif d'éclats, 3/min par Pokémon posté (voir `harvestExploration`). */
@@ -136,6 +139,9 @@ export interface GameState {
   towerIdle: boolean;
   /** Étage de l'entraînement hors ligne, `null` = dernier palier de 10 franchi (`towerIdleFloor`). */
   towerIdlePick: number | null;
+  /** Hors ligne, grimper au-delà du record (record et coffres de palier, 2026-10-07, activé par défaut) plutôt que
+   *  rejouer l'étage choisi (`towerIdlePick`). */
+  towerIdleClimb: boolean;
   /** Combat continu dans la Tour (jeu actif) : une défaite fait reprendre plus bas au lieu de sortir (`towerRetryFloor`). */
   towerAuto: boolean;
   /** Panoplies visées dans la Tour (`toggleTowerSet`, 1 à 3) : ses Chromatiques ne tombent plus que dans celles-là
@@ -160,7 +166,7 @@ export function newGame(): GameState {
     prestige: 0,
     startedAt: Date.now(), prestigeOffered: false, adventureStart: Date.now(), endingSeen: false,
     shinyCharmSeen: false, boosts: noBoosts(), universalMega: 0,
-    towerBest: 0, towerFloor: null, towerRewards: [], towerIdle: true, towerIdlePick: null, towerAuto: false, towerSets: [], balanceVersion: 5,
+    towerBest: 0, towerFloor: null, towerRewards: [], towerIdle: true, towerIdlePick: null, towerIdleClimb: true, towerAuto: false, towerSets: [], balanceVersion: 5,
   };
 }
 
@@ -2101,6 +2107,27 @@ export function setTowerIdlePick(s: GameState, floor: number | null) {
   s.towerIdlePick = floor === null ? null : Math.max(1, Math.min(s.towerBest, Math.round(floor)));
 }
 
+/**
+ * Ascension hors ligne (2026-10-07, demande d'Arno, qui ne joue qu'hors ligne : son record et ses coffres ne bougeaient
+ * jamais) : l'absence part du dernier palier de 10 sous le record (`towerClimbStart`) et grimpe sans plafond ; chaque
+ * étage gagné au-delà du record le fait monter, et chaque palier de 10 franchi ainsi donne son coffre (`towerChest`),
+ * comme en jeu actif. Désactivée : l'étage fixe d'avant (`towerIdleFloor`).
+ */
+export function setTowerIdleClimb(s: GameState, on: boolean) {
+  s.towerIdleClimb = on;
+}
+
+/** Étage de départ de l'ascension hors ligne : le dernier palier de 10 franchi (record 366 → étage 360). */
+export function towerClimbStart(s: GameState): number {
+  return Math.max(1, Math.floor(s.towerBest / 10) * 10);
+}
+
+/** Coffre d'un palier de 10 franchi pour la première fois (en combat comme hors ligne) : Chromatique +`towerRewardPlus`,
+ *  10 % de chance d'un cran de plus, à choisir objet par objet (`claimTowerReward`). */
+export function towerChest(floor: number, rng: Rng): TowerReward {
+  return { plus: towerRewardPlus(floor) + (rng.int(10) === 0 ? 1 : 0), level: TOWER_LEVEL + floor, floor };
+}
+
 /** Éclats par étage franchi, en combat comme hors ligne (2026-10-07 : doublés, et plus divisés par 2 hors ligne ; avant,
  *  500 + 50 × étage). */
 export function towerShards(floor: number): number {
@@ -2209,8 +2236,7 @@ function towerFloorRewards(s: GameState, floor: number, rng: Rng): WaveRewards {
   out.loot.push(it);
   // `towerBest` n'est mis à jour qu'après les récompenses (`onStageWon`) : c'est encore le record d'avant ce combat
   if (floor % 10 === 0 && floor > s.towerBest) {
-    // 10 % de chance d'un cran de plus
-    const reward = { plus: towerRewardPlus(floor) + (rng.int(10) === 0 ? 1 : 0), level: TOWER_LEVEL + floor, floor };
+    const reward = towerChest(floor, rng);
     s.towerRewards.push(reward);
     out.towerReward = reward;
   }
@@ -2317,8 +2343,8 @@ export function assignPension(s: GameState, uid: string, xpPerHour: number, now 
 }
 
 /**
- * Retire un Pokémon de la pension **après** lui avoir donné l'XP accumulée (à son taux en cours, plafond 8 h). Avant le
- * 2026-10-01, le retrait (bouton « Retirer », mise en équipe) perdait jusqu'à 8 h d'XP sans prévenir. Renvoie l'XP donnée.
+ * Retire un Pokémon de la pension **après** lui avoir donné l'XP accumulée (à son taux en cours, plafond 12 h). Avant le
+ * 2026-10-01, le retrait (bouton « Retirer », mise en équipe) perdait jusqu’à 8 h d’XP sans prévenir. Renvoie l'XP donnée.
  */
 export function removePension(s: GameState, uid: string, now = Date.now()): number {
   const p = s.pension.find((x) => x.uid === uid);
@@ -2338,7 +2364,7 @@ export function pensionXpReady(s: GameState, now = Date.now()): number {
 export interface PensionHarvest { gains: { uid: string; xp: number; levels: number; newMoves: number[] }[] }
 
 /**
- * Récolte l'XP accumulée (plafond 8 h) de chaque Pokémon en pension, à l'ancien taux (celui qui courait
+ * Récolte l'XP accumulée (plafond 12 h) de chaque Pokémon en pension, à l'ancien taux (celui qui courait
  * réellement pendant la période écoulée) — puis rafraîchit `xpPerHour` de tous les postes à `freshRate`
  * (calculé par l'appelant via `teamXpPerHour(s, rng) * PENSION_XP_SHARE`, voir `PensionPanel`) pour la
  * période suivante : le taux suit ainsi la progression de l'équipe sans qu'il faille retirer/reposter le
@@ -2382,12 +2408,12 @@ export function removeExploration(s: GameState, uid: string, now = Date.now()): 
   return shards;
 }
 
-/** Éclats prêts à récolter (`SHARDS_PER_MIN`/min et par Pokémon posté, plafond 8 h d'accumulation). */
+/** Éclats prêts à récolter (`SHARDS_PER_MIN`/min et par Pokémon posté, plafond 12 h d’accumulation). */
 export function explorationReady(s: GameState, now = Date.now()): number {
   return s.exploration.reduce((a, p) => a + Math.floor(Math.min(now - p.since, PENSION_CAP_MS) / EXPLORATION_CYCLE_MS) * SHARDS_PER_MIN, 0);
 }
 
-/** Récolte les éclats prêts de tous les postes (plafond 8 h d'accumulation par poste). */
+/** Récolte les éclats prêts de tous les postes (plafond 12 h d’accumulation par poste). */
 export function harvestExploration(s: GameState, now = Date.now()): number {
   let shards = 0;
   for (const p of s.exploration) {

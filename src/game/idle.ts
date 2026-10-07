@@ -14,7 +14,7 @@ import { Battle } from './battle';
 import { BIOMES, STAGES_PER_ZONE, WAVES_PER_STAGE } from './content';
 import {
   BETWEEN_WAVES_MS, BOOSTS, BallKind, CAPTURE_OFFER_CHANCE, GameState, TOWER_IDLE_ITEM_EVERY, TOWER_LEVEL, boostCoverage,
-  makeTowerItem, towerDropPlus, towerDropPool, towerIdleActive, towerIdleFloor, towerShards, towerWaves, LOOT_CHANCE, PENSION_CAP_MS, RELEASE_CANDIES, shinyOdds,
+  TowerReward, makeTowerItem, towerChest, towerClimbStart, towerDropPlus, towerDropPool, towerIdleActive, towerIdleFloor, towerShards, towerWaves, LOOT_CHANCE, PENSION_CAP_MS, RELEASE_CANDIES, shinyOdds,
   addMon, allyFighter, bestStarsOf, captureChance, genesMinForBadges, giveXp, idleFarmTarget, isRareInZone, isTargeted,
   keepTargetCapture, lineBase, makeMon, makeWaves, pickSpecies, teamMaxLevel, wildFighter, xpGapMult,
 } from './game';
@@ -70,8 +70,10 @@ export interface IdleGains {
   ballsUsed: Record<BallKind, number>;
   /** Compteur de pitié (`missStreak`) après les lancers de l'absence. */
   missStreak: number;
-  /** Entraînement dans la Tour (fin de jeu) : étage rejoué et éclats gagnés ; absent = farm de zone. */
-  tower?: { floor: number; shards: number };
+  /** Entraînement dans la Tour (fin de jeu) : étage de départ, éclats gagnés ; ascension (`climb`) : record d'avant
+   *  (`prevBest`, le résumé s'affiche après l'encaissement) et à la fin de l'absence (`best`), coffres des paliers
+   *  franchis ; absent = farm de zone. */
+  tower?: { floor: number; shards: number; climb?: boolean; prevBest?: number; best?: number; rewards?: TowerReward[] };
 }
 
 interface WaveSample {
@@ -345,20 +347,27 @@ function sampleTowerFloor(s: GameState, rng: Rng, floor: number, n = SAMPLE_WAVE
 const TOWER_IDLE_DEPTH = 10;
 
 /**
- * Absence en fin de jeu : l'équipe rejoue l'étage `towerIdleFloor` de la Tour (une défaite la fait redescendre d'un étage,
- * une victoire remonter, jamais au-delà de l'étage choisi). Chaque étage gagné : ses éclats, comme en combat ; tous les
- * `TOWER_IDLE_ITEM_EVERY` étages gagnés, un Chromatique (panoplies visées, sinon les 20 du jeu : `towerDropPool`) au
- * niveau 100 + étage et au cran de l'étage (`towerDropPlus`). Ni XP, ni chromatiques, ni captures (propres aux zones).
- * Ne modifie pas `s`.
+ * Absence en fin de jeu, dans la Tour. Deux modes :
+ * - **ascension** (`towerIdleClimb`, par défaut) : départ au dernier palier de 10 sous le record (`towerClimbStart`),
+ *   sans plafond ; chaque étage gagné au-delà du record le fait monter, et chaque palier de 10 ainsi franchi donne son
+ *   coffre (`towerChest`, comme en jeu actif) ;
+ * - **étage fixe** : l'étage `towerIdleFloor`, jamais dépassé.
+ * Une défaite fait redescendre d'un étage (`TOWER_IDLE_DEPTH` au plus sous le plus haut étage atteint), une victoire
+ * remonter. Chaque étage gagné : ses éclats, comme en combat ; tous les `TOWER_IDLE_ITEM_EVERY` étages gagnés, un
+ * Chromatique (panoplies visées, sinon les 20 du jeu : `towerDropPool`) au niveau 100 + étage et au cran de l'étage
+ * (`towerDropPlus`). Ni XP, ni chromatiques, ni captures (propres aux zones). Ne modifie pas `s`.
  */
 function towerIdleGains(s: GameState, absenceMs: number, durationMs: number, rng: Rng): IdleGains {
-  const top = towerIdleFloor(s);
-  const low = Math.max(1, top - TOWER_IDLE_DEPTH + 1);
+  const climb = s.towerIdleClimb ?? true;
+  const start = climb ? towerClimbStart(s) : towerIdleFloor(s);
   const samples: Record<number, { winRate: number; avgMs: number }> = {};
   const sample = (f: number) => (samples[f] ??= sampleTowerFloor(s, rng, f));
   const gains = emptyGains(s, absenceMs, durationMs);
   const pool = towerDropPool(s);
-  let floor = top;
+  const rewards: TowerReward[] = [];
+  let floor = start;
+  let reached = start; // plus haut étage tenté : la descente après une défaite s'arrête 10 étages dessous
+  let best = s.towerBest;
   let won = 0;
   let shards = 0;
   for (let t = 0; t < durationMs;) {
@@ -370,14 +379,20 @@ function towerIdleGains(s: GameState, absenceMs: number, durationMs: number, rng
       if (won % TOWER_IDLE_ITEM_EVERY === 0) {
         gains.bagItems.push(makeTowerItem(pool[rng.int(pool.length)].id, TOWER_LEVEL + floor, towerDropPlus(floor), rng));
       }
-      floor = Math.min(top, floor + 1);
+      if (floor > best) {
+        // premier passage : nouveau record, et le coffre de son palier
+        if (floor % 10 === 0) rewards.push(towerChest(floor, rng));
+        best = floor;
+      }
+      floor = climb ? floor + 1 : Math.min(start, floor + 1);
+      reached = Math.max(reached, floor);
     } else {
-      floor = Math.max(low, floor - 1);
+      floor = Math.max(1, reached - TOWER_IDLE_DEPTH + 1, floor - 1);
     }
   }
   gains.wavesWon = won;
   gains.kills = won * 3;
-  gains.tower = { floor: top, shards };
+  gains.tower = { floor: start, shards, climb, prevBest: s.towerBest, best, rewards };
   return gains;
 }
 
@@ -386,6 +401,9 @@ export function applyIdleGains(s: GameState, gains: IdleGains) {
   for (const pm of gains.perMon) if (pm.xp > 0) giveXp(s.mons[pm.uid], pm.xp);
   for (const it of gains.bagItems) s.items[it.uid] = it;
   s.shards += gains.shardsFromRecycle + (gains.tower?.shards ?? 0);
+  // ascension hors ligne : record et coffres des paliers franchis, à choisir dans l'onglet de la Tour
+  if (gains.tower?.best) s.towerBest = Math.max(s.towerBest, gains.tower.best);
+  if (gains.tower?.rewards?.length) s.towerRewards.push(...gains.tower.rewards);
   for (const mon of gains.shinies) addMon(s, mon);
   for (const mon of gains.targetMons) addMon(s, mon);
   for (const [base, n] of Object.entries(gains.targetCandies)) s.candies[base] = (s.candies[base] ?? 0) + n;

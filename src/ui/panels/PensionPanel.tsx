@@ -69,7 +69,7 @@ export function PensionPanel() {
     <View style={{ gap: 10 }}>
       <Text style={styles.hint}>
         Les Pokémon gagnent de l'XP passive
-        (8 h max) — ({Math.round(PENSION_XP_SHARE * 100)} % de ce que l'équipe gagne au combat)
+        (12 h max) — ({Math.round(PENSION_XP_SHARE * 100)} % de ce que l'équipe gagne au combat)
        
       </Text>
       <Button label={ready ? `Récolter (+${ready} XP)` : 'Rien à récolter pour l’instant'} color={ready ? '#2e7d32' : C.panel2} disabled={!ready} onPress={() => {

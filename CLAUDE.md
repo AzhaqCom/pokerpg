@@ -263,8 +263,13 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   des panoplies visées sans valeur (`setBonusLabel`) ; la carte (`TowerFocusCard`, mémorisée) ne lit que la sélection
   et ne se redessine pas à chaque étage. Pas de simulation (le bot ne joue pas la Tour).
   **Entraînement hors ligne** (`towerIdle`, activé par défaut, interrupteur dans l'onglet de la Tour) : dès un étage
-  franchi, l'absence rejoue `towerIdleFloor` (dernier palier de 10, ou `towerIdlePick`, jamais au-delà du record ; une
-  défaite fait redescendre d'un étage, 10 au plus) au lieu de farmer la zone : 1 Chromatique Nv.100 + étage, au cran
+  franchi, l'absence se passe dans la Tour au lieu de farmer la zone, en deux modes (`towerIdleClimb`, puces de la carte
+  « 🌙 Hors ligne ») : **🧗 Grimper** (défaut, 2026-10-07 : Arno ne joue qu'hors ligne et son record ne bougeait jamais)
+  part du dernier palier de 10 sous le record (`towerClimbStart`) et grimpe sans plafond ; un étage gagné au-delà du
+  record le fait monter, et chaque palier de 10 ainsi franchi donne son coffre (`towerChest`, partagé avec le jeu
+  actif), encaissé au retour (`IdleGains.tower` : `prevBest`, `best`, `rewards` ; résumé « 🏆 Nouveau record » et
+  « 🎁 coffres à choisir ») ; **📌 Étage fixe** rejoue `towerIdleFloor` (dernier palier ou `towerIdlePick`, jamais
+  au-delà du record). Une défaite fait redescendre d'un étage, 10 au plus sous le plus haut étage atteint : 1 Chromatique Nv.100 + étage, au cran
   `towerDropPlus` de l'étage, tous les `TOWER_IDLE_ITEM_EVERY` (5 depuis le 2026-10-07, 10 avant) étages gagnés, mêmes
   éclats qu'en combat (÷ 2 avant), ni XP, ni chromatiques, ni captures, ni coffre (`towerIdleGains` dans `idle.ts`).
   Mesuré avant le passage à 5 : 230 à 390 Chromatiques par nuit de 8 h (donc ~460 à 780 maintenant ; ~200 Ko de
@@ -341,10 +346,11 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   🔒 en bas à gauche de la vignette dans la boîte (🎯 en bas à droite, ✨ en haut à droite, numéro de Pokédex en petit en
   haut à gauche de la case depuis le 2026-10-02).
 - **Pension** (XP passive, 50 % de l'XP/h de l'équipe (`PENSION_XP_SHARE`), taux rafraîchi à chaque récolte) et **Exploration**
-  (`SHARDS_PER_MIN` = 3 éclats/min par Pokémon) : plafond 8 h, un Pokémon ne peut être que dans l'une des deux.
+  (`SHARDS_PER_MIN` = 3 éclats/min par Pokémon) : plafond 12 h (`PENSION_CAP_MS`, 8 h avant le 2026-10-07), un Pokémon ne peut être que dans l'une des deux.
   Retirer un Pokémon (bouton, mise en équipe via `setTeam`) encaisse d'abord son XP / ses éclats (`removePension`,
   `removeExploration`, 2026-10-01 : avant, tout était perdu).
-- **Hors ligne** (`idle.ts`) : plafond 8 h (`IDLE_CAP_MS`), calcul par échantillon réel de combats, gains encaissés tout de
+- **Hors ligne** (`idle.ts`) : plafond 12 h (`IDLE_CAP_MS` = `PENSION_CAP_MS`, 8 h avant le 2026-10-07, sans réduction
+  de rendement ; la réserve des bonus de la Boutique reste à 8 h), calcul par échantillon réel de combats, gains encaissés tout de
   suite avec un résumé (`IdleSummary`). **XP, butin et chromatiques suivent tous l'étape en cours** (`idleRun`, 2026-09-24) :
   +1 étape après 3 vagues gagnées (jamais au-delà de la plus haute débloquée), −1 étape après un K.O. (comme au premier plan,
   sans changer de zone) ; au retour, la position affichée reprend l'étape atteinte (`endStage`). `IDLE_REWARD_MULT` = 1
@@ -364,6 +370,14 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   Le hors ligne ne quitte jamais une zone qui contient une cible (`zoneHasTarget` dans `idleFarmTarget`).
 - **Garder l'écran allumé** (réglage `keepAwake`, `expo-keep-awake`, module natif : nouvel APK nécessaire) : composant
   `KeepAwake` monté dans `App.tsx` tant que le réglage est actif.
+- **Mode veille** (bouton 🔋 du HUD, `useUi.sleep`, `SleepScreen.tsx`, 2026-10-07, économie de batterie) : `App.tsx`
+  démonte tout l'écran de jeu (combat Skia, onglets, pastilles) et affiche un écran noir ; une minuterie fait avancer le
+  combat 4 fois par seconde (par tranches de 100 ms, `runner.update`), sans rien dessiner ; sons, musique et messages
+  coupés (`toast` ignoré) ; luminosité de l'appli au minimum (`expo-brightness`, module natif : nouvel APK, rétablie au
+  réveil par `restoreSystemBrightnessAsync`) ; écran gardé allumé (`useKeepAwake`, sinon Android met l'appli en pause) ;
+  une ligne gris sombre (étage et record, ou zone et étape) déplacée chaque minute ; réveil en faisant glisser le
+  curseur jusqu'au bout (`WakeSlider`). Ce qui consomme en jeu : l'écran et le dessin (30 images/s React + Skia,
+  halos), pas les calculs du combat (< 0,1 % du processeur).
 - **Prestige** : voir `REGIONS.md`. Récap de fin de région (`PrestigeOffer`) affiché **une fois** quand `canPrestige`
   (combat en pause) : « Nouveau départ » ou « Plus tard » (`postponePrestige` → `GameState.prestigeOffered`, remis à
   `false` par `startPrestige`) ; reporté, il se lance depuis la bannière « 🏆 Nouveau départ à X » en haut de la Carte

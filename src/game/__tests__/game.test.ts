@@ -1225,7 +1225,7 @@ test('recyclage : jamais un objet porté', () => {
   expect(s.items[b.uid]).toBeUndefined();
 });
 
-test('exploration : éclats (3/min/poste), plafond 8 h, jamais un membre de l’équipe', () => {
+test('exploration : éclats (3/min/poste), plafond 12 h, jamais un membre de l’équipe', () => {
   const s = strongGame();
   const rng = seededRng(4);
   const extra = makeMon(43, 10, rng);
@@ -1234,13 +1234,13 @@ test('exploration : éclats (3/min/poste), plafond 8 h, jamais un membre de l’
   s.team = [s.team[0]];
   expect(assignExploration(s, extra.uid, 0)).toBe(true);
   const before = s.shards;
-  const gained = harvestExploration(s, 24 * H); // 24 h plus tard → plafond 8 h
-  expect(gained).toBe(8 * 60 * SHARDS_PER_MIN);
+  const gained = harvestExploration(s, 24 * H); // 24 h plus tard → plafond 12 h (8 h avant le 2026-10-07)
+  expect(gained).toBe(12 * 60 * SHARDS_PER_MIN);
   expect(s.shards).toBe(before + gained);
   expect(harvestExploration(s, 24 * H)).toBe(0); // rien de nouveau, le poste vient d'être récolté
 });
 
-test('pension : XP passive plafonnée à 8 h, jamais un membre de l’équipe', () => {
+test('pension : XP passive plafonnée à 12 h, jamais un membre de l’équipe', () => {
   const s = strongGame();
   const extra = makeMon(43, 5, seededRng(4));
   addMon(s, extra); // rejoint l'équipe (2e place)
@@ -1249,10 +1249,10 @@ test('pension : XP passive plafonnée à 8 h, jamais un membre de l’équipe', 
   s.team = [s.team[0]];
   expect(assignPension(s, extra.uid, rate, 0)).toBe(true);
   const before = s.mons[extra.uid].xp;
-  const h = harvestPension(s, rate, 24 * H); // 24 h plus tard → plafond 8 h (donc 8 × rate)
+  const h = harvestPension(s, rate, 24 * H); // 24 h plus tard → plafond 12 h (donc 12 × rate)
   expect(h.gains).toHaveLength(1);
-  expect(h.gains[0].xp).toBe(8 * rate);
-  expect(s.mons[extra.uid].xp).toBe(before + 8 * rate);
+  expect(h.gains[0].xp).toBe(12 * rate);
+  expect(s.mons[extra.uid].xp).toBe(before + 12 * rate);
   expect(harvestPension(s, rate, 24 * H).gains).toHaveLength(0); // rien de plus juste après
   expect(assignPension(s, extra.uid, rate, 0)).toBe(true); // déjà en pension : no-op, pas d'erreur
   expect(removePension(s, extra.uid, 24 * H)).toBe(0); // XP déjà récoltée : rien de plus à encaisser

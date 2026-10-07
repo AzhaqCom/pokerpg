@@ -3,9 +3,10 @@ import { Text } from './components/Text';
 import { move, species } from '../game/data';
 import { GameState } from '../game/game';
 import { IdleGains } from '../game/idle';
-import { plusOf } from '../game/items';
-import { Item } from '../game/model';
-import { fmtNum, itemColor, itemDisplayName } from './helpers';
+import { plusOf, template } from '../game/items';
+import { Item, MAX_RARITY, RARITY_COLOR } from '../game/model';
+import { chromaTier, fmtNum, itemColor } from './helpers';
+import { ChromaPill } from './components/RainbowBorder';
 import { useGame } from '../store/game';
 import { runner } from './battle/runner';
 import { Button } from './components/Button';
@@ -71,7 +72,28 @@ export function IdleSummary({ gains, onClose }: { gains: IdleGains | null; onClo
               <>
                 {gains.tower ? (
                   <>
-                    <Text style={styles.line}>🗼 Entraînement dans la Tour (étage {gains.tower.floor}) : {gains.wavesWon} étage{gains.wavesWon > 1 ? 's' : ''} gagné{gains.wavesWon > 1 ? 's' : ''}</Text>
+                    <Text style={styles.line}>
+                      🗼 {gains.tower.climb ? 'Ascension de la Tour' : 'Entraînement dans la Tour'} (depuis l'étage {gains.tower.floor}) :{' '}
+                      {gains.wavesWon} étage{gains.wavesWon > 1 ? 's' : ''} gagné{gains.wavesWon > 1 ? 's' : ''}
+                    </Text>
+                    {!!gains.tower.best && gains.tower.best > (gains.tower.prevBest ?? gains.tower.best) && (
+                      <Text style={[styles.line, { color: '#ffd740' }]}>🏆 Nouveau record : étage {gains.tower.best}</Text>
+                    )}
+                    {!!gains.tower.rewards?.length && (
+                      <>
+                        <Text style={styles.line}>
+                          🎁 {gains.tower.rewards.length} coffre{gains.tower.rewards.length > 1 ? 's' : ''} à choisir dans l'onglet de la Tour :
+                        </Text>
+                        {gains.tower.rewards.map((r, i) => (
+                          <View key={i} style={styles.lootRow}>
+                            {r.plus > 0 && <ChromaPill plus={r.plus} />}
+                            <Text style={[styles.lootTxt, { color: r.plus ? chromaTier(r.plus).text : RARITY_COLOR[MAX_RARITY] }]}>
+                              Chromatique{r.plus ? ` +${r.plus}` : ''} · étage {r.floor}
+                            </Text>
+                          </View>
+                        ))}
+                      </>
+                    )}
                     <Text style={styles.line}>💎 +{fmtNum(gains.tower.shards)} éclats</Text>
                   </>
                 ) : (
@@ -88,11 +110,15 @@ export function IdleSummary({ gains, onClose }: { gains: IdleGains | null; onClo
                     </Text>
                   );
                 })}
-                {/* comme le message de fusion : nom et cran +N à la couleur de la rareté ou du palier, rareté non écrite */}
+                {/* comme dans le Sac : pastille « +N » aux couleurs du cran, nom à la couleur de la rareté ou du palier. Ligne
+                    entière colorée, sans texte imbriqué (un nom coloré dans une ligne blanche ne prenait pas sa couleur) */}
                 {groupLoot(gains.bagItems).map((g) => (
-                  <Text key={g.key} style={styles.line}>
-                    + <Text style={{ color: itemColor(g.item) }}>{itemDisplayName(g.item)}</Text>{g.count > 1 ? ` ×${g.count}` : ''}
-                  </Text>
+                  <View key={g.key} style={styles.lootRow}>
+                    {plusOf(g.item) > 0 && <ChromaPill plus={plusOf(g.item)} />}
+                    <Text style={[styles.lootTxt, { color: itemColor(g.item) }]}>
+                      {template(g.item.templateId).name}{g.count > 1 ? ` ×${g.count}` : ''}
+                    </Text>
+                  </View>
                 ))}
                 {gains.shardsFromRecycle > 0 && <Text style={styles.line}>💎 +{gains.shardsFromRecycle} éclats (recyclage auto)</Text>}
                 {Object.entries(gains.targetCaught).map(([id, n]) => (
@@ -128,4 +154,6 @@ const styles = StyleSheet.create({
   title: { color: C.text, fontSize: 18, fontWeight: '800', textAlign: 'center' },
   msg: { color: C.sub, fontSize: 14, textAlign: 'center' },
   line: { color: C.text, fontSize: 13, fontWeight: '600', marginBottom: 6 },
+  lootRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
+  lootTxt: { flexShrink: 1, fontSize: 13, fontWeight: '800' },
 });

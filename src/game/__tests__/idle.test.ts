@@ -1,5 +1,5 @@
 import { BIOMES, REGIONS, regionLastBiome } from '../content';
-import { addMon, chooseStarter, equip, makeMon, newGame, setTowerIdlePick, teamMaxLevel, toggleTowerSet, towerIdleActive, towerIdleFloor, towerShards } from '../game';
+import { addMon, chooseStarter, equip, makeMon, newGame, setTowerIdlePick, teamMaxLevel, toggleTowerSet, towerClimbStart, towerIdleActive, towerIdleFloor, towerRewardPlus, towerShards } from '../game';
 import * as gameModule from '../game';
 import { makeItem, template } from '../items';
 import { IDLE_CAP_MS, applyIdleGains, computeIdleGains, idleRun, teamXpPerHour } from '../idle';
@@ -51,13 +51,16 @@ test('recyclage auto hors ligne : désactivable, seuil de rareté configurable',
   expect(defaults.bagItems.length).toBe(withAuto.bagItems.length);
 });
 
-test('plafond 8h : une absence plus longue ne rapporte pas plus', () => {
+test('plafond 12 h (8 h avant le 2026-10-07) : une absence plus longue ne rapporte pas plus', () => {
+  expect(IDLE_CAP_MS).toBe(12 * H);
   const s = readyGame();
-  const at8h = computeIdleGains(s, IDLE_CAP_MS, seededRng(7))!;
+  const atCap = computeIdleGains(s, IDLE_CAP_MS, seededRng(7))!;
   const at30h = computeIdleGains(s, 30 * H, seededRng(7))!;
-  expect(at8h.durationMs).toBe(IDLE_CAP_MS);
+  expect(atCap.durationMs).toBe(IDLE_CAP_MS);
   expect(at30h.durationMs).toBe(IDLE_CAP_MS);
-  expect(at30h.wavesWon).toBe(at8h.wavesWon);
+  expect(at30h.wavesWon).toBe(atCap.wavesWon);
+  // une absence de 10 h compte en entier (avant : coupée à 8 h)
+  expect(computeIdleGains(s, 10 * H, seededRng(7))!.durationMs).toBe(10 * H);
 });
 
 test('déterminisme : même état, même Rng → mêmes gains', () => {
@@ -363,6 +366,7 @@ test('entraînement hors ligne dans la Tour : 1 Chromatique tous les 5 étages g
   s.towerBest = 23;
   expect(towerIdleActive(s)).toBe(true);
   expect(towerIdleFloor(s)).toBe(20); // dernier palier de 10
+  s.towerIdleClimb = false; // étage fixe (l'ascension a son propre test)
   setTowerIdlePick(s, 99);
   expect(towerIdleFloor(s)).toBe(23); // jamais au-delà du record
   setTowerIdlePick(s, 3);
@@ -388,6 +392,7 @@ test('entraînement hors ligne dans la Tour : 1 Chromatique tous les 5 étages g
 test('entraînement hors ligne dans la Tour : les Chromatiques suivent les 3 panoplies visées (2026-10-02)', () => {
   const s = towerGame();
   s.towerBest = 23;
+  s.towerIdleClimb = false;
   setTowerIdlePick(s, 3);
   const focus = ['ruche', 'circuit', 'dragon2'];
   for (const id of focus) toggleTowerSet(s, id);
@@ -399,6 +404,7 @@ test('entraînement hors ligne dans la Tour : les Chromatiques suivent les 3 pan
 test('entraînement hors ligne dans la Tour : 1 seule panoplie visée, Chromatiques au cran de l\'étage (2026-10-07)', () => {
   const s = towerGame();
   s.towerBest = 23;
+  s.towerIdleClimb = false;
   setTowerIdlePick(s, 3);
   toggleTowerSet(s, 'ruche');
   // cran de l'étage rejoué (l'équipe de test ne tient pas l'étage 150 : cran simulé)
@@ -410,6 +416,36 @@ test('entraînement hors ligne dans la Tour : 1 seule panoplie visée, Chromatiq
   } finally {
     spy.mockRestore();
   }
+});
+
+test('ascension hors ligne : départ au dernier palier, record qui monte, un coffre par palier franchi (2026-10-07)', () => {
+  const s = towerGame();
+  s.towerBest = 23;
+  expect(s.towerIdleClimb).toBe(true); // activée par défaut
+  expect(towerClimbStart(s)).toBe(20);
+  const g = computeIdleGains(s, 2 * H, seededRng(4))!;
+  expect(g.tower).toMatchObject({ floor: 20, climb: true, prevBest: 23 });
+  const best = g.tower!.best!;
+  expect(best).toBeGreaterThan(30); // équipe surpuissante : elle dépasse son record
+  // un coffre par palier de 10 au-delà de l'ancien record, jamais en dessous
+  const floors = g.tower!.rewards!.map((r) => r.floor);
+  const expected: number[] = [];
+  for (let f = 30; f <= best; f += 10) expected.push(f);
+  expect(floors).toEqual(expected);
+  for (const r of g.tower!.rewards!) {
+    expect(r.level).toBe(100 + r.floor);
+    expect(r.plus - towerRewardPlus(r.floor)).toBeGreaterThanOrEqual(0);
+    expect(r.plus - towerRewardPlus(r.floor)).toBeLessThanOrEqual(1);
+  }
+  // encaissement : record et coffres à choisir
+  applyIdleGains(s, g);
+  expect(s.towerBest).toBe(best);
+  expect(s.towerRewards.map((r) => r.floor)).toEqual(expected);
+  // déterministe, et `computeIdleGains` ne touche pas `s`
+  const s2 = towerGame();
+  s2.towerBest = 23;
+  expect(computeIdleGains(s2, 2 * H, seededRng(4))!.tower).toEqual(g.tower);
+  expect(s2.towerBest).toBe(23);
 });
 
 test('hors ligne : sauvages adoucis pour une équipe de 1-2 Pokémon, comme au premier plan (SOLO_MALUS, 2026-10-02)', () => {

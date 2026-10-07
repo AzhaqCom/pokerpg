@@ -22,6 +22,7 @@ import { BattleView } from './src/ui/battle/BattleView';
 import { HudTop } from './src/ui/battle/Hud';
 import { runner } from './src/ui/battle/runner';
 import { MonSheet } from './src/ui/MonSheet';
+import { SleepScreen } from './src/ui/SleepScreen';
 import { StarterScreen } from './src/ui/StarterScreen';
 import { Toasts } from './src/ui/components/Toasts';
 import { Dialog } from './src/ui/components/Dialog';
@@ -111,8 +112,12 @@ function Main() {
   const keepAwake = useSettings((st) => st.keepAwake);
   const tab = useUi((u) => u.tab);
   const setTab = useUi((u) => u.setTab);
+  const sleep = useUi((u) => u.sleep);
   const s = useGame((g) => g.s)!;
   useGame((g) => g.rev);
+  // mode veille : tout l'écran de jeu est démonté (rien n'est dessiné, pas de pastilles d'onglets à recalculer à chaque
+  // vague), `SleepScreen` fait avancer le combat
+  if (sleep) return <SleepScreen />;
   const badge: Partial<Record<Tab, number>> = {
     team: s.team.filter((u) => canEvolve(s.mons[u])).length,
     bag: fusionBadgeCount(s),

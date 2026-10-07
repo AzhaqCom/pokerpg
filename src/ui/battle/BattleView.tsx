@@ -41,7 +41,8 @@ const SKIES: Record<string, [string, string, string]> = {
  * partagent le même X) se retrouvent avec des barres superposées au même plancher. */
 const HUD_MIN_TOP_BY_SLOT = [48, 22, 74];
 
-/** Boucle d'affichage : fait avancer le combat et redessine ~30 fois par seconde. */
+/** Boucle d'affichage : fait avancer le combat et redessine ~30 fois par seconde (en mode veille, l'écran de combat est
+ *  démonté et c'est `SleepScreen` qui fait avancer le combat). */
 function useRunnerFrame() {
   const [, setTick] = useState(0);
   const last = useRef(0);

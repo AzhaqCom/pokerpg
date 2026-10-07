@@ -11,7 +11,10 @@ interface UiStore {
   /** liste affichée d'où la fiche a été ouverte (même tri/filtres) : flèches ← → de la fiche */
   monList: string[];
   toasts: Toast[];
+  /** mode veille (économie de batterie, `SleepScreen`) : écran noir, combat qui continue sans être dessiné */
+  sleep: boolean;
   setTab: (t: Tab) => void;
+  setSleep: (on: boolean) => void;
   openMon: (uid: string | null, list?: string[]) => void;
   dismiss: (id: number) => void;
 }
@@ -23,7 +26,9 @@ export const useUi = create<UiStore>((set) => ({
   monSheet: null,
   monList: [],
   toasts: [],
+  sleep: false,
   setTab: (tab) => set({ tab }),
+  setSleep: (sleep) => set({ sleep, toasts: [] }),
   openMon: (monSheet, list) => set({ monSheet, monList: list ?? [] }),
   dismiss: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 }));
@@ -34,6 +39,7 @@ const TOAST_MAX = 2;
 
 /** Petit message temporaire en haut de l'écran. */
 export function toast(text: string, color?: string, colored?: string) {
+  if (useUi.getState().sleep) return; // mode veille : rien à afficher, rien à redessiner
   const id = nextId++;
   useUi.setState((s) => ({ toasts: [...s.toasts.slice(-(TOAST_MAX - 1)), { id, text, color, colored }] }));
   setTimeout(() => useUi.getState().dismiss(id), TOAST_MS);

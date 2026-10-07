@@ -46,7 +46,7 @@ export function ExplorationPanel() {
   return (
     <View style={{ gap: 10 }}>
       <Text style={styles.hint}>
-        Les Pokémon explorent ici ! (8 h max) et
+        Les Pokémon explorent ici ! (12 h max) et
         rapportent {SHARDS_PER_MIN} éclats/min ({SHARDS_PER_MIN * 60}/h).
       </Text>
       <Button label={ready ? `Récolter (+${ready} éclats)` : 'Rien à récolter pour l’instant'} color={ready ? '#2e7d32' : C.panel2} disabled={!ready} onPress={() => {
