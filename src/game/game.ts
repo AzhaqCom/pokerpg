@@ -1447,20 +1447,78 @@ export function rerollItemSub(s: GameState, uid: string, index: number, rng: Rng
  * biome (voir `genesMinForBadges`, même principe en plafond plutôt qu'en plancher). */
 export const CHROMATIC_BADGE_REQ = 6;
 
-export function fuseItems(s: GameState, uids: string[], rng: Rng): Item | null {
+/** `heldMap` (facultatif, `heldBy`) : table des porteurs déjà calculée, tenue à jour ici (fusion de tout le Sac). */
+export function fuseItems(s: GameState, uids: string[], rng: Rng, heldMap?: Map<string, Mon>): Item | null {
   const items = uids.map((u) => s.items[u]);
   if (items.some((i) => !i) || !canFuse(items, endgameUnlocked(s)) || !fusableRarity(s, items[0])) return null;
-  const wearer = uids.map((u) => holder(s, u)).find(Boolean);
+  const holderOf = (u: string) => (heldMap ? heldMap.get(u) : holder(s, u));
+  const wearer = uids.map(holderOf).find(Boolean);
   for (const u of uids) {
-    const h = holder(s, u);
+    const h = holderOf(u);
     if (h) delete h.items[slotOf(s.items[u])];
+    heldMap?.delete(u);
     delete s.items[u];
   }
   const out = fuse(items, rng, endgameUnlocked(s));
   s.items[out.uid] = out;
-  if (wearer) wearer.items[slotOf(out)] = out.uid;
+  if (wearer) { wearer.items[slotOf(out)] = out.uid; heldMap?.set(out.uid, wearer); }
   s.totals.fusions++;
   return out;
+}
+
+/**
+ * Les 3 objets d'un groupe de même clé à fusionner : les plus hauts niveaux d'abord, puis les meilleures sous-stats
+ * (valeur mesurée) — la fusion en garde le meilleur ; les objets libres avant les portés, jamais deux porteurs.
+ * `preferWorn` (bouton « Fusionner » du Sac, 2026-10-08, demande d'Arno) : l'objet porté d'abord (le plus haut niveau
+ * s'il y en a plusieurs, chacun sur un Pokémon différent : un objet n'a qu'un emplacement) avec les 2 meilleurs libres,
+ * pour que le butin améliore l'équipement des Pokémon au lieu de faire un double dans le Sac. Sans (bot, nombre affiché
+ * sur le bouton), l'ancien ordre : équilibrage inchangé.
+ */
+function pickFusion(items: Item[], heldMap: Map<string, Mon>, preferWorn = false): Item[] | null {
+  if (items.length < 3) return null;
+  const quality = new Map(items.map((it) => [it.uid, it.subs.reduce((a, x) => a + subScore(x.stat, x.value, it.level), 0)]));
+  const order = (a: Item, b: Item) => b.level - a.level || quality.get(b.uid)! - quality.get(a.uid)!;
+  const free = items.filter((it) => !heldMap.has(it.uid)).sort(order);
+  const worn = items.filter((it) => heldMap.has(it.uid)).sort(order);
+  if (preferWorn && worn.length && free.length >= 2) return [worn[0], free[0], free[1]];
+  const pick = free.length >= 3 ? free.slice(0, 3) : [...free, ...worn.slice(0, 3 - free.length)];
+  const wearers = new Set(pick.map((it) => heldMap.get(it.uid)?.uid).filter(Boolean));
+  return pick.length >= 3 && wearers.size <= 1 ? pick.slice(0, 3) : null;
+}
+
+/**
+ * Bouton « Fusionner » du Sac : toutes les fusions possibles, en cascade (un objet obtenu peut refusionner), en un seul
+ * passage. Avant le 2026-10-08, la liste des fusions (`fusionCandidates`) était recalculée après chaque fusion et
+ * `holder` reparcourait tous les Pokémon pour chaque objet : plusieurs secondes sur téléphone au retour d'une nuit
+ * (~700 fusions). Les groupes sont traités des plus petites raretés/crans aux plus grands, pour que les objets obtenus
+ * rejoignent leur groupe avant qu'il fusionne ; un objet porté y passe en premier (`pickFusion`, `preferWorn`). Renvoie les objets obtenus, dans l'ordre.
+ */
+export function fuseAll(s: GameState, rng: Rng): Item[] {
+  const heldMap = heldBy(s);
+  const groups = new Map<string, Item[]>();
+  const add = (it: Item) => {
+    if (it.locked || !fusableRarity(s, it)) return;
+    const k = fuseKey(it);
+    const g = groups.get(k);
+    if (g) g.push(it); else groups.set(k, [it]);
+  };
+  for (const it of Object.values(s.items)) add(it);
+  const rank = (g: Item[]) => g[0].rarity * 1000 + (g[0].plus ?? 0);
+  const out: Item[] = [];
+  for (;;) {
+    let best: Item[] | undefined;
+    for (const g of groups.values()) if (g.length >= 3 && (!best || rank(g) < rank(best))) best = g;
+    if (!best) return out;
+    const key = fuseKey(best[0]);
+    const pick = pickFusion(best, heldMap, true);
+    const made = pick && fuseItems(s, pick.map((i) => i.uid), rng, heldMap);
+    if (!made) { groups.delete(key); continue; } // plus rien de fusionnable dans ce groupe (porteurs différents)
+    const used = new Set(pick!.map((i) => i.uid));
+    const rest = best.filter((i) => !used.has(i.uid));
+    if (rest.length) groups.set(key, rest); else groups.delete(key);
+    out.push(made);
+    add(made);
+  }
 }
 
 /**
@@ -1493,19 +1551,13 @@ export function fusionCandidates(s: GameState): Item[][] {
   for (const it of Object.values(s.items)) {
     if (it.locked || !fusableRarity(s, it)) continue;
     const k = fuseKey(it);
-    groups.set(k, [...(groups.get(k) ?? []), it]);
+    const g = groups.get(k);
+    if (g) g.push(it); else groups.set(k, [it]);
   }
   const out: Item[][] = [];
   for (const items of groups.values()) {
-    if (items.length < 3) continue;
-    // les plus hauts niveaux d'abord, puis les meilleures sous-stats (valeur mesurée) : la fusion en garde le meilleur
-    const quality = (it: Item) => it.subs.reduce((a, x) => a + subScore(x.stat, x.value, it.level), 0);
-    const order = (a: Item, b: Item) => b.level - a.level || quality(b) - quality(a);
-    const free = items.filter((it) => !heldMap.has(it.uid)).sort(order);
-    const worn = items.filter((it) => heldMap.has(it.uid)).sort(order);
-    const pick = free.length >= 3 ? free.slice(0, 3) : [...free, ...worn.slice(0, 3 - free.length)];
-    const wearers = new Set(pick.map((it) => heldMap.get(it.uid)?.uid).filter(Boolean));
-    if (pick.length >= 3 && wearers.size <= 1) out.push(pick.slice(0, 3));
+    const pick = pickFusion(items, heldMap);
+    if (pick) out.push(pick);
   }
   return out;
 }

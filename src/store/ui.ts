@@ -13,6 +13,9 @@ interface UiStore {
   toasts: Toast[];
   /** mode veille (économie de batterie, `SleepScreen`) : écran noir, combat qui continue sans être dessiné */
   sleep: boolean;
+  /** hauteur de la barre du haut (`HudTop`, ligne des bonus comprise) : les messages s'affichent dessous pour ne jamais
+   *  la masquer (0 hors de l'écran de jeu) */
+  hudHeight: number;
   setTab: (t: Tab) => void;
   setSleep: (on: boolean) => void;
   openMon: (uid: string | null, list?: string[]) => void;
@@ -27,6 +30,7 @@ export const useUi = create<UiStore>((set) => ({
   monList: [],
   toasts: [],
   sleep: false,
+  hudHeight: 0,
   setTab: (tab) => set({ tab }),
   setSleep: (sleep) => set({ sleep, toasts: [] }),
   openMon: (monSheet, list) => set({ monSheet, monList: list ?? [] }),

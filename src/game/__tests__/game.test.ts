@@ -3,7 +3,7 @@ import { ALL_SPECIES, EVOLUTION_CHOICES, evolutionTargets, species } from '../da
 import * as dataModule from '../data';
 import {
   GameState, PENSION_XP_FALLBACK_PER_HOUR, StageRun, applyMegaCandy, craftMegaCandy, lineBase, arenaAvailable, assignExploration, assignPension, autoCaptureBall, autoEquipBest, towerRetryFloor, bestEquipCombo, maxBattleSpeed, monPower, equipGain, quickEquipValue, allyFighter, setMoves, bestStarsOf, biomeAvailable, bossAvailable,
-  lineChain, equipValue, towerLootTemplates, towerSpecies, towerStart, enterTower, towerRewardPlus, claimTowerReward, TOWER_LEVEL, setRecycleCandidates, endgameUnlocked, fusableRarity, itemLevelCap, upgradeItem, hasShinyCharm, shinyCharmToAnnounce, shinyOdds, BOOSTS, BOOST_MS, UNIVERSAL_MEGA_PRICE, boostActive, boostCoverage, buyBoost, buyUniversalMega, endingReady, autoTalents, canCompleteDex, whereToFind, canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
+  lineChain, equipValue, towerLootTemplates, towerSpecies, towerStart, enterTower, towerRewardPlus, claimTowerReward, TOWER_LEVEL, setRecycleCandidates, endgameUnlocked, fusableRarity, itemLevelCap, upgradeItem, hasShinyCharm, shinyCharmToAnnounce, shinyOdds, BOOSTS, BOOST_MS, UNIVERSAL_MEGA_PRICE, boostActive, boostCoverage, buyBoost, buyUniversalMega, endingReady, autoTalents, canCompleteDex, whereToFind, canEvolve, canPrestige, captureChance, captureLevel, chooseStarter, completeDex, effectivePool, equip, evolve, excessMons, fuseAll, fuseItems, fusionBadgeCount, fusionCandidates, genesMinForBadges, giveXp,
   harvestExploration, harvestPension, holder, isRareInZone, makeMon, addMon, makeWaves, migrateSave, monsBelowStars, monsNotShiny, newGame, pickSpecies, rankUpTalent, recycle, release, releaseBelowStars, SHARDS_PER_MIN,
   releaseExcess, releaseNotShiny, remainingEvolutions, removePension, selectStage, setAutoAdvance, START_BALLS, startPrestige,
   CAPTURE_PITY, RELEASE_CANDIES, applyMegaCandy as applyMega, lineForms, BALL_PRICE, buyBalls, autoMoves, captureTarget, setTeam, toggleLock, challengesReady, postponePrestige, idleFarmTarget, isTargeted, toggleTarget, zoneHasTarget, teamMaxLevel, tryCapture, unequipBox, xpGapMult,
@@ -2133,4 +2133,61 @@ test('sauvegarde d’avant le correctif des arrondis : une sous-stat sortie de s
   expect(out.items[it.uid].subs[0].value).toBeCloseTo(typeMax, 2); // au-dessus du maximum (arrondis accumulés) → le maximum
   expect(out.items[it.uid].subs[1].value).toBe(inside); // dans sa fourchette : intacte
   expect(out.balanceVersion).toBe(5);
+});
+
+test('fuseAll : toutes les fusions en cascade d\'un coup, autant que la boucle d\'avant, les portés restent portés', () => {
+  const build = () => {
+    const s = endgameState();
+    const rng = seededRng(31);
+    // 30 Chromatiques +0 d'un même objet (→ 10 +1 → 3 +2 → 1 +3), 7 d'un autre, dont un porté
+    for (let i = 0; i < 30; i++) { const it = makeItem('griffe-sylve', 6, 100 + i, rng); s.items[it.uid] = it; }
+    for (let i = 0; i < 7; i++) { const it = makeItem('cape-sylve', 6, 100, rng); it.uid = `cape${i}`; s.items[it.uid] = it; }
+    const mon = makeMon(1, 50, seededRng(4));
+    addMon(s, mon);
+    mon.items = {};
+    equip(s, mon.uid, 'cape0');
+    return { s, mon };
+  };
+  const old = build();
+  const rngA = seededRng(5);
+  let n = 0;
+  for (let c = fusionCandidates(old.s); c.length; c = fusionCandidates(old.s)) if (fuseItems(old.s, c[0].map((i) => i.uid), rngA)) n++;
+
+  const { s, mon } = build();
+  const made = fuseAll(s, seededRng(5));
+  expect(made).toHaveLength(n);
+  expect(made).toHaveLength(14 + 2); // 10 + 3 + 1 griffes, 2 capes
+  expect(fusionCandidates(s)).toHaveLength(0);
+  expect(Math.max(...made.map((i) => i.plus ?? 0))).toBe(3);
+  expect(Object.keys(s.items)).toHaveLength(Object.keys(old.s.items).length);
+  // la cape portée a fusionné en dernier recours (libres d'abord) ou est restée : le Pokémon porte toujours une cape
+  expect(s.items[mon.items.defense!]?.templateId).toBe('cape-sylve');
+});
+
+test('fuseAll : l\'objet porté passe en premier (le butin améliore l\'équipement), pas fusionCandidates (bot)', () => {
+  const build = () => {
+    const s = endgameState();
+    const rng = seededRng(41);
+    const cape = (uid: string, level: number) => { const it = makeItem('cape-sylve', 6, level, rng); it.uid = uid; it.plus = 16; s.items[uid] = it; return it; };
+    cape('portee', 1700);
+    for (let i = 0; i < 3; i++) cape(`libre${i}`, 450 + i);
+    const mon = makeMon(1, 50, seededRng(4));
+    addMon(s, mon);
+    mon.items = {};
+    equip(s, mon.uid, 'portee');
+    return { s, mon };
+  };
+  // ancien ordre (bot) : les 3 libres, l'objet porté reste en +16
+  const old = build();
+  expect(fusionCandidates(old.s)[0].map((i) => i.uid).sort()).toEqual(['libre0', 'libre1', 'libre2']);
+
+  const { s, mon } = build();
+  const made = fuseAll(s, seededRng(5));
+  expect(made).toHaveLength(1);
+  const worn = s.items[mon.items.defense!];
+  expect(worn.uid).toBe(made[0].uid);
+  expect(worn.plus).toBe(17);
+  expect(worn.level).toBe(1700);
+  expect(s.items.libre0).toBeDefined(); // le moins bon des libres (plus bas niveau) reste dans le Sac
+  expect(s.items.portee).toBeUndefined();
 });

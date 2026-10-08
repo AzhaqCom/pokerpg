@@ -19,6 +19,9 @@ const TICK_MS = 250;
 /** La ligne d'information change de place chaque minute : rien ne reste affiché au même endroit (marquage des écrans). */
 const MOVE_MS = 60_000;
 const KNOB = 52;
+/** Luminosité de l'appli en veille : 0 éteint presque l'écran sur beaucoup d'Android (curseur introuvable, retour
+ *  d'Arno du 2026-10-08) ; 3 % ne coûte presque rien de plus. Le fond reste noir pur (pixels éteints en OLED). */
+const SLEEP_BRIGHTNESS = 0.03;
 
 /** « Tour · étage 364 · record 366 », ou la zone et l'étape en cours. */
 function statusLine(): string {
@@ -67,7 +70,7 @@ export function SleepScreen() {
   useEffect(() => {
     setSfxEnabled(false);
     setMusicEnabled(false);
-    Brightness.setBrightnessAsync(0).catch(() => {});
+    Brightness.setBrightnessAsync(SLEEP_BRIGHTNESS).catch(() => {});
     return () => {
       const st = useSettings.getState();
       setSfxEnabled(st.sound);
@@ -116,14 +119,15 @@ function WakeSlider({ onWake }: { onWake: () => void }) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#000' },
-  // gris très sombre : lisible de près, presque rien à éclairer
-  line: { position: 'absolute', color: '#3a3a3a', fontSize: 13, maxWidth: '70%' },
+  // contrastes pensés pour un écran à luminosité minimale (les gris sombres d'avant y devenaient noirs) ; peu de
+  // surface claire : seuls le texte, le contour et le bouton du curseur s'éclairent
+  line: { position: 'absolute', color: '#9a9a9a', fontSize: 13, maxWidth: '70%' },
   bottom: { position: 'absolute', left: 24, right: 24, bottom: 0 },
-  track: { height: KNOB, borderRadius: KNOB / 2, backgroundColor: '#0d0d0d', borderWidth: 1, borderColor: '#262626', justifyContent: 'center' },
-  trackTxt: { color: '#3a3a3a', fontSize: 14, textAlign: 'center' },
+  track: { height: KNOB, borderRadius: KNOB / 2, backgroundColor: '#000', borderWidth: 2, borderColor: '#8a8a8a', justifyContent: 'center' },
+  trackTxt: { color: '#c8c8c8', fontSize: 15, fontWeight: '700', textAlign: 'center' },
   knob: {
-    position: 'absolute', left: 0, width: KNOB, height: KNOB, borderRadius: KNOB / 2, backgroundColor: '#1f1f1f',
-    borderWidth: 1, borderColor: '#333', alignItems: 'center', justifyContent: 'center',
+    position: 'absolute', left: -2, top: -2, width: KNOB, height: KNOB, borderRadius: KNOB / 2, backgroundColor: '#e0e0e0',
+    alignItems: 'center', justifyContent: 'center',
   },
-  knobTxt: { color: '#555', fontSize: 26, lineHeight: 30 },
+  knobTxt: { color: '#000', fontSize: 28, fontWeight: '700', lineHeight: 32 },
 });

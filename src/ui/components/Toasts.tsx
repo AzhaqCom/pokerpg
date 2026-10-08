@@ -4,12 +4,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUi } from '../../store/ui';
 import { C } from '../theme';
 
+/** Messages : juste sous la barre du haut (en haut de la zone de combat), jamais par-dessus ses boutons (🔋, ⚙). */
 export function Toasts() {
   const toasts = useUi((s) => s.toasts);
+  const hud = useUi((s) => s.hudHeight);
   const insets = useSafeAreaInsets();
   if (!toasts.length) return null;
   return (
-    <View pointerEvents="none" style={[styles.wrap, { top: insets.top + 8 }]}>
+    <View pointerEvents="none" style={[styles.wrap, { top: insets.top + hud + 6 }]}>
       {toasts.map((t) => (
         <View key={t.id} style={styles.toast}>
           <Text style={styles.text}>

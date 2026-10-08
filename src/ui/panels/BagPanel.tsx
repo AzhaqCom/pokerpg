@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FlatList, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from '../components/Text';
-import { BALLS, BallKind, plusRecycleCandidates, setRecycleCandidates, fuseItems, fusionCandidates, heldBy, recycle } from '../../game/game';
+import { BALLS, BallKind, plusRecycleCandidates, setRecycleCandidates, fuseAll, fusionCandidates, heldBy, recycle } from '../../game/game';
 import { SETS, recycleValue, slotOf, template, itemScore } from '../../game/items';
 import { Item, ItemSlot, MAX_RARITY, RARITIES } from '../../game/model';
 import { ModalBackdrop } from '../components/ModalBackdrop';
@@ -83,9 +83,23 @@ export function BagPanel() {
             </View>
             <View style={styles.row}>
               <Button small label={`Fusionner (${fusions.length})`} color={fusions.length ? '#8e24aa' : C.panel2} disabled={!fusions.length} onPress={() => {
-                let n = 0;
-                act((g) => { for (let c = fusionCandidates(g); c.length; c = fusionCandidates(g)) { const out = fuseItems(g, c[0].map((i) => i.uid), rng); if (out) { n++; toast(`Fusion : ${itemDisplayName(out)}`, itemColor(out), itemDisplayName(out)); } } });
-                if (n) { feedback('medal', true); runner.restart(); }
+                const res = act((g) => {
+                  const made = fuseAll(g, rng);
+                  // objets portés améliorés : ceux obtenus qui existent encore (pas refusionnés) et sont portés
+                  const held = heldBy(g);
+                  return { made, worn: made.filter((it) => g.items[it.uid] && held.has(it.uid)) };
+                });
+                if (!res?.made.length) return;
+                const { made, worn } = res;
+                // un seul message (des centaines de fusions au retour d'une nuit) : le nombre et le meilleur objet obtenu,
+                // porté de préférence
+                const pool = worn.length ? worn : made;
+                const best = pool.reduce((a, b) => (b.rarity - a.rarity || (b.plus ?? 0) - (a.plus ?? 0) || b.level - a.level) > 0 ? b : a);
+                const name = itemDisplayName(best);
+                const head = made.length === 1 ? 'Fusion' : `${made.length} fusions`;
+                toast(worn.length ? `${head} · ${worn.length > 1 ? `${worn.length} objets portés améliorés` : 'objet porté amélioré'} : ${name}`
+                  : made.length === 1 ? `Fusion : ${name}` : `${head} · meilleur : ${name}`, itemColor(best), name);
+                feedback('medal', true); runner.restart();
               }} />
               <Button small label={`Recycler : ${RARITIES[recycleMaxRarity]} (${junk.length})`} disabled={!junk.length} onPress={() => {
                 const gain = act((g) => recycle(g, junk.map((i) => i.uid)));

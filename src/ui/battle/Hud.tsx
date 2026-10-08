@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { Text } from '../components/Text';
 import { BIOMES, STAGES_PER_ZONE, regionLastBiome, regionOf } from '../../game/content';
@@ -44,8 +44,10 @@ export function HudTop() {
   const boosts = BOOST_KINDS.filter((k) => boostRemaining(s, k) > 0);
   const maxSpeed = maxBattleSpeed(s);
   const speed = Math.min(settings.speed, maxSpeed);
+  // hauteur transmise aux messages (`Toasts`), qui s'affichent dessous
+  useEffect(() => () => useUi.setState({ hudHeight: 0 }), []);
   return (
-    <View>
+    <View onLayout={(e) => useUi.setState({ hudHeight: Math.round(e.nativeEvent.layout.height) })}>
       <View style={styles.top}>
         <View style={{ flex: 1 }}>
           <Text style={styles.zone} numberOfLines={1}>{label}</Text>

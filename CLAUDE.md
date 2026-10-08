@@ -85,7 +85,7 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   **Couleur d'un objet** (règle unique, vérifiée le 2026-10-07) : nom en texte uni = `itemColor` (rareté, ou palier du
   cran +N ; `plusColor` pour un coffre pas encore choisi), partout (cartes, fiche, fiche Pokémon, messages de butin, de
   fusion et du coffre, résumé du retour) ; le mot « Chromatique +N » en dégradé (`ChromaText`) dans la fiche d'un
-  objet, l'onglet de la Tour et le résumé du retour. Un message (`toast`) ne colore que le passage passé en 3e argument.
+  objet, l'onglet de la Tour et le résumé du retour. Un message (`toast`) ne colore que le passage passé en 3e argument. Messages affichés juste sous la barre du haut (`hudHeight` mesuré par `HudTop`), jamais par-dessus 🔋 et ⚙ (2026-10-08).
   Cartes d'objets (`ItemCard`, 2026-10-01) : compactes par défaut (nom sur 2 lignes, « Nv. » sans la panoplie, rareté portée
   par la couleur (`itemColor` : rareté, ou palier du cran +N), sous-stats en pastilles abrégées `STAT_SHORT`, colorées par `subTier` (vert : PV, Type, Vitesse, Attaque ; jaune : Défense ; d'après `SUB_WORTH` et `SUB_TIER`), porteur en
   pastille miniature sur le coin haut-droit, jamais une ligne de plus) ;
@@ -93,7 +93,7 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   niveau et à son cran) ; objet porté : « Panoplie 2/3 portées », bonus débloqués en vert (`setWorn`, `wornSets`).
   Fiche d'un objet (2026-10-02) : « Améliorer » touché = +1, maintenu = fenêtre +1 / +10 (`UpgradeModal`,
   `upgradeItemTimes` tout ou rien, `upgradeCostFor` ; « +N (max) » à moins de 10 niveaux du Nv.100) ; message de fusion =
-  le nom seul, à la couleur de l'objet obtenu (`itemColor`), la rareté n'est pas écrite (aussi « Fusionner » du Sac).
+  le nom seul, à la couleur de l'objet obtenu (`itemColor`), la rareté n'est pas écrite. « Fusionner » du Sac (`fuseAll`, 2026-10-08) : toutes les fusions en cascade en un seul passage (groupes construits une fois, table des porteurs tenue à jour, des petites raretés/crans aux grands ; ~1 s sur PC pour 700 fusions avant, 21 ms maintenant) ; un objet porté passe en premier avec les 2 meilleurs libres (`pickFusion`, `preferWorn`) : le butin améliore l’équipement au lieu de faire un double dans le Sac ; un seul message « N fusions · meilleur : X » ou « N fusions · 2 objets portés améliorés : X » à la couleur de X. Le bot garde l’ancienne boucle (équilibrage inchangé).
   Fiche Pokémon : sous les 3 objets, « 🎒 Panoplie 2/3 : bonus ✓ » en vert dès 2 pièces ; sélecteur d'objet : panoplie
   de chaque carte et, en vert, le bonus que l'équiper activerait avec les 2 autres objets (`setHintFor`).
   Sac : filtre par panoplie (puces défilantes) et « ♻ Recycler <panoplie> » avec confirmation (`setRecycleCandidates` :
@@ -403,10 +403,10 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
 - **Mode veille** (bouton 🔋 du HUD, `useUi.sleep`, `SleepScreen.tsx`, 2026-10-07, économie de batterie) : `App.tsx`
   démonte tout l'écran de jeu (combat Skia, onglets, pastilles) et affiche un écran noir ; une minuterie fait avancer le
   combat 4 fois par seconde (par tranches de 100 ms, `runner.update`), sans rien dessiner ; sons, musique et messages
-  coupés (`toast` ignoré) ; luminosité de l'appli au minimum (`expo-brightness`, module natif : nouvel APK, rétablie au
+  coupés (`toast` ignoré) ; luminosité de l'appli à 3 % (`SLEEP_BRIGHTNESS`, 0 rendait le curseur introuvable ; `expo-brightness`, module natif : nouvel APK, rétablie au
   réveil par `restoreSystemBrightnessAsync`) ; écran gardé allumé (`useKeepAwake`, sinon Android met l'appli en pause) ;
-  une ligne gris sombre (étage et record, ou zone et étape) déplacée chaque minute ; réveil en faisant glisser le
-  curseur jusqu'au bout (`WakeSlider`). Ce qui consomme en jeu : l'écran et le dessin (30 images/s React + Skia,
+  une ligne grise (étage et record, ou zone et étape) déplacée chaque minute ; réveil en faisant glisser le curseur (contrastes forts, lisible au minimum de luminosité)
+  jusqu'au bout (`WakeSlider`). Ce qui consomme en jeu : l'écran et le dessin (30 images/s React + Skia,
   halos), pas les calculs du combat (< 0,1 % du processeur).
 - **Prestige** : voir `REGIONS.md`. Récap de fin de région (`PrestigeOffer`) affiché **une fois** quand `canPrestige`
   (combat en pause) : « Nouveau départ » ou « Plus tard » (`postponePrestige` → `GameState.prestigeOffered`, remis à
