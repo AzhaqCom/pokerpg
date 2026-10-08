@@ -95,7 +95,7 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   pastille miniature sur le coin haut-droit, jamais une ligne de plus) ;
   `full` dans la fiche d'un objet (`ItemDetail`) : fourchette de chaque sous-stat (`subRange` : jet à 70 % – 100 % à son
   niveau et à son cran) ; objet porté : « Panoplie 2/3 portées », bonus débloqués en vert (`setWorn`, `wornSets`).
-  Fiche d'un objet (2026-10-02) : « Améliorer » touché = +1, maintenu = fenêtre +1 / +10 (`UpgradeModal`,
+  Fiche d'un objet (2026-10-02 ; 2026-10-08 : « 🔒 Verrouiller » et « ♻ Recycler +1,23M 💎 » côte à côte sur une ligne, `Button oneLine`, part remboursée en petite ligne dessous, « Fusionner ×3 → +17 » ou « → Épique », fenêtre à 94 %, 10 px en haut pour la pastille +N que la zone qui défile rognait) : « Améliorer » touché = +1, maintenu = fenêtre +1 / +10 (`UpgradeModal`,
   `upgradeItemTimes` tout ou rien, `upgradeCostFor` ; « +N (max) » à moins de 10 niveaux du Nv.100) ; message de fusion =
   le nom seul, à la couleur de l'objet obtenu (`itemColor`), la rareté n'est pas écrite. « Fusionner » du Sac (`fuseAll`, 2026-10-08) : toutes les fusions en cascade en un seul passage (groupes construits une fois, table des porteurs tenue à jour, des petites raretés/crans aux grands ; ~1 s sur PC pour 700 fusions avant, 21 ms maintenant) ; un objet porté passe en premier avec les 2 meilleurs libres (`pickFusion`, `preferWorn`) : le butin améliore l’équipement au lieu de faire un double dans le Sac ; un seul message « N fusions · meilleur : X » ou « N fusions · 2 objets portés améliorés : X » à la couleur de X. Le bot garde l’ancienne boucle (équilibrage inchangé).
   Fiche Pokémon : sous les 3 objets, « 🎒 Panoplie 2/3 : bonus ✓ » en vert dès 2 pièces ; sélecteur d'objet : panoplie
@@ -308,7 +308,9 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   sous le palier), Seconde chance (hors ligne, 1re défaite de chaque palier sans redescente, `IdleGains.tower.spared`),
   Entraînement (`towerPowerMult` = Élixir × (1 + 5 % × rang), `withTowerMult`, en combat et hors ligne). Stratège (étape 2, même jour) :
   Relève (`GameState.towerReserve`, `towerReserve` : valide seulement avec le nœud, hors équipe ; `release` la refuse ;
-  carte « 🔄 Relève » d'Ascension, `TowerReserve.tsx`, liste de la boîte triée par PC, vignette → fiche ; entre à 50 %
+  carte « 🔄 Relève » d'Ascension, `TowerReserve.tsx`, liste de la boîte triée par PC, vignette → fiche ; dans l'onglet
+  Équipe, 4e carte sous l'équipe en pointillés violets, `ReserveTeamCard`, ou carte vide qui mène à l'onglet Tour, et
+  « · 🔄 » sur sa case de la Boîte ; entre à 50 %
   de ses PV, `TOWER_RESERVE_HP`, message « 🔄 X entre en jeu ! », sprite préchargé), Relève aguerrie (100 % des PV, son
   aura compte en entier dès le début : `allyFighter(…, auraTeam)`, jamais en plus de sa demi-aura de pension), Rempart
   (`TOWER_RAMPART_FRONT` 55 : ~70 % des coups sur le Pokémon de devant au lieu de ~80 %, compté par le banc d'essai

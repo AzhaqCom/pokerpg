@@ -16,9 +16,11 @@ interface Props {
   onLongPress?: () => void;
   onPressOut?: () => void;
   delayLongPress?: number;
+  /** Libellé sur une seule ligne, police réduite au besoin (boutons côte à côte). */
+  oneLine?: boolean;
 }
 
-export function Button({ label, onPress, color = C.panel2, textColor = C.text, disabled, style, small, icon, onLongPress, onPressOut, delayLongPress }: Props) {
+export function Button({ label, onPress, color = C.panel2, textColor = C.text, disabled, style, small, icon, onLongPress, onPressOut, delayLongPress, oneLine }: Props) {
   return (
     <Pressable
       onPress={onPress}
@@ -30,9 +32,10 @@ export function Button({ label, onPress, color = C.panel2, textColor = C.text, d
         styles.btn, small && styles.small, { backgroundColor: color, opacity: disabled ? 0.4 : pressed ? 0.75 : 1 }, style,
       ]}
     >
-      <View style={styles.content}>
+      <View style={[styles.content, oneLine && styles.contentOneLine]}>
         {icon}
-        <Text style={[styles.text, small && styles.smallText, { color: textColor }]}>{label}</Text>
+        <Text style={[styles.text, small && styles.smallText, { color: textColor }, oneLine && styles.oneLine]}
+          numberOfLines={oneLine ? 1 : undefined} adjustsFontSizeToFit={oneLine}>{label}</Text>
       </View>
     </Pressable>
   );
@@ -65,8 +68,10 @@ const styles = StyleSheet.create({
   btn: { paddingHorizontal: 18, paddingVertical: 13, borderRadius: 12, alignItems: 'center' },
   small: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
   content: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  contentOneLine: { maxWidth: '100%' },
   text: { fontSize: 16, fontWeight: '700' },
   smallText: { fontSize: 14 },
+  oneLine: { flexShrink: 1 },
   action: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 14, backgroundColor: C.panel },
   actionActive: { backgroundColor: C.panel2 },
   icon: { fontSize: 24 },

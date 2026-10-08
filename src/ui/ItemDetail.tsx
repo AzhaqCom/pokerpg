@@ -5,7 +5,7 @@ import {
   GameState, endgameUnlocked, fusableRarity, fuseItems, heldBy, heldItems, holder, itemLevelCap, recycle, rerollItemSub, towerRank, transmuteCost,
   transmuteItem, transmuteTargets, upgradeItem, upgradeItemTimes,
 } from '../game/game';
-import { MAX_RARITY } from '../game/model';
+import { MAX_RARITY, RARITIES } from '../game/model';
 import {
   REROLL_ROLL_MIN, SETS, plusOf, rarityName, statText, recycleRefund, recycleValue, rerollCost, template, transmute, upgradeCost, upgradeCostFor, wornSets,
 } from '../game/items';
@@ -19,7 +19,7 @@ import { ItemCard, SLOT_ICON, itemMainText } from './components/ItemCard';
 import { ModalBackdrop } from './components/ModalBackdrop';
 import { QuantityModal } from './components/QuantityModal';
 import { feedback } from './components/feedback';
-import { fmtNum, itemColor, itemDisplayName } from './helpers';
+import { fmtNum, fmtShort, itemColor, itemDisplayName } from './helpers';
 import { C } from './theme';
 
 /** Niveaux d'un coup du grand bouton de la fenêtre « Améliorer ». */
@@ -50,13 +50,14 @@ export function ItemDetail({ item, onClose, onSelect }: { item: Item | null; onC
       && plusOf(o) === plusOf(item) && !o.locked && !held.has(o.uid)).slice(0, 2)
     : [];
   const levelCap = itemLevelCap(s);
-  // résultat de la fusion : rareté suivante, ou Chromatique +N+1 en fin de jeu
-  const fuseTarget = item.rarity < MAX_RARITY ? '' : ` (Chromatique +${plusOf(item) + 1})`;
+  // résultat de la fusion : rareté suivante, ou cran +N+1 en fin de jeu (le nom de l'objet est déjà en haut de la fenêtre)
+  const fuseTarget = item.rarity < MAX_RARITY ? RARITIES[item.rarity + 1] : `+${plusOf(item) + 1}`;
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <ModalBackdrop style={styles.backdrop} onClose={onClose}>
         <View style={styles.box}>
-          <ScrollView contentContainerStyle={{ gap: 10 }}>
+          {/* 10 px en haut : la pastille « +N » dépasse de la carte de 8 px, la zone qui défile la rognait (Android) */}
+          <ScrollView contentContainerStyle={{ gap: 10, paddingTop: 10 }}>
           <ItemCard item={item} wornBy={w} animated full setWorn={setWorn} />
           <Text style={styles.shards}>💎 {fmtNum(s.shards)} éclats</Text>
           <Button label={item.level >= levelCap ? `Niveau maximum (${levelCap}${endgameUnlocked(s) ? '' : ' : sans limite après le dernier Champion'})` : `Améliorer (${fmtNum(upgradeCost(item))} 💎)`}
@@ -79,7 +80,7 @@ export function ItemDetail({ item, onClose, onSelect }: { item: Item | null; onC
             </View>
           )}
           {fuseMates.length === 2 && (
-            <Button label={`Fusionner avec 2 identiques → ${t.name}${fuseTarget}`} color="#8e24aa" onPress={() => {
+            <Button label={`Fusionner ×3 → ${fuseTarget}`} color="#8e24aa" onPress={() => {
               const out = act((g) => fuseItems(g, [item.uid, ...fuseMates.map((m) => m.uid)], rng));
               if (out) {
                 feedback('medal', true); runner.restart();
@@ -93,11 +94,17 @@ export function ItemDetail({ item, onClose, onSelect }: { item: Item | null; onC
           {canTransmute && (
             <Button label={`⚗ Transmuter (${fmtNum(transmuteCost(s))} 💎)`} color="#5e35b1" onPress={() => { feedback(); setTransUid(item.uid); }} />
           )}
-          <Button label={item.locked ? 'Déverrouiller' : 'Verrouiller'}
-            onPress={() => act((g) => { g.items[item.uid].locked = !item.locked; })} />
-          <Button label={recycleRefund(item) > 0 ? `Recycler (+${recycleValue(item)} 💎, dont ${recycleRefund(item)} remboursés)` : `Recycler (+${recycleValue(item)} 💎)`}
-            disabled={!!w || item.locked} color="#c0392b"
-            onPress={() => { act((g) => recycle(g, [item.uid])); onClose(); }} />
+          {/* côte à côte, montant abrégé (`fmtShort`) : chacun tient sur une ligne (2026-10-08, sinon la fenêtre défilait) */}
+          <View style={styles.pair}>
+            <Button oneLine small label={item.locked ? '🔓 Déverrouiller' : '🔒 Verrouiller'} style={styles.half}
+              onPress={() => act((g) => { g.items[item.uid].locked = !item.locked; })} />
+            <Button oneLine small label={`♻ Recycler +${fmtShort(recycleValue(item))} 💎`} style={styles.half}
+              disabled={!!w || item.locked} color="#c0392b"
+              onPress={() => { act((g) => recycle(g, [item.uid])); onClose(); }} />
+          </View>
+          {recycleRefund(item) > 0 && (
+            <Text style={styles.hint}>Recyclage : dont {fmtShort(recycleRefund(item))} 💎 rendus de tes améliorations</Text>
+          )}
           <Button label="Fermer" color={C.panel2} onPress={onClose} />
           </ScrollView>
         </View>
@@ -191,8 +198,10 @@ function TransmuteModal({ item, onClose }: { item: Item; onClose: () => void }) 
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 28 },
-  box: { backgroundColor: C.panel, borderRadius: 20, padding: 16, gap: 10, maxHeight: '90%' },
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', paddingHorizontal: 20, paddingVertical: 12 },
+  box: { backgroundColor: C.panel, borderRadius: 20, padding: 16, gap: 10, maxHeight: '94%' },
+  pair: { flexDirection: 'row', gap: 8 },
+  half: { flex: 1, paddingVertical: 12, paddingHorizontal: 8 },
   shards: { color: C.sub, fontSize: 12, fontWeight: '700' },
   label: { color: C.text, fontSize: 13, fontWeight: '700' },
   subRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },

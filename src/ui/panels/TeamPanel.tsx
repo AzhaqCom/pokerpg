@@ -4,8 +4,8 @@ import { Text, TextInput } from '../components/Text';
 import { regionOf } from '../../game/content';
 import { PType, species } from '../../game/data';
 import {
-  GameState, autoTeamOrder, canCompleteDex, canEvolve, completeDex, excessMons, monsBelowStars, monsNotShiny, releaseBelowStars,
-  isTargeted, releaseExcess, releaseList, releaseNotShiny, setTeam, unequipBox,
+  GameState, TOWER_RESERVE_HP, autoTeamOrder, canCompleteDex, canEvolve, completeDex, endgameUnlocked, excessMons, monsBelowStars, monsNotShiny,
+  releaseBelowStars, isTargeted, releaseExcess, releaseList, releaseNotShiny, setTeam, towerRank, towerReserve, unequipBox,
 } from '../../game/game';
 import { CollectionGoal, boxExcess, boxProgress, completeBox, needsXp } from '../../game/collection';
 import { Mon } from '../../game/model';
@@ -22,6 +22,59 @@ import { TypeBadge } from '../components/TypeBadge';
 import { TYPE_COLOR, auraDisplay, cpColor, monName, monStats, textOn, typeLabel, xpProgress } from '../helpers';
 import { C } from '../theme';
 import { spentPoints, talentPoints } from '../../game/talents';
+
+/**
+ * Relève (arbre de la Tour, 2026-10-08) : la réserve sous les 3 Pokémon de l'équipe, distincte (pointillés violets,
+ * « 🔄 » sans flèches : elle ne fait pas partie de l'ordre). Affichage seulement ; toucher ouvre sa fiche. Nœud pris
+ * mais aucune réserve : carte vide qui mène à l'onglet Tour. Pas de barre d'XP (elle n'en gagne pas), aura affichée
+ * seulement avec Relève aguerrie (la seule fois où elle compte pour l'équipe).
+ */
+function ReserveTeamCard({ s }: { s: GameState }) {
+  const openMon = useUi((u) => u.openMon);
+  const setTab = useUi((u) => u.setTab);
+  if (!endgameUnlocked(s) || towerRank(s, 'releve') < 1) return null;
+  const uid = towerReserve(s);
+  if (!uid) {
+    return (
+      <Pressable onPress={() => { feedback(); setTab('tower'); }} style={[styles.card, styles.reserveCard]}>
+        <Text style={styles.reserveIcon}>🔄</Text>
+        <Text style={[styles.reserveLine, { flex: 1, fontSize: 12 }]}>Relève : aucune réserve · toucher pour en choisir une</Text>
+      </Pressable>
+    );
+  }
+  const m = s.mons[uid];
+  const st = monStats(s, uid);
+  const veteran = towerRank(s, 'releveAguerrie') > 0;
+  const pts = talentPoints(m.level) - spentPoints(m.talents);
+  const free = 3 - Object.keys(m.items).length;
+  return (
+    <Pressable onPress={() => openMon(uid, [uid])} style={[styles.card, styles.reserveCard]}>
+      <Text style={styles.reserveIcon}>🔄</Text>
+      <MonThumb speciesId={m.speciesId} shiny={m.shiny} size={52} />
+      <View style={{ flex: 1, gap: 3 }}>
+        <View style={styles.row}>
+          <Text style={styles.name}>{monName(m)}</Text>
+          <Text style={styles.lv}>Nv.{m.level}</Text>
+          <Stars mon={m} />
+          {species(m.speciesId).types.map((t) => <TypeBadge key={t} type={t} small />)}
+        </View>
+        <Text style={styles.reserveLine}>
+          Relève · Tour seulement · entre au 1er K.O. avec {veteran ? 100 : Math.round(TOWER_RESERVE_HP * 100)} % de ses PV
+        </Text>
+        <Text style={styles.stats}><Text style={{ color: cpColor(st.cp), fontWeight: '800' }}>PC {st.cp}</Text> · PV {st.hp} · Atq {st.atk} · Déf {st.def} · Vit {st.spe}</Text>
+        {veteran && (
+          <Text style={styles.aura}>Aura à l'équipe : {auraDisplay(m.speciesId, 1).map((a) => `${a.label} +${a.value} %`).join(' · ')}</Text>
+        )}
+        {(pts > 0 || free > 0) && (
+          <View style={styles.row}>
+            {pts > 0 && <Text style={[styles.flag, { backgroundColor: '#3d5afe' }]}>{pts} talent{pts > 1 ? 's' : ''}</Text>}
+            {free > 0 && <Text style={[styles.flag, { backgroundColor: '#455a64' }]}>{free} emplacement{free > 1 ? 's' : ''} libre</Text>}
+          </View>
+        )}
+      </View>
+    </Pressable>
+  );
+}
 
 const BOX_COLS = 4;
 const BOX_GAP = 8;
@@ -96,6 +149,7 @@ export function TeamPanel() {
   const activeType = typeFilter && boxTypes.includes(typeFilter) ? typeFilter : null;
   const pensionUids = new Set(s.pension.map((p) => p.uid));
   const explorationUids = new Set(s.exploration.map((p) => p.uid));
+  const reserveUid = towerReserve(s); // Relève (Tour) : marque « 🔄 » dans la boîte
   const { width } = useWindowDimensions();
   const cellWidth = (width - SCREEN_PADDING - BOX_GAP * (BOX_COLS - 1)) / BOX_COLS;
   const keepEvolutionMaterial = useSettings((st) => st.keepEvolutionMaterial);
@@ -148,7 +202,8 @@ export function TeamPanel() {
         removeClippedSubviews
         renderItem={({ item: m }: { item: Mon }) => (
           <BoxCell mon={m} speciesId={m.speciesId} level={m.level} stars={monStars(m)} locked={!!m.locked} targeted={isTargeted(s, m.speciesId)}
-            place={s.team.includes(m.uid) ? ' · ⚔' : pensionUids.has(m.uid) ? ' · 🏡' : explorationUids.has(m.uid) ? ' · 🧭' : ''} width={cellWidth} onOpen={openCell} />
+            place={s.team.includes(m.uid) ? ' · ⚔' : m.uid === reserveUid ? ' · 🔄' : pensionUids.has(m.uid) ? ' · 🏡' : explorationUids.has(m.uid) ? ' · 🧭' : ''}
+            width={cellWidth} onOpen={openCell} />
         )}
         ListHeaderComponent={
           <View style={{ gap: 10, marginBottom: 10 }}>
@@ -207,6 +262,7 @@ export function TeamPanel() {
                 </Pressable>
               );
             })}
+            <ReserveTeamCard s={s} />
             {hasActions && (
               <>
                 <View style={styles.row}>
@@ -374,6 +430,9 @@ const styles = StyleSheet.create({
   teamHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   hint: { color: C.dim, fontSize: 12, fontWeight: '500' },
   card: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.panel, borderRadius: 14, padding: 10 },
+  reserveCard: { borderWidth: 1.5, borderStyle: 'dashed', borderColor: '#b388ff' },
+  reserveIcon: { fontSize: 15, width: 22, textAlign: 'center' },
+  reserveLine: { color: '#b388ff', fontSize: 11, fontWeight: '700' },
   slot: { color: C.gold, fontWeight: '900', fontSize: 16, width: 12, textAlign: 'center' },
   reorder: { alignItems: 'center', gap: 2 },
   reorderArrow: { color: C.sub, fontSize: 13, fontWeight: '900', paddingHorizontal: 4, paddingVertical: 2 },
