@@ -9,7 +9,7 @@ import { BIOMES, REGION_START } from '../../game/content';
 import { move, species } from '../../game/data';
 import {
   BETWEEN_WAVES_MS, CaptureOffer, GameState, StageKind, StageRun, WaveRewards, arenaAvailable, autoCaptureBall, bestStarsOf, bossAvailable,
-  canPrestige, captureTarget, exitTower, isTargeted, maxBattleSpeed, SPEED_UNLOCKS, touchLastActive, tryCapture,
+  canPrestige, captureTarget, exitTower, isTargeted, maxBattleSpeed, SPEED_UNLOCKS, touchLastActive, towerReserve, tryCapture,
 } from '../../game/game';
 import { plusOf } from '../../game/items';
 import { fmtNum, fmtShort, itemColor, itemDisplayName, plusColor } from '../helpers';
@@ -96,7 +96,10 @@ class Runner {
     this.run = new StageRun(s, kind, rng);
     // les 3 vagues sont tirées d'avance : on décode tout de suite les sprites de tous leurs ennemis (et de l'équipe),
     // pour qu'un ennemi de la vague 2 ou 3 s'affiche dès son arrivée au lieu d'être décodé en plein combat
-    for (const mon of [...this.run.waves.flat().map((e) => e.mon), ...s.team.map((u) => s.mons[u])]) {
+    // Tour : la réserve (Relève) aussi, elle peut entrer en plein combat
+    const reserve = kind === 'tower' ? towerReserve(s) : null;
+    const allies = [...s.team, ...(reserve ? [reserve] : [])].map((u) => s.mons[u]);
+    for (const mon of [...this.run.waves.flat().map((e) => e.mon), ...allies]) {
       const sprite = getSprite(mon.speciesId, mon.shiny);
       if (sprite) preloadImage(sprite.asset);
     }
@@ -211,14 +214,15 @@ class Runner {
       // objets tous de la même couleur (Tour : même cran, 2 objets avec l'Aimant à butin) : tous les noms en couleur ;
       // sinon le meilleur seulement (un message ne colore qu'un passage)
       const sameColor = r.loot.every((it) => itemColor(it) === itemColor(best));
-      // Tour de Combat : les éclats de l'étage dans le même message que son objet
-      toast(`+ ${names}${r.shards ? ` · +${fmtNum(r.shards)} 💎` : ''}`, itemColor(best), sameColor ? names : bestName);
+      // Tour de Combat : les éclats de l'étage dans le même message que son objet ; Butin béni (arbre de la Tour) annoncé
+      toast(`${r.blessed ? '✨ Butin béni ! ' : ''}+ ${names}${r.shards ? ` · +${fmtNum(r.shards)} 💎` : ''}`, itemColor(best), sameColor ? names : bestName);
+      if (r.blessed) sfx('medal');
     }
     if (r.towerReward) {
       sfx('medal');
       // la couleur ne s'applique qu'au passage indiqué (3e argument) : sans lui, le message restait blanc
       const label = `Chromatique${r.towerReward.plus ? ` +${r.towerReward.plus}` : ''}`;
-      toast(`🎁 Étage ${r.towerReward.floor} : ${label} à choisir sur la Carte`, plusColor(r.towerReward.plus), label);
+      toast(`🎁 Étage ${r.towerReward.floor} : ${label} à choisir dans l’onglet Tour`, plusColor(r.towerReward.plus), label);
     }
     if (r.capture) {
       const capture = r.capture;
@@ -302,6 +306,13 @@ class Runner {
       case 'status': this.float(e.target, STATUS_LABEL[e.ailment], STATUS_COLOR[e.ailment]); break;
       case 'buff': this.float(e.target, e.up ? '▲' : '▼', e.up ? '#69f0ae' : '#ff8a80'); break;
       case 'faint': { const an = a(e.target); if (an) an.faintAt = this.clock; break; }
+      case 'enter': {
+        // Relève (Tour) : la réserve prend la place du Pokémon K.O.
+        this.anims[e.target] = { action: 'idle', since: this.clock, lungeUntil: 0, recoilUntil: 0, faintAt: null };
+        const mon = useGame.getState().s?.mons[e.target];
+        if (mon) { sfx('evolve'); toast(`🔄 ${species(mon.speciesId).name} entre en jeu !`, '#b388ff'); }
+        break;
+      }
       default: break;
     }
   }

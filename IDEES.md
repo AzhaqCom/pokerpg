@@ -44,7 +44,37 @@ Ce qui reste à faire ou à envisager (ce qui est fait est dans `CLAUDE.md` et l
   bouger). À traiter dans une session dédiée : ça touche l'équilibrage de tout l'équipement.
 
 ## Contenu
-- Sinnoh est la dernière région codée. Ajouter une région : voir `REGIONS.md`.
+- Sinnoh est la dernière région codée. Ajouter une région : voir `REGIONS.md`. **Pas de 5e région** (décidé le
+  2026-10-08) : il manque trop de sprites de la 5e génération dans PMD SpriteCollab, le jeu reste à 4 générations.
+
+## Arbre de la Tour (validé par Arno le 2026-10-08, à coder)
+Progression permanente de fin de jeu, au-delà des éclats. Règles de conception : plus de la moitié des nœuds changent
+des décisions (équipe, butin, absence), pas seulement des chiffres ; arbre **fini** (62 médailles), et la Tour reste
+exponentielle (×1,024 par étage : +25 % de puissance ≈ 10 étages), donc rien ne s'emballe.
+- **Médailles** : 1 par palier de 10 franchi pour la première fois (au même moment que le coffre), donc impossibles à
+  farmer ; rétroactives (record 370 → 37 d'entrée). Réinitialisation gratuite. Tour seulement : le bot ne la joue pas.
+- **Stratège** (17) : Relève 8 (4e Pokémon en réserve dans la Tour, entre au 1er K.O.) · Relève aguerrie 4 (entre PV
+  pleins, ses auras comptent) · Rempart 5 (le Pokémon de devant prend 55 % des coups au lieu de 70 %).
+- **Arsenal** (17) : Butin précis 4 (choix de l'emplacement des Chromatiques de la Tour) · Butin béni 5 (1 Chromatique
+  de la Tour sur 25 tombe avec 3 crans de plus) · Transmutation 8 (changer la panoplie d'un objet en gardant
+  emplacement, cran, niveau et sous-stats, contre des éclats).
+- **Ascension** (18) : Longue absence 3 + 5 (Tour hors ligne comptée 16 h puis 24 h ; le farm des zones reste à 12 h) ·
+  Départ lancé 4 (l'ascension part plus près du record) · Seconde chance 6 (hors ligne, la 1re défaite de chaque palier
+  ne fait pas redescendre).
+- **Puissance** (10) : Entraînement, 5 rangs à 2 (Attaque et PV +5 % dans la Tour par rang).
+- **Ordre de travail** : 1) médailles, onglet et nœuds sans combat (Arsenal, Ascension, Puissance) — **fait le
+  2026-10-08** (onglet 🗼 Tour, voir `CLAUDE.md`) ; 2) Relève et
+  Rempart (`battle.ts`, simulation longue) — **fait le 2026-10-08** ; 3) mesure des panoplies (voir Équilibrage), utile avec la Transmutation.
+
+## Idées écartées (2026-10-08, ne pas reproposer)
+- **Infusion** (consommer des Chromatiques d'une panoplie pour faire monter de cran un objet porté) : en visant une
+  seule panoplie, les objets portés montent déjà chaque jour par la fusion (objets portés en premier depuis le
+  2026-10-08).
+- **Règles par palier / gardiens dans la Tour** : Arno veut une Tour purement aléatoire, gravie avec son équipe telle
+  qu'elle est.
+- **Sous-stat de prédilection** (sous-stat garantie sur le butin de la Tour) et **Résonance** (2 pièces d'une panoplie
+  suffisent pour son bonus de 3 pièces) : refusées pour l'arbre, remplacées par Butin béni et Transmutation.
+- Un arbre qui ne donnerait que « +1 cran, +10 % d'éclats » : il ne ferait que rendre la même chose plus rapide.
 - Écarts connus, laissés tels quels : Togetic est Vol pur dans les données (Normal/Vol dans les jeux d'origine) ;
   la 1re zone de la Forêt de Jade (Kanto) n'a que 5 espèces normales ; Johto n'a pas de biome Feu (Salamèche et
   Héricendre sont à la Forêt Fourmillante et aux Prairies de Doré).

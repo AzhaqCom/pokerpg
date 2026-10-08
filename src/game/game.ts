@@ -2,13 +2,13 @@
  * État de la partie (sérialisable) et règles de progression :
  * équipe, étapes/vagues, butin, capture, évolutions, pension.
  */
-import { Battle, FighterInit } from './battle';
+import { Battle, BattleOptions, FRONT_PCT, FighterInit } from './battle';
 import { bestMoves, cadence, duelMult, kitContext, kitTypeShare } from './optimize';
 import {
   BADGE_BONUS, BIOMES, REGIONS, REGION_START, STAGES_PER_ZONE, WAVES_PER_STAGE, ZoneDef, regionLastBiome, regionOf,
 } from './content';
 import { ALL_SPECIES, EVOLUTION_CHOICES, PType, learnedMoves, evolutionTargets, move, movesAtLevel, preEvolution, species } from './data';
-import { biomeTier, clampSub, convertFlatSub, SUB_WORTH, subScore, MAX_ITEM_LEVEL, PLUS_SUB_STEP, SETS, addItemBonuses, berryScore, combatValue, setOfBiome, TEMPLATES, berryHeal, fuse, canFuse, itemScore, makeItem, newUid, recycleValue, rerollCost, rerollSub, rollLoot, rollRarity, slotOf, subRange, template, upgrade, upgradeCost, upgradeCostFor } from './items';
+import { biomeTier, clampSub, convertFlatSub, SUB_WORTH, subScore, MAX_ITEM_LEVEL, PLUS_SUB_STEP, SETS, addItemBonuses, berryScore, combatValue, setOfBiome, TEMPLATES, berryHeal, fuse, canFuse, itemScore, makeItem, newUid, recycleValue, rerollCost, rerollSub, transmute, rollLoot, rollRarity, slotOf, subRange, template, upgrade, upgradeCost, upgradeCostFor } from './items';
 import { BattleBonuses, BonusStat, Item, ItemSlot, ItemTemplate, MAX_RARITY, Mon, emptyBonuses } from './model';
 import { Rng, seededRng } from './rng';
 import { MAX_LEVEL, auraBonuses, combatPower, finalStats, levelFromXp, monBonuses, monStars, sumBonuses, xpForLevel } from './stats';
@@ -147,6 +147,12 @@ export interface GameState {
   /** Panoplies visées dans la Tour (`toggleTowerSet`, 1 à 3) : ses Chromatiques ne tombent plus que dans celles-là
    *  (`towerDropPool`) ; aucune = tirage sur les 20 panoplies du jeu. */
   towerSets: string[];
+  /** Arbre de la Tour (2026-10-08) : rang de chaque nœud acheté avec les médailles (`TOWER_NODES`, `buyTowerNode`). */
+  towerTree: Partial<Record<TowerNodeId, number>>;
+  /** Butin précis (arbre de la Tour) : emplacement où tombent les Chromatiques de la Tour, `null` = les 3. */
+  towerSlot: ItemSlot | null;
+  /** Relève (arbre de la Tour) : Pokémon de réserve (uid, hors équipe), `null` = aucun (`towerReserve`). */
+  towerReserve: string | null;
   /** Version d'équilibrage des objets déjà convertie (2 = poids mesurés du 2026-09-24, voir `migrateSave`). */
   balanceVersion: number;
 }
@@ -166,7 +172,8 @@ export function newGame(): GameState {
     prestige: 0,
     startedAt: Date.now(), prestigeOffered: false, adventureStart: Date.now(), endingSeen: false,
     shinyCharmSeen: false, boosts: noBoosts(), universalMega: 0,
-    towerBest: 0, towerFloor: null, towerRewards: [], towerIdle: true, towerIdlePick: null, towerIdleClimb: true, towerAuto: false, towerSets: [], balanceVersion: 5,
+    towerBest: 0, towerFloor: null, towerRewards: [], towerIdle: true, towerIdlePick: null, towerIdleClimb: true, towerAuto: false, towerSets: [],
+    towerTree: {}, towerSlot: null, towerReserve: null, balanceVersion: 5,
   };
 }
 
@@ -557,6 +564,7 @@ export function release(s: GameState, uid: string): boolean {
   if (s.team.length === 1 && s.team[0] === uid) return false;
   const mon = s.mons[uid];
   if (!mon || mon.locked) return false;
+  if (towerReserve(s) === uid) return false; // réserve de la Tour (Relève) : protégée comme un verrouillé
   for (const slot of Object.keys(mon.items) as ItemSlot[]) delete mon.items[slot];
   const base = lineBase(mon.speciesId);
   s.candies[base] = (s.candies[base] ?? 0) + RELEASE_CANDIES;
@@ -1086,12 +1094,12 @@ function benchWaves(level: number): Mon[][] {
  * Rien n'est rejoué (2026-10-02) : les adversaires de chaque vague sont préparés une fois, et la marge de chaque combat
  * d'un candidat est gardée (passer de 32 à 160 vagues ne joue que les 128 qui manquent).
  */
-function teamBench<T>(level: number, alliesOf: (c: T) => FighterInit[], keyOf: (c: T) => string, ref: T) {
+function teamBench<T>(level: number, alliesOf: (c: T) => FighterInit[], keyOf: (c: T) => string, ref: T, opts?: BattleOptions) {
   const waves = benchWaves(level);
   const foesAt = (i: number, mult: number) => waves[i].map((m, j) => wildFighter(`b${j}`, m, { wild: true, wildMult: mult }));
   // la vague i, toujours la même : tous les candidats affrontent les mêmes adversaires, avec les mêmes graines
   const fight = (allies: FighterInit[], foes: FighterInit[], i: number) => {
-    const b = new Battle([...allies.map((f) => ({ ...f })), ...foes], seededRng(BENCH_SEED + i));
+    const b = new Battle([...allies.map((f) => ({ ...f })), ...foes], seededRng(BENCH_SEED + i), opts);
     b.runToEnd();
     return b;
   };
@@ -1173,7 +1181,7 @@ function equipBench(s: GameState, uid: string, ref: Combo) {
     s.team = savedTeam;
     return allies;
   };
-  return teamBench(mon.level, alliesFor, comboKey, ref);
+  return teamBench(mon.level, alliesFor, comboKey, ref, benchOptions(s));
 }
 
 /** Combats par candidat au premier tri d'« ★ Auto » ; les finalistes sont départagés sur `BENCH_WAVES`. */
@@ -1321,7 +1329,7 @@ export function autoTeamOrder(s: GameState): string[] | null {
     return allies;
   };
   const level = Math.max(...team.map((u) => s.mons[u].level));
-  const bench = teamBench(level, alliesOf, (o) => o.join('|'), [...team].sort());
+  const bench = teamBench(level, alliesOf, (o) => o.join('|'), [...team].sort(), benchOptions(s));
   let best = team;
   let bestScore = bench.score(team, ORDER_WAVES);
   for (const order of permutations(team).slice(1)) {
@@ -1569,10 +1577,12 @@ export function badgeBonuses(s: GameState): BattleBonuses {
   return b;
 }
 
-export function allyFighter(s: GameState, uid: string, hp?: number): FighterInit {
+/** `auraTeam` : Pokémon dont l'aura compte en entier (l'équipe ; + la réserve avec Relève aguerrie, Tour). */
+export function allyFighter(s: GameState, uid: string, hp?: number, auraTeam: string[] = s.team): FighterInit {
   const mon = s.mons[uid];
-  const offTeam = [...s.pension, ...s.exploration].map((p) => s.mons[p.uid]?.speciesId).filter(Boolean) as number[];
-  const auras = auraBonuses(s.team.map((u) => s.mons[u].speciesId), offTeam);
+  const offTeam = [...s.pension, ...s.exploration].filter((p) => !auraTeam.includes(p.uid))
+    .map((p) => s.mons[p.uid]?.speciesId).filter(Boolean) as number[];
+  const auras = auraBonuses(auraTeam.map((u) => s.mons[u].speciesId), offTeam);
   const held = heldItems(s, mon);
   const bonuses = sumBonuses(monBonuses(mon, held, auras), badgeBonuses(s));
   const berryItem = held.find((i) => slotOf(i) === 'berry');
@@ -1714,9 +1724,11 @@ export interface WaveRewards {
   levelUps: { uid: string; level: number; newMoves: number[] }[];
   loot: Item[];
   capture: CaptureOffer | null;
-  /** Tour de Combat : éclats de l'étage, et Chromatique +N gagné (tous les 10 étages), à choisir sur la Carte. */
+  /** Tour de Combat : éclats de l'étage, et Chromatique +N gagné (tous les 10 étages), à choisir dans l'onglet Tour. */
   shards?: number;
   towerReward?: TowerReward;
+  /** Tour de Combat : objets du butin tombés bénis (Butin béni, +`TOWER_BLESSED_PLUS` crans). */
+  blessed?: number;
 }
 
 /**
@@ -1748,17 +1760,14 @@ export class StageRun {
   }
 
   private makeBattle(): Battle {
-    // Élixir de la Tour (Boutique) : Attaque et PV +25 % dans la Tour
-    const elixir = this.kind === 'tower' && boostActive(this.s, 'elixir');
-    const allies = this.s.team.map((u) => {
-      const f = allyFighter(this.s, u, this.hp[u]);
-      return elixir ? withTowerElixir(f) : f;
-    });
+    // Tour : Élixir, Entraînement, Relève et Rempart (`towerFighters`)
+    const tower = this.kind === 'tower' ? towerFighters(this.s, boostActive(this.s, 'elixir'), this.hp) : null;
+    const allies = tower ? tower.allies : this.s.team.map((u) => allyFighter(this.s, u, this.hp[u]));
     const enemies = this.waves[this.waveIndex].map((e, i) => {
       addUnique(this.s.dex.seen, e.mon.speciesId);
       return wildFighter(`w${this.waveIndex}-${i}`, e.mon, { boss: e.boss, hpMult: e.hpMult, wild: e.wild, wildMult: e.wildMult, teamSize: this.s.team.length });
     });
-    return new Battle([...allies, ...enemies], this.rng2);
+    return new Battle([...allies, ...enemies], this.rng2, tower?.opts);
   }
 
   get enemies(): WaveEnemy[] { return this.waves[this.waveIndex]; }
@@ -2166,9 +2175,11 @@ export function towerWaves(floor: number, rng: Rng): WaveEnemy[][] {
   return [wave];
 }
 
-/** Étage où l'on reprend en entrant : juste après le dernier palier de 10 franchi (record 47 → étage 41). */
+/** Étage où l'on reprend en entrant : juste après le dernier palier de 10 franchi (record 47 → étage 41) ; avec Départ
+ *  lancé (arbre de la Tour), `TOWER_LAUNCH_GAP` étages sous le record (record 47 → étage 45). */
 export function towerStart(s: GameState): number {
-  return Math.floor(s.towerBest / 10) * 10 + 1;
+  const base = Math.floor(s.towerBest / 10) * 10 + 1;
+  return towerRank(s, 'departLance') > 0 ? Math.max(base, s.towerBest - TOWER_LAUNCH_GAP) : base;
 }
 
 export function enterTower(s: GameState): boolean {
@@ -2237,7 +2248,8 @@ export function setTowerIdleClimb(s: GameState, on: boolean) {
 
 /** Étage de départ de l'ascension hors ligne : le dernier palier de 10 franchi (record 366 → étage 360). */
 export function towerClimbStart(s: GameState): number {
-  return Math.max(1, Math.floor(s.towerBest / 10) * 10);
+  const base = Math.max(1, Math.floor(s.towerBest / 10) * 10);
+  return towerRank(s, 'departLance') > 0 ? Math.max(base, s.towerBest - TOWER_LAUNCH_GAP) : base;
 }
 
 /** Coffre d'un palier de 10 franchi pour la première fois (en combat comme hors ligne) : Chromatique +`towerRewardPlus`,
@@ -2295,7 +2307,11 @@ function towerFocus(s: GameState): string[] {
  */
 export function towerDropPool(s: GameState): ItemTemplate[] {
   const focus = towerFocus(s);
-  return focus.length === 0 ? towerLootTemplates() : TEMPLATES.filter((t) => t.set && focus.includes(t.set));
+  const pool = focus.length === 0 ? towerLootTemplates() : TEMPLATES.filter((t) => t.set && focus.includes(t.set));
+  // Butin précis (arbre de la Tour) : un seul emplacement
+  const slot = towerRank(s, 'butinPrecis') > 0 ? s.towerSlot : null;
+  const only = slot ? pool.filter((t) => t.slot === slot) : pool;
+  return only.length ? only : pool;
 }
 
 /** Vise ou retire une panoplie dans la Tour ; refusé (`false`) si on en vise déjà `TOWER_FOCUS_SETS`. */
@@ -2353,7 +2369,10 @@ function towerFloorRewards(s: GameState, floor: number, rng: Rng): WaveRewards {
   const plus = towerDropPlus(floor) + (boostActive(s, 'cran') ? 1 : 0);
   const count = 1 + (boostActive(s, 'magnet') && rng.int(3) < 2 ? 1 : 0);
   for (let i = 0; i < count; i++) {
-    const it = makeTowerItem(pool[rng.int(pool.length)].id, TOWER_LEVEL + floor, plus, rng);
+    const templateId = pool[rng.int(pool.length)].id;
+    const blessed = towerBlessedPlus(s, rng); // Butin béni (arbre de la Tour)
+    const it = makeTowerItem(templateId, TOWER_LEVEL + floor, plus + blessed, rng);
+    if (blessed) out.blessed = (out.blessed ?? 0) + 1;
     s.items[it.uid] = it;
     out.loot.push(it);
   }
@@ -2374,6 +2393,215 @@ export function claimTowerReward(s: GameState, index: number, templateId: string
   s.items[it.uid] = it;
   s.towerRewards.splice(index, 1);
   return it;
+}
+
+// ---------------------------------------------------------------- arbre de la Tour
+/**
+ * Arbre de la Tour (2026-10-08, validé avec Arno, voir `IDEES.md`) : progression permanente de fin de jeu, achetée avec
+ * des médailles (1 par palier de 10 franchi pour la première fois, `towerMedals`). Fini (62 médailles) et la Tour reste
+ * exponentielle (×1,024 par étage) : rien ne s'emballe. Tour seulement (le bot ne la joue pas : équilibrage des régions
+ * inchangé). Les nœuds `soon` (Stratège : 4e Pokémon, Pokémon de devant) attendent l'étape 2 (`battle.ts`).
+ */
+export type TowerNodeId = 'releve' | 'releveAguerrie' | 'rempart' | 'butinPrecis' | 'butinBeni' | 'transmutation'
+  | 'longueAbsence' | 'departLance' | 'secondeChance' | 'entrainement';
+export type TowerBranch = 'strat' | 'arsenal' | 'ascension' | 'puissance';
+
+export interface TowerNode {
+  id: TowerNodeId;
+  branch: TowerBranch;
+  name: string;
+  icon: string;
+  /** coût en médailles de chaque rang (longueur = rang maximum) */
+  costs: number[];
+  /** effet de chaque rang (le dernier sert au-delà) */
+  desc: string[];
+  /** nœud à posséder d'abord (au moins un rang) */
+  requires?: TowerNodeId;
+  /** pas encore codé (étape 2) : affiché grisé, jamais achetable */
+  soon?: true;
+}
+
+export const TOWER_BRANCHES: { id: TowerBranch; name: string; icon: string; desc: string }[] = [
+  { id: 'strat', name: 'Stratège', icon: '🧠', desc: 'Ton équipe dans la Tour' },
+  { id: 'arsenal', name: 'Arsenal', icon: '⚒', desc: 'Le butin de la Tour' },
+  { id: 'ascension', name: 'Ascension', icon: '🧗', desc: 'La Tour hors ligne' },
+  { id: 'puissance', name: 'Puissance', icon: '💪', desc: 'La force de ton équipe dans la Tour' },
+];
+
+/** Butin béni : 1 Chromatique de la Tour sur `TOWER_BLESSED_ODDS` tombe `TOWER_BLESSED_PLUS` crans plus haut. */
+export const TOWER_BLESSED_ODDS = 25;
+export const TOWER_BLESSED_PLUS = 3;
+/** Transmutation : prix d'un objet = éclats de `TRANSMUTE_FLOORS` étages au record (record 370 : ~1,1 million). */
+export const TRANSMUTE_FLOORS = 30;
+/** Longue absence : durée hors ligne comptée dans la Tour à chaque rang (le farm des zones reste à `PENSION_CAP_MS`). */
+export const TOWER_IDLE_CAPS_MS = [12, 16, 24].map((h) => h * 3_600_000);
+/** Départ lancé : la Tour repart ce nombre d'étages sous le record (jamais sous le palier de 10). */
+export const TOWER_LAUNCH_GAP = 2;
+/** Entraînement : Attaque et PV dans la Tour, par rang. */
+export const TOWER_TRAINING_STEP = 0.05;
+/** Relève : PV de la réserve à son entrée (tous avec Relève aguerrie). */
+export const TOWER_RESERVE_HP = 0.5;
+/** Rempart : chance (sur 100) qu'un ennemi vise le Pokémon de devant (`FRONT_PCT` sans). */
+export const TOWER_RAMPART_FRONT = 55;
+
+export const TOWER_NODES: TowerNode[] = [
+  { id: 'releve', branch: 'strat', name: 'Relève', icon: '🔄', costs: [8],
+    desc: [`Un 4e Pokémon en réserve (Ascension) : au 1er K.O. d’un équipier, il entre à sa place avec ${Math.round(TOWER_RESERVE_HP * 100)} % de ses PV`] },
+  { id: 'releveAguerrie', branch: 'strat', name: 'Relève aguerrie', icon: '🎖', costs: [4], requires: 'releve',
+    desc: ['La réserve entre avec tous ses PV, et son aura compte pour l’équipe dès le début du combat'] },
+  { id: 'rempart', branch: 'strat', name: 'Rempart', icon: '🧱', costs: [5],
+    desc: [`Les ennemis visent le Pokémon de devant ${TOWER_RAMPART_FRONT} % du temps au lieu de ${FRONT_PCT} % : il prend ~70 % des coups au lieu de ~80 %`] },
+  { id: 'butinPrecis', branch: 'arsenal', name: 'Butin précis', icon: '🎯', costs: [4],
+    desc: ['Choisis l’emplacement (⚔ 🛡 🍒) où tombent les Chromatiques de la Tour'] },
+  { id: 'butinBeni', branch: 'arsenal', name: 'Butin béni', icon: '✨', costs: [5], requires: 'butinPrecis',
+    desc: [`1 Chromatique de la Tour sur ${TOWER_BLESSED_ODDS} tombe avec ${TOWER_BLESSED_PLUS} crans de plus (coffres exclus)`] },
+  { id: 'transmutation', branch: 'arsenal', name: 'Transmutation', icon: '⚗', costs: [8], requires: 'butinBeni',
+    desc: ['Change la panoplie d’un Chromatique (fiche de l’objet) : cran, niveau et sous-stats gardés, contre des éclats'] },
+  { id: 'longueAbsence', branch: 'ascension', name: 'Longue absence', icon: '🌙', costs: [3, 5],
+    desc: ['Absence dans la Tour comptée jusqu’à 16 h (au lieu de 12 h)', 'Absence dans la Tour comptée jusqu’à 24 h'] },
+  { id: 'departLance', branch: 'ascension', name: 'Départ lancé', icon: '🚀', costs: [4],
+    desc: [`La Tour repart ${TOWER_LAUNCH_GAP} étages sous ton record au lieu du palier de 10, en jeu comme hors ligne`] },
+  { id: 'secondeChance', branch: 'ascension', name: 'Seconde chance', icon: '🍀', costs: [6],
+    desc: ['Hors ligne, la 1re défaite de chaque palier de 10 fait retenter l’étage au lieu de redescendre'] },
+  { id: 'entrainement', branch: 'puissance', name: 'Entraînement', icon: '🏋', costs: [2, 2, 2, 2, 2],
+    desc: [1, 2, 3, 4, 5].map((r) => `Attaque et PV +${Math.round(r * TOWER_TRAINING_STEP * 100)} % dans la Tour`) },
+];
+
+export function towerNode(id: TowerNodeId): TowerNode {
+  return TOWER_NODES.find((n) => n.id === id)!;
+}
+
+export function towerRank(s: GameState, id: TowerNodeId): number {
+  return s.towerTree?.[id] ?? 0;
+}
+
+/** Médailles gagnées : 1 par palier de 10 franchi pour la première fois (rétroactif, calculé depuis le record). */
+export function towerMedals(s: GameState): number {
+  return Math.floor(s.towerBest / 10);
+}
+
+export function towerMedalsSpent(s: GameState): number {
+  return TOWER_NODES.reduce((a, n) => a + n.costs.slice(0, towerRank(s, n.id)).reduce((x, c) => x + c, 0), 0);
+}
+
+export function towerMedalsLeft(s: GameState): number {
+  return towerMedals(s) - towerMedalsSpent(s);
+}
+
+/** Coût du prochain rang d'un nœud, `null` s'il est au maximum. */
+export function towerNodeCost(s: GameState, id: TowerNodeId): number | null {
+  return towerNode(id).costs[towerRank(s, id)] ?? null;
+}
+
+/** Pourquoi un nœud ne s'achète pas (`null` = achetable) : bientôt, au maximum, prérequis ou médailles manquants. */
+export function towerNodeBlock(s: GameState, id: TowerNodeId): 'soon' | 'max' | 'requires' | 'medals' | null {
+  const n = towerNode(id);
+  if (n.soon) return 'soon';
+  const cost = towerNodeCost(s, id);
+  if (cost === null) return 'max';
+  if (n.requires && towerRank(s, n.requires) < 1) return 'requires';
+  return towerMedalsLeft(s) < cost ? 'medals' : null;
+}
+
+export function buyTowerNode(s: GameState, id: TowerNodeId): boolean {
+  if (!endgameUnlocked(s) || towerNodeBlock(s, id)) return false;
+  s.towerTree = { ...s.towerTree, [id]: towerRank(s, id) + 1 };
+  return true;
+}
+
+/** Au moins un nœud achetable (pastille de l'onglet Tour). */
+export function towerTreeReady(s: GameState): boolean {
+  return endgameUnlocked(s) && TOWER_NODES.some((n) => !towerNodeBlock(s, n.id));
+}
+
+/** Réinitialisation gratuite : toutes les médailles rendues. Les objets déjà transmutés le restent. */
+export function resetTowerTree(s: GameState) {
+  s.towerTree = {};
+}
+
+/** Butin précis : emplacement choisi (`null` = les 3), sans effet tant que le nœud n'est pas pris. */
+export function setTowerSlot(s: GameState, slot: ItemSlot | null) {
+  s.towerSlot = slot;
+}
+
+/** Butin béni : crans en plus d'un Chromatique de la Tour (0 la plupart du temps ; aucun tirage sans le nœud). */
+export function towerBlessedPlus(s: GameState, rng: Rng): number {
+  return towerRank(s, 'butinBeni') > 0 && rng.int(TOWER_BLESSED_ODDS) === 0 ? TOWER_BLESSED_PLUS : 0;
+}
+
+/** Durée d'absence comptée quand elle se passe dans la Tour (Longue absence). */
+export function towerIdleCapMs(s: GameState): number {
+  return TOWER_IDLE_CAPS_MS[Math.min(TOWER_IDLE_CAPS_MS.length - 1, towerRank(s, 'longueAbsence'))];
+}
+
+/** Multiplicateur d'Attaque et de PV de l'équipe dans la Tour : Élixir de la Tour (Boutique) × Entraînement. */
+export function towerPowerMult(s: GameState, elixir: boolean): number {
+  return (elixir ? BOOSTS.elixir.mult : 1) * (1 + TOWER_TRAINING_STEP * towerRank(s, 'entrainement'));
+}
+
+/** Réserve de la Tour (Relève) : le Pokémon choisi s'il existe encore et n'est pas dans l'équipe, sinon `null`. */
+export function towerReserve(s: GameState): string | null {
+  const uid = s.towerReserve;
+  return uid && towerRank(s, 'releve') > 0 && s.mons[uid] && !s.team.includes(uid) ? uid : null;
+}
+
+/** Choisit la réserve (`null` = aucune) ; refusé pour un Pokémon de l'équipe ou inconnu. */
+export function setTowerReserve(s: GameState, uid: string | null): boolean {
+  if (uid !== null && (!s.mons[uid] || s.team.includes(uid))) return false;
+  s.towerReserve = uid;
+  return true;
+}
+
+/**
+ * Combattants de l'équipe dans la Tour et options du combat (en jeu et hors ligne) : Élixir × Entraînement sur l'Attaque
+ * et les PV, Relève (réserve, à 50 % ou 100 % de ses PV ; son aura compte en entier avec Relève aguerrie) et Rempart.
+ */
+export function towerFighters(s: GameState, elixir: boolean, hp?: Record<string, number>): { allies: FighterInit[]; opts: BattleOptions } {
+  const mult = towerPowerMult(s, elixir);
+  const reserve = towerReserve(s);
+  const veteran = !!reserve && towerRank(s, 'releveAguerrie') > 0;
+  const auraTeam = veteran ? [...s.team, reserve!] : s.team;
+  const allies = s.team.map((u) => withTowerMult(allyFighter(s, u, hp?.[u], auraTeam), mult));
+  const opts: BattleOptions = {};
+  if (towerRank(s, 'rempart') > 0) opts.frontPct = TOWER_RAMPART_FRONT;
+  if (reserve) {
+    opts.reserve = withTowerMult(allyFighter(s, reserve, undefined, auraTeam), mult);
+    opts.reserveHpPct = veteran ? 1 : TOWER_RESERVE_HP;
+  }
+  return { allies, opts };
+}
+
+/** Banc d'essai d'« ★ Auto » et d'« ★ Ordre » : Rempart change qui doit être devant, il y est donc compté. */
+function benchOptions(s: GameState): BattleOptions | undefined {
+  return endgameUnlocked(s) && towerRank(s, 'rempart') > 0 ? { frontPct: TOWER_RAMPART_FRONT } : undefined;
+}
+
+/** Prix d'une Transmutation (éclats de `TRANSMUTE_FLOORS` étages au record). */
+export function transmuteCost(s: GameState): number {
+  return towerShards(Math.max(1, s.towerBest)) * TRANSMUTE_FLOORS;
+}
+
+/** Pièces en lesquelles un objet peut se transmuter : celle du même emplacement dans chacune des autres panoplies. */
+export function transmuteTargets(item: Item): ItemTemplate[] {
+  const slot = slotOf(item);
+  return towerLootTemplates().filter((t) => t.slot === slot && t.id !== item.templateId);
+}
+
+/** Transmute un Chromatique (Transmutation) ; refusé sans le nœud, sans les éclats ou vers une pièce invalide. */
+export function transmuteItem(s: GameState, uid: string, templateId: string, rng: Rng): Item | null {
+  const it = s.items[uid];
+  const cost = transmuteCost(s);
+  if (!it || it.rarity !== MAX_RARITY || towerRank(s, 'transmutation') < 1 || s.shards < cost) return null;
+  if (!transmuteTargets(it).some((t) => t.id === templateId)) return null;
+  s.shards -= cost;
+  // même uid : un objet porté reste porté (même emplacement)
+  const out = transmute(it, templateId, rng);
+  s.items[uid] = out;
+  // ce n'est plus l'objet qu'« ★ Auto » a départagé : ses flèches ▲▼ le rejugent
+  for (const m of Object.values(s.mons)) {
+    if (m.equipAuto && (m.equipAuto.items.includes(uid) || m.equipAuto.tested.includes(uid))) delete m.equipAuto;
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------- boutique
@@ -2418,8 +2646,9 @@ export function shopBoosts(s: GameState): BoostKind[] {
 }
 
 /** Élixir de la Tour : Attaque et PV d'un allié +25 %. */
-export function withTowerElixir(f: FighterInit): FighterInit {
-  const m = BOOSTS.elixir.mult;
+/** Attaque et PV d'un combattant multipliés (Tour : `towerPowerMult`). */
+export function withTowerMult(f: FighterInit, m: number): FighterInit {
+  if (m === 1) return f;
   return { ...f, stats: { ...f.stats, atk: Math.round(f.stats.atk * m), hp: Math.round(f.stats.hp * m) } };
 }
 

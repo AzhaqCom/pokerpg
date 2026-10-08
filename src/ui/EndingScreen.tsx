@@ -54,7 +54,7 @@ export function EndingScreen() {
                 {' : fusionne 3 Chromatiques identiques pour un cran de plus, sans limite (stat principale +8 % et secondaires +10 % par cran).'}
               </Text>
               <Text style={styles.stat}>📈 Objets au-delà du Nv.100 : l'amélioration n'a plus de plafond.</Text>
-              <Text style={styles.stat}>🗼 Tour de Combat (onglet après le dernier biome de la Carte) : étages infinis, objets de plus en plus hauts et Chromatiques +N au choix tous les 10 étages.</Text>
+              <Text style={styles.stat}>🗼 Tour de Combat (nouvel onglet 🗼 Tour) : étages infinis, objets de plus en plus hauts et Chromatiques +N au choix tous les 10 étages.</Text>
             </View>
             <Text style={styles.sub}>
               La suite : compléter ta boîte avec 1 exemplaire de chaque espèce, puis 1 chromatique de chaque. Le Charme Chroma

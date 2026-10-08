@@ -608,6 +608,33 @@ export function rerollSub(item: Item, index: number, rng: Rng): Item {
 }
 
 /**
+ * Transmutation (arbre de la Tour, 2026-10-08) : l'objet devient la pièce `templateId` d'une autre panoplie, au même
+ * emplacement. Uid, rareté, cran, niveau, sous-stats, éclats investis et verrou restent ; la puissance de la stat
+ * principale aussi : `tier` est recalculé pour que palier × base × poids (÷ la part de stat principale d'un objet mixte)
+ * ne bouge pas, comme `biomeTier` égalise les pièces d'un même biome. Une sous-stat devenue stat principale (ou bonus
+ * fixe d'un objet mixte, Critique d'un objet Critique) est retirée au hasard, à 85-100 % comme « Changer une sous-stat ».
+ */
+export function transmute(item: Item, templateId: string, rng: Rng): Item {
+  const from = template(item.templateId);
+  const to = template(templateId);
+  if (from.slot !== to.slot) throw new Error('Transmutation : emplacement différent');
+  const out: Item = { ...item, templateId: to.id, subs: item.subs.slice() };
+  delete out.tier;
+  if (from.base > 0 && to.base > 0) {
+    const score = (t: ItemTemplate, tier: number) => (tier * t.base * STAT_WEIGHT[t.main]) / (t.flat ? HYBRID_MAIN_SHARE : 1);
+    const tier = Math.round((score(from, item.tier ?? 1) / score(to, 1)) * 1000) / 1000;
+    if (tier !== 1) out.tier = tier;
+  }
+  const banned = mainStats(to);
+  out.subs.forEach((sub, i) => {
+    if (!banned.includes(sub.stat)) return;
+    const others = out.subs.filter((_, j) => j !== i).map((x) => x.stat);
+    out.subs[i] = rollSub(rng, item.level, [...banned, ...others], plusOf(item), REROLL_ROLL_MIN);
+  });
+  return out;
+}
+
+/**
  * Fusion 3 → 1 : trois objets identiques (même objet, même rareté, même cran +N) → rareté suivante. Chromatique :
  * seulement en fin de jeu (`endgame`), vers Chromatique +N+1.
  */

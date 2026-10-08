@@ -3,7 +3,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-na
 import { Text } from './components/Text';
 import {
   GameState, TOWER_FOCUS_SETS, TOWER_IDLE_ITEM_EVERY, TOWER_LEVEL, claimTowerReward, enterTower, exitTower, setTowerAuto, setTowerIdle,
-  setTowerIdleClimb, setTowerIdlePick, toggleTowerSet, towerClimbStart, towerDropPlus, towerFocusChoices, towerIdleFloor, towerPreviewItem, towerRewardPlus, towerShards, towerStart, towerWildMult,
+  setTowerIdleClimb, setTowerIdlePick, setTowerSlot, toggleTowerSet, towerIdleCapMs, towerRank, towerClimbStart, towerDropPlus, towerFocusChoices, towerIdleFloor, towerPreviewItem, towerRewardPlus, towerShards, towerStart, towerWildMult,
 } from '../game/game';
 import { SETS, TEMPLATES, setBonusLabel, setBonusText } from '../game/items';
 import { RARITY_COLOR } from '../game/model';
@@ -16,6 +16,7 @@ import { ChromaText } from './components/RainbowBorder';
 import { feedback } from './components/feedback';
 import { fmtNum, itemColor, itemDisplayName } from './helpers';
 import { C } from './theme';
+import { TowerReserveCard } from './TowerReserve';
 
 const SLOT_ICON = { offense: '⚔', defense: '🛡', berry: '🍒' } as const;
 
@@ -25,7 +26,8 @@ function ChromaLabel({ plus }: { plus: number }) {
 }
 
 /**
- * Onglet « Tour de Combat » de la Carte (fin de jeu, après le dernier biome) : mêmes cartes que les zones d'un biome.
+ * Sous-onglet « Ascension » de l'onglet Tour (fin de jeu ; avant le 2026-10-08, un onglet après le dernier biome de la
+ * Carte) : mêmes cartes que les zones d'un biome.
  * Record et entrée (reprise au dernier palier de 10) ou sortie, prochaines récompenses, Chromatiques +N à choisir.
  */
 export function TowerSection() {
@@ -40,7 +42,8 @@ export function TowerSection() {
   const nextChest = (Math.floor(s.towerBest / 10) + 1) * 10;
   // panoplies visées (1 à 3) : les Chromatiques ne tombent plus que dans celles-là (`towerDropPool`)
   const focus = (s.towerSets ?? []).filter((id) => SETS[id]);
-  const dropsFrom = focus.length > 0 ? focus.map((id) => SETS[id].name).join(', ') : 'une des 20 panoplies';
+  const slotOnly = towerRank(s, 'butinPrecis') > 0 && s.towerSlot ? ` · ${SLOT_ICON[s.towerSlot]} seulement` : ''; // Butin précis
+  const dropsFrom = (focus.length > 0 ? focus.map((id) => SETS[id].name).join(', ') : 'une des 20 panoplies') + slotOnly;
   const climb = s.towerIdleClimb ?? true;
   const idleFloor = climb ? towerClimbStart(s) : towerIdleFloor(s);
   return (
@@ -73,6 +76,8 @@ export function TowerSection() {
       </View>
 
       <TowerFocusCard />
+
+      <TowerReserveCard />
 
       <View style={styles.card}>
         <View style={styles.row}>
@@ -109,7 +114,8 @@ export function TowerSection() {
                 : <>Pendant ton absence, ton équipe rejoue un étage déjà franchi, sans jamais le dépasser.</>}
               {' '}Par étage gagné, ses éclats ({fmtNum(towerShards(idleFloor))} à l'étage {idleFloor}), et 1{' '}
               <ChromaLabel plus={towerDropPlus(idleFloor)} /> Nv.{100 + idleFloor} tous les {TOWER_IDLE_ITEM_EVERY} étages
-              gagnés. Désactive pour chasser les chromatiques et les cibles 🎯 dans ta zone.
+              gagnés. Absence comptée jusqu'à {Math.round(towerIdleCapMs(s) / 3_600_000)} h. Désactive pour chasser les
+              chromatiques et les cibles 🎯 dans ta zone.
             </Text>
             {!climb && (
               <View style={styles.row}>
@@ -149,15 +155,20 @@ export function TowerSection() {
  */
 const TowerFocusCard = memo(function TowerFocusCard() {
   const key = useGame((g) => (g.s?.towerSets ?? []).join(','));
+  // Butin précis (arbre de la Tour) : emplacement choisi, `null` sans le nœud
+  const slot = useGame((g) => (g.s && towerRank(g.s, 'butinPrecis') > 0 ? g.s.towerSlot ?? 'all' : null));
+  const act = useGame((g) => g.act);
   const [info, setInfo] = useState<{ id: string; level: number } | null>(null);
   const focus = key ? key.split(',').filter((id) => SETS[id]) : [];
+  const oneSlot = slot !== null && slot !== 'all';
+  const count = (focus.length ? focus.length * 3 : 60) / (oneSlot ? 3 : 1);
   return (
     <View style={styles.card}>
       <Text style={styles.name}>🎯 Panoplies visées · {Math.min(focus.length, TOWER_FOCUS_SETS)}/{TOWER_FOCUS_SETS}</Text>
       <Text style={styles.sub}>
         {focus.length === 0
           ? 'Touche une panoplie pour voir ses objets et ses bonus, et la viser (3 au plus). Les Chromatiques de la Tour ne tomberont plus que dans leurs objets : avec 1 panoplie, 3 objets au lieu de 60 (ceux d’un seul Pokémon) ; avec 3, 9 objets pour toute l’équipe.'
-          : `Chaque Chromatique de la Tour, en combat comme hors ligne, tombe dans ${focus.length === 1 ? 'cette panoplie' : `l’une de ces ${focus.length} panoplies`} : ${focus.length * 3} objets au lieu de 60, des doublons ${Math.round(60 / (focus.length * 3))} fois plus fréquents à fusionner.`}
+          : `Chaque Chromatique de la Tour, en combat comme hors ligne, tombe dans ${focus.length === 1 ? 'cette panoplie' : `l’une de ces ${focus.length} panoplies`} : ${count} objet${count > 1 ? 's' : ''} au lieu de 60, des doublons ${Math.round(60 / count)} fois plus fréquents à fusionner.`}
       </Text>
       <View style={styles.wrap}>
         {towerFocusChoices().map((id) => {
@@ -179,6 +190,20 @@ const TowerFocusCard = memo(function TowerFocusCard() {
           {SETS[id].name} : 2 p. {setBonusLabel(id, 'two')} · 3 p. {setBonusLabel(id, 'three')}
         </Text>
       ))}
+      {slot !== null && (
+        <>
+          <Text style={styles.name}>🎯 Butin précis</Text>
+          <Text style={styles.sub}>Emplacement où tombent les Chromatiques de la Tour (les coffres restent au choix).</Text>
+          <View style={styles.wrap}>
+            {([['all', 'Tous'], ['offense', '⚔ Offensif'], ['defense', '🛡 Défensif'], ['berry', '🍒 Baie']] as const).map(([k, label]) => (
+              <Pressable key={k} style={[styles.pick, slot === k && styles.pickOn]}
+                onPress={() => { feedback(); act((g) => setTowerSlot(g, k === 'all' ? null : k)); }}>
+                <Text style={[styles.pickTxt, slot === k && styles.pickTxtOn]}>{label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </>
+      )}
       {info && <SetInfoModal setId={info.id} level={info.level} focus={focus} onClose={() => setInfo(null)} />}
     </View>
   );

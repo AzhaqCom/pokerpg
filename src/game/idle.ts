@@ -14,7 +14,7 @@ import { Battle } from './battle';
 import { BIOMES, STAGES_PER_ZONE, WAVES_PER_STAGE } from './content';
 import {
   BETWEEN_WAVES_MS, BOOSTS, BallKind, CAPTURE_OFFER_CHANCE, GameState, TOWER_IDLE_ITEM_EVERY, TOWER_LEVEL, boostCoverage,
-  BoostKind, TowerReward, makeTowerItem, withTowerElixir, towerChest, towerClimbStart, towerDropPlus, towerDropPool, towerIdleActive, towerIdleFloor, towerShards, towerWaves, LOOT_CHANCE, PENSION_CAP_MS, RELEASE_CANDIES, shinyOdds,
+  BoostKind, TowerReward, makeTowerItem, towerFighters, towerBlessedPlus, towerIdleCapMs, towerRank, towerChest, towerClimbStart, towerDropPlus, towerDropPool, towerIdleActive, towerIdleFloor, towerShards, towerWaves, LOOT_CHANCE, PENSION_CAP_MS, RELEASE_CANDIES, shinyOdds,
   addMon, allyFighter, bestStarsOf, captureChance, genesMinForBadges, giveXp, idleFarmTarget, isRareInZone, isTargeted,
   keepTargetCapture, lineBase, makeMon, makeWaves, pickSpecies, teamMaxLevel, wildFighter, xpGapMult,
 } from './game';
@@ -73,7 +73,7 @@ export interface IdleGains {
   /** Entraînement dans la Tour (fin de jeu) : étage de départ, éclats gagnés ; ascension (`climb`) : record d'avant
    *  (`prevBest`, le résumé s'affiche après l'encaissement) et à la fin de l'absence (`best`), coffres des paliers
    *  franchis ; absent = farm de zone. */
-  tower?: { floor: number; shards: number; climb?: boolean; prevBest?: number; best?: number; rewards?: TowerReward[] };
+  tower?: { floor: number; shards: number; climb?: boolean; prevBest?: number; best?: number; rewards?: TowerReward[]; blessed?: number; spared?: number };
 }
 
 interface WaveSample {
@@ -210,8 +210,9 @@ export function computeIdleGains(
   const recycleMaxRarity = opts.recycleMaxRarity ?? 1;
   const skipOwnedShiny = opts.skipOwnedShiny ?? false;
   if (absenceMs < IDLE_MIN_MS || !s.team.length) return null;
+  // absence dans la Tour : 12 h, 16 h ou 24 h selon Longue absence (arbre de la Tour) ; le farm des zones reste à 12 h
+  if (towerIdleActive(s)) return towerIdleGains(s, absenceMs, Math.min(absenceMs, towerIdleCapMs(s)), rng);
   const durationMs = Math.min(absenceMs, IDLE_CAP_MS);
-  if (towerIdleActive(s)) return towerIdleGains(s, absenceMs, durationMs, rng);
   const { biome: farmBiome, zone: farmZone } = idleFarmTarget(s);
   // bonus de la boutique : chacun compte au prorata de la part de l'absence qu'il couvre (1 h de Multi Exp sur
   // 8 h d'absence = XP ×1,0625 en moyenne)
@@ -333,9 +334,10 @@ function sampleTowerFloor(s: GameState, rng: Rng, floor: number, n = SAMPLE_WAVE
   let totalMs = 0;
   for (let i = 0; i < n; i++) {
     const wave = towerWaves(floor, rng)[0];
-    const allies = s.team.map((u) => (elixir ? withTowerElixir(allyFighter(s, u)) : allyFighter(s, u)));
+    // Élixir de la Tour × Entraînement, Relève et Rempart (arbre de la Tour)
+    const { allies, opts } = towerFighters(s, elixir);
     const enemies = wave.map((e, j) => wildFighter(`tower${i}-${j}`, e.mon, { wild: e.wild, wildMult: e.wildMult, teamSize: s.team.length }));
-    const battle = new Battle([...allies, ...enemies], rng);
+    const battle = new Battle([...allies, ...enemies], rng, opts);
     battle.runToEnd();
     totalMs += battle.t * 1000 + BETWEEN_WAVES_MS;
     if (battle.result === 'win') wins++;
@@ -376,6 +378,10 @@ function towerIdleGains(s: GameState, absenceMs: number, durationMs: number, rng
   let won = 0;
   let sinceItem = 0; // étages gagnés depuis le dernier Chromatique
   let shards = 0;
+  let blessed = 0; // Butin béni (arbre de la Tour)
+  // Seconde chance (arbre de la Tour) : paliers de 10 où la défaite gratuite a déjà servi
+  const secondChance = towerRank(s, 'secondeChance') > 0;
+  const spared = new Set<number>();
   for (let t = 0; t < durationMs;) {
     const smp = sample(floor, t < elixirEnd);
     const now = t;
@@ -388,7 +394,10 @@ function towerIdleGains(s: GameState, absenceMs: number, durationMs: number, rng
       if (sinceItem >= (now < magnetEnd ? TOWER_MAGNET_ITEM_EVERY : TOWER_IDLE_ITEM_EVERY)) {
         sinceItem = 0;
         const plus = towerDropPlus(floor) + (now < cranEnd ? 1 : 0);
-        gains.bagItems.push(makeTowerItem(pool[rng.int(pool.length)].id, TOWER_LEVEL + floor, plus, rng));
+        const templateId = pool[rng.int(pool.length)].id;
+        const extra = towerBlessedPlus(s, rng);
+        if (extra) blessed++;
+        gains.bagItems.push(makeTowerItem(templateId, TOWER_LEVEL + floor, plus + extra, rng));
       }
       if (floor > best) {
         // premier passage : nouveau record, et le coffre de son palier
@@ -398,12 +407,14 @@ function towerIdleGains(s: GameState, absenceMs: number, durationMs: number, rng
       floor = climb ? floor + 1 : Math.min(start, floor + 1);
       reached = Math.max(reached, floor);
     } else {
-      floor = Math.max(1, reached - TOWER_IDLE_DEPTH + 1, floor - 1);
+      const block = Math.floor((floor - 1) / 10);
+      if (secondChance && !spared.has(block)) spared.add(block); // même étage retenté (Seconde chance)
+      else floor = Math.max(1, reached - TOWER_IDLE_DEPTH + 1, floor - 1);
     }
   }
   gains.wavesWon = won;
   gains.kills = won * 3;
-  gains.tower = { floor: start, shards, climb, prevBest: s.towerBest, best, rewards };
+  gains.tower = { floor: start, shards, climb, prevBest: s.towerBest, best, rewards, blessed, spared: spared.size };
   return gains;
 }
 

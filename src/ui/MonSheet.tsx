@@ -6,7 +6,7 @@ import { Move, learnedMoves, move, evolutionTargets, species } from '../game/dat
 import { regionOf } from '../game/content';
 import {
   CANDY_XP, GENE_MAX, GeneKey, MEGA_CANDY_COST, TEAM_SIZE, applyMegaCandy, autoEquipBest, canEvolve, craftMegaCandy, equip, isTargeted, toggleLock, toggleTarget,
-  evolve, feedCandy, heldItems, holder, lineBase, rankUpTalent, autoTalents, autoMoves, equipGain, release, resetTalents, setMoves, setTeam, unequip,
+  evolve, feedCandy, heldItems, holder, lineBase, rankUpTalent, autoTalents, autoMoves, equipGain, release, resetTalents, setMoves, setTeam, towerReserve, unequip,
 } from '../game/game';
 import { SETS, itemScore, plusOf, setBonusText, slotOf, template, wornSets } from '../game/items';
 import { BattleBonuses, ItemSlot, critOverflow } from '../game/model';
@@ -431,7 +431,9 @@ export function MonSheet() {
                   else setSwapPicker(true);
                 }} style={{ flex: 1 }} />
             )}
-            <Button label={mon.locked ? '🔒' : 'Relâcher'} color="#5a2020" disabled={!!mon.locked || (inTeam && s.team.length <= 1)} onPress={() => setDialog({
+            {/* réserve de la Tour (Relève) : jamais relâchée, comme un verrouillé */}
+            <Button label={mon.locked ? '🔒' : towerReserve(s) === mon.uid ? '🔄 Réserve' : 'Relâcher'} color="#5a2020"
+              disabled={!!mon.locked || towerReserve(s) === mon.uid || (inTeam && s.team.length <= 1)} onPress={() => setDialog({
               title: `Relâcher ${sp.name} ?`, message: 'Tu recevras 3 bonbons de sa lignée. Ses objets retournent dans le sac.',
               primary: { label: 'Relâcher', onPress: () => { act((g) => release(g, mon.uid)); close(); changed(); } },
               secondary: { label: 'Annuler', onPress: () => {} },

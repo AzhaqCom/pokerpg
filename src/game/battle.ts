@@ -77,7 +77,26 @@ export type BattleEvent =
   | { t: number; kind: 'heal'; target: string; amount: number; hpLeft: number }
   | { t: number; kind: 'buff'; target: string; stat: string; up: boolean }
   | { t: number; kind: 'faint'; target: string; side: 0 | 1 }
+  /** Relève (Tour) : la réserve `target` prend la place du Pokémon K.O. `replaces`. */
+  | { t: number; kind: 'enter'; target: string; replaces: string }
   | { t: number; kind: 'end'; result: 'win' | 'lose' };
+
+/** Chance (sur 100) qu'un sauvage vise le Pokémon de devant (le reste : au hasard, lui compris, soit ~80 % des coups). */
+export const FRONT_PCT = 70;
+/** Délai (s) entre le K.O. d'un équipier et l'entrée de la réserve : le temps de voir le K.O. s'effacer. */
+export const RESERVE_DELAY = 0.8;
+
+/**
+ * Options d'un combat (2026-10-08, arbre de la Tour ; aucune = combat d'avant, tirages compris) :
+ * - `frontPct` : Rempart, chance de viser le Pokémon de devant (`FRONT_PCT` par défaut) ;
+ * - `reserve` : Relève, un 4e Pokémon qui entre une fois, `RESERVE_DELAY` après le premier K.O. d'un équipier, à sa
+ *   place et avec `reserveHpPct` de ses PV ; tant qu'il n'est pas entré, le combat n'est pas perdu.
+ */
+export interface BattleOptions {
+  frontPct?: number;
+  reserve?: FighterInit;
+  reserveHpPct?: number;
+}
 
 export class Battle {
   t = 0;
@@ -85,29 +104,54 @@ export class Battle {
   events: BattleEvent[] = [];
   result: 'win' | 'lose' | null = null;
   private rng: Rng;
+  private frontPct: number;
+  /** réserve pas encore entrée, moment de son entrée (après un K.O.) et Pokémon dont elle prend la place */
+  private reserve?: FighterInit;
+  private reserveHpPct: number;
+  private reserveAt: number | null = null;
+  private reserveSlot: string | null = null;
 
-  constructor(inits: FighterInit[], rng: Rng) {
+  constructor(inits: FighterInit[], rng: Rng, opts: BattleOptions = {}) {
     this.rng = rng;
-    this.fighters = inits.map((f) => {
-      const sp = species(f.speciesId);
-      const moveList = f.moves.map(move);
-      const maxHp = f.stats.hp * HP_SCALE;
-      return {
-        ...f,
-        types: sp.types,
-        maxHp,
-        hp: Math.min(maxHp, f.hp ?? maxHp),
-        bonuses: f.bonuses ?? emptyBonuses(),
-        moveList,
-        // petite désynchronisation de départ : les capacités « rapides » d'abord
-        readyAt: moveList.map((m) => (m.cd <= 2 ? 0 : 0.5 + rng.int(100) / 100)),
-        basicReadyAt: rng.int(60) / 100,
-        lockUntil: 0,
-        buffs: [],
-        berryUsed: false,
-        alive: (f.hp ?? maxHp) > 0,
-      };
-    });
+    this.frontPct = opts.frontPct ?? FRONT_PCT;
+    this.reserve = opts.reserve;
+    this.reserveHpPct = opts.reserveHpPct ?? 1;
+    this.fighters = inits.map((f) => this.build(f, 0));
+  }
+
+  /** Combattant prêt à agir à l'instant `t0` (0 au début du combat, l'entrée en jeu pour la réserve). */
+  private build(f: FighterInit, t0: number): Fighter {
+    const rng = this.rng;
+    const sp = species(f.speciesId);
+    const moveList = f.moves.map(move);
+    const maxHp = f.stats.hp * HP_SCALE;
+    return {
+      ...f,
+      types: sp.types,
+      maxHp,
+      hp: Math.min(maxHp, f.hp ?? maxHp),
+      bonuses: f.bonuses ?? emptyBonuses(),
+      moveList,
+      // petite désynchronisation de départ : les capacités « rapides » d'abord
+      readyAt: moveList.map((m) => t0 + (m.cd <= 2 ? 0 : 0.5 + rng.int(100) / 100)),
+      basicReadyAt: t0 + rng.int(60) / 100,
+      lockUntil: t0,
+      buffs: [],
+      berryUsed: false,
+      alive: (f.hp ?? maxHp) > 0,
+    };
+  }
+
+  /** Relève : la réserve entre à la place du Pokémon K.O. (même position : devant si c'était lui). */
+  private enterReserve() {
+    const init = this.reserve!;
+    this.reserve = undefined;
+    this.reserveAt = null;
+    const maxHp = init.stats.hp * HP_SCALE;
+    const f = this.build({ ...init, side: 0, hp: Math.max(1, Math.round(maxHp * this.reserveHpPct)) }, this.t);
+    const i = this.fighters.findIndex((x) => x.id === this.reserveSlot);
+    if (i >= 0) this.fighters[i] = f; else this.fighters.push(f);
+    this.emit({ t: this.t, kind: 'enter', target: f.id, replaces: this.reserveSlot ?? '' });
   }
 
   side(s: 0 | 1) { return this.fighters.filter((f) => f.side === s && f.alive); }
@@ -153,6 +197,7 @@ export class Battle {
 
   private tick() {
     const t = this.t;
+    if (this.reserveAt !== null && t >= this.reserveAt) this.enterReserve();
     for (const f of this.fighters) {
       if (!f.alive) continue;
       f.buffs = f.buffs.filter((b) => b.until > t);
@@ -196,8 +241,8 @@ export class Battle {
   private pickTarget(f: Fighter): Fighter | undefined {
     const foes = this.side(f.side === 0 ? 1 : 0);
     if (!foes.length) return undefined;
-    // le joueur vise l'ennemi de devant ; les sauvages visent devant 70 % du temps
-    if (f.side === 0 || this.rng.int(100) < 70) return foes[0];
+    // le joueur vise l'ennemi de devant ; les sauvages visent devant 70 % du temps (`frontPct` : Rempart)
+    if (f.side === 0 || this.rng.int(100) < this.frontPct) return foes[0];
     return foes[this.rng.int(foes.length)];
   }
 
@@ -333,7 +378,12 @@ export class Battle {
     f.hp = 0;
     f.status = undefined;
     this.emit({ t: this.t, kind: 'faint', target: f.id, side: f.side });
-    if (!this.side(0).length) this.finish('lose');
+    // Relève : premier K.O. d'un équipier, la réserve entrera à sa place
+    if (f.side === 0 && this.reserve && this.reserveAt === null) {
+      this.reserveAt = this.t + RESERVE_DELAY;
+      this.reserveSlot = f.id;
+    }
+    if (!this.side(0).length && !this.reserve) this.finish('lose');
     else if (!this.side(1).length) this.finish('win');
   }
 

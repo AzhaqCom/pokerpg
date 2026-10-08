@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type Tab = 'team' | 'bag' | 'shop' | 'map' | 'pension' | 'exploration' | 'dex';
+export type Tab = 'team' | 'bag' | 'shop' | 'map' | 'tower' | 'pension' | 'exploration' | 'dex';
 
 interface Toast { id: number; text: string; color?: string; /** partie du texte affichée dans `color` (ex. le nom d'un objet, à la couleur de sa rareté) */ colored?: string }
 

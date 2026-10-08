@@ -4,7 +4,7 @@ import { Text } from '../components/Text';
 import { BIOMES, BiomeDef, REGIONS, REGION_START, STAGES_PER_ZONE, ZoneDef } from '../../game/content';
 import { species } from '../../game/data';
 import { SETS, TEMPLATES, setBonusText, setOfBiome } from '../../game/items';
-import { GameState, arenaAvailable, biomeAvailable, bossAvailable, canPrestige, endgameUnlocked, selectStage, startPrestige, zoneHasTarget } from '../../game/game';
+import { GameState, arenaAvailable, biomeAvailable, bossAvailable, canPrestige, selectStage, startPrestige, zoneHasTarget } from '../../game/game';
 import { useGame } from '../../store/game';
 import { Button } from '../components/Button';
 import { Dialog, DialogSpec } from '../components/Dialog';
@@ -15,11 +15,7 @@ import { feedback } from '../components/feedback';
 import { runner } from '../battle/runner';
 import { C } from '../theme';
 import { ZoneDex, zoneSpecies } from '../ZoneDex';
-import { TowerSection } from '../TowerSection';
 import { SLOT_ICON, templateStatText } from '../components/ItemCard';
-
-/** Valeur de `sel` pour l'onglet de la Tour de Combat (les biomes sont numérotés à partir de 0). */
-const TOWER_TAB = -1;
 
 export function MapPanel() {
   const s = useGame((g) => g.s)!;
@@ -28,25 +24,22 @@ export function MapPanel() {
   const [openZone, setOpenZone] = useState<ZoneDef | null>(null);
   const [dialog, setDialog] = useState<DialogSpec | null>(null);
   const next = REGIONS[s.prestige + 1];
-  // onglet affiché : un biome de la région, ou la Tour de Combat (fin de jeu, onglet après le dernier biome)
-  const endgame = endgameUnlocked(s);
-  const [sel, setSel] = useState(s.towerFloor !== null ? TOWER_TAB : s.biome);
+  // biome affiché (la Tour de Combat a son propre onglet depuis le 2026-10-08, `TowerPanel`)
+  const [sel, setSel] = useState(s.biome);
   // la Carte ne montre que les biomes de la région courante : les biomes des régions précédentes
   // (Kanto une fois en Johto) n'ont plus leur place, ceux des régions futures restent une surprise.
   const regionStart = REGION_START[s.prestige] ?? 0;
   const regionEnd = REGION_START[s.prestige + 1] ?? BIOMES.length;
   const bi = sel >= regionStart && sel < regionEnd ? sel : s.biome;
-  const showTower = endgame && sel === TOWER_TAB;
-  const tab = showTower ? TOWER_TAB : bi;
-  // suit le biome en cours : après une victoire d'arène, la Carte affiche directement le nouveau biome. Seulement sur un
-  // vrai changement de biome, et jamais pendant un combat dans la Tour : avant le 2026-10-01, cet effet tournait aussi à
-  // l'ouverture de la Carte et remplaçait l'onglet de la Tour par le biome (Boutique → Carte en pleine Tour).
+  const tab = bi;
+  // suit le biome en cours : après une victoire d'arène, la Carte affiche directement le nouveau biome (seulement sur un
+  // vrai changement de biome)
   const lastBiome = useRef(s.biome);
   useEffect(() => {
     if (lastBiome.current === s.biome) return;
     lastBiome.current = s.biome;
-    if (s.towerFloor === null) setSel(s.biome);
-  }, [s.biome, s.towerFloor]);
+    setSel(s.biome);
+  }, [s.biome]);
   // la barre des biomes défile jusqu'à l'onglet affiché (sinon il peut être hors de l'écran, à droite)
   const tabsRef = useRef<ScrollView>(null);
   const tabX = useRef<Record<number, number>>({});
@@ -84,20 +77,8 @@ export function MapPanel() {
             </Pressable>
           );
         })}
-        {endgame && (
-          <Pressable onPress={() => setSel(TOWER_TAB)}
-            onLayout={(e) => {
-              tabX.current[TOWER_TAB] = e.nativeEvent.layout.x;
-              if (showTower) tabsRef.current?.scrollTo({ x: Math.max(0, e.nativeEvent.layout.x - 24), animated: false });
-            }}
-            style={[styles.tab, showTower && styles.tabOn]}>
-            <Text style={[styles.tabTxt, showTower && styles.tabTxtOn]} numberOfLines={1}>
-              🗼 Tour de Combat{s.towerRewards.length ? ` 🎁${s.towerRewards.length}` : ''}
-            </Text>
-          </Pressable>
-        )}
       </ScrollView>
-      {showTower ? <TowerSection /> : <BiomeSection biome={BIOMES[bi]} bi={bi} s={s} act={act} onOpenZone={setOpenZone} />}
+      <BiomeSection biome={BIOMES[bi]} bi={bi} s={s} act={act} onOpenZone={setOpenZone} />
       <ZoneDex zone={openZone} s={s} onClose={() => setOpenZone(null)} />
     </View>
   );

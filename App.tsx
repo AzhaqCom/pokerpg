@@ -8,7 +8,7 @@ import { FONT, Text } from './src/ui/components/Text';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { initMusic, setMusicEnabled } from './src/audio/music';
 import { initSfx, setSfxEnabled } from './src/audio/sfx';
-import { challengesReady, canEvolve, canPrestige, endingReady, shinyCharmToAnnounce, explorationReady, fusionBadgeCount, pensionXpReady, touchLastActive } from './src/game/game';
+import { challengesReady, canEvolve, canPrestige, endgameUnlocked, endingReady, shinyCharmToAnnounce, explorationReady, fusionBadgeCount, pensionXpReady, touchLastActive, towerTreeReady } from './src/game/game';
 import { IdleGains, applyIdleGains, computeIdleGains } from './src/game/idle';
 import { rng, useGame } from './src/store/game';
 import { useSettings } from './src/store/settings';
@@ -32,16 +32,19 @@ import { ExplorationPanel } from './src/ui/panels/ExplorationPanel';
 import { MapPanel } from './src/ui/panels/MapPanel';
 import { PensionPanel } from './src/ui/panels/PensionPanel';
 import { ShopPanel } from './src/ui/panels/ShopPanel';
+import { TowerPanel } from './src/ui/panels/TowerPanel';
 import { TeamPanel } from './src/ui/panels/TeamPanel';
 import { C } from './src/ui/theme';
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'team', label: 'Équipe', icon: '👥' },
   { key: 'bag', label: 'Sac', icon: '🎒' },
-  { key: 'shop', label: 'Boutique', icon: '🛒' },
+  { key: 'shop', label: 'Shop', icon: '🛒' }, // libellé court à 8 onglets (2026-10-08, demande d'Arno)
   { key: 'map', label: 'Carte', icon: '🗺' },
+  // fin de jeu seulement (dernier Champion battu), 2026-10-08 : avant, un onglet après le dernier biome de la Carte
+  { key: 'tower', label: 'Tour', icon: '🗼' },
   { key: 'pension', label: 'Pension', icon: '🏡' },
-  { key: 'exploration', label: 'Exploration', icon: '🧭' },
+  { key: 'exploration', label: 'Explo', icon: '🧭' }, // « Exploration » trop petit à 8 onglets (2026-10-08)
   { key: 'dex', label: 'Pokédex', icon: '📕' },
 ];
 
@@ -110,7 +113,7 @@ function KeepAwake() {
 function Main() {
   const { width } = useWindowDimensions();
   const keepAwake = useSettings((st) => st.keepAwake);
-  const tab = useUi((u) => u.tab);
+  const uiTab = useUi((u) => u.tab);
   const setTab = useUi((u) => u.setTab);
   const sleep = useUi((u) => u.sleep);
   const s = useGame((g) => g.s)!;
@@ -118,12 +121,18 @@ function Main() {
   // mode veille : tout l'écran de jeu est démonté (rien n'est dessiné, pas de pastilles d'onglets à recalculer à chaque
   // vague), `SleepScreen` fait avancer le combat
   if (sleep) return <SleepScreen />;
-  const badge: Partial<Record<Tab, number>> = {
+  const endgame = endgameUnlocked(s);
+  // onglet Tour sans fin de jeu (partie effacée pendant qu'il était ouvert) : la Carte
+  const tab: Tab = uiTab === 'tower' && !endgame ? 'map' : uiTab;
+  const tabs = endgame ? TABS : TABS.filter((t) => t.key !== 'tower');
+  const badge: Partial<Record<Tab, number | string>> = {
     team: s.team.filter((u) => canEvolve(s.mons[u])).length,
     bag: fusionBadgeCount(s),
     pension: pensionXpReady(s) > 0 ? 1 : 0,
     exploration: explorationReady(s) > 0 ? 1 : 0,
-    map: challengesReady(s) + s.towerRewards.length, // + Chromatiques de la Tour à choisir
+    map: challengesReady(s),
+    // coffres de la Tour à choisir, sinon 🏅 quand un nœud de l'arbre s'achète
+    tower: s.towerRewards.length || (towerTreeReady(s) ? '🏅' : 0),
   };
   return (
     <View style={{ flex: 1 }}>
@@ -138,12 +147,13 @@ function Main() {
       ) : (
         <ScrollView key={tab} style={{ flex: 1 }} contentContainerStyle={styles.panel}>
           {tab === 'map' && <MapPanel />}
+          {tab === 'tower' && <TowerPanel />}
           {tab === 'pension' && <PensionPanel />}
           {tab === 'exploration' && <ExplorationPanel />}
         </ScrollView>
       )}
       <View style={styles.tabs}>
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <Pressable key={t.key} onPress={() => setTab(t.key)} style={[styles.tab, tab === t.key && styles.tabOn]}>
             <Text style={styles.tabIcon}>{t.icon}</Text>
             <Text style={[styles.tabTxt, tab === t.key && { color: C.text }]} numberOfLines={1} adjustsFontSizeToFit>{t.label}</Text>

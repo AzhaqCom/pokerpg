@@ -1,7 +1,7 @@
 import { Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from './components/Text';
 import { move, species } from '../game/data';
-import { GameState } from '../game/game';
+import { GameState, TOWER_BLESSED_PLUS } from '../game/game';
 import { IdleGains } from '../game/idle';
 import { plusOf, template } from '../game/items';
 import { Item } from '../game/model';
@@ -65,7 +65,7 @@ export function IdleSummary({ gains, onClose }: { gains: IdleGains | null; onClo
           <ScrollView style={{ maxHeight: 340 }}>
             {gains.wavesWon === 0 ? (
               <Text style={styles.msg}>
-                {gains.tower ? `Ton équipe n'a franchi aucun étage de la Tour (étage ${gains.tower.floor}). Choisis un étage plus bas dans l'onglet de la Tour.`
+                {gains.tower ? `Ton équipe n'a franchi aucun étage de la Tour (étage ${gains.tower.floor}). Choisis un étage plus bas dans l'onglet Tour.`
                   : 'Ton équipe n\'a pas tenu face aux ennemis de la zone. Renforce-la avant de repartir farmer.'}
               </Text>
             ) : (
@@ -82,7 +82,7 @@ export function IdleSummary({ gains, onClose }: { gains: IdleGains | null; onClo
                     {!!gains.tower.rewards?.length && (
                       <>
                         <Text style={styles.line}>
-                          🎁 {gains.tower.rewards.length} coffre{gains.tower.rewards.length > 1 ? 's' : ''} à choisir dans l'onglet de la Tour :
+                          🎁 {gains.tower.rewards.length} coffre{gains.tower.rewards.length > 1 ? 's' : ''} à choisir dans l'onglet Tour :
                         </Text>
                         {gains.tower.rewards.map((r, i) => (
                           <View key={i} style={styles.lootRow}>
@@ -96,6 +96,15 @@ export function IdleSummary({ gains, onClose }: { gains: IdleGains | null; onClo
                           </View>
                         ))}
                       </>
+                    )}
+                    {/* arbre de la Tour : Butin béni (+3 crans), Seconde chance */}
+                    {!!gains.tower.blessed && (
+                      <Text style={[styles.line, { color: '#ffd740' }]}>
+                        ✨ {gains.tower.blessed} butin{gains.tower.blessed > 1 ? 's' : ''} béni{gains.tower.blessed > 1 ? 's' : ''} (+{TOWER_BLESSED_PLUS} crans)
+                      </Text>
+                    )}
+                    {!!gains.tower.spared && (
+                      <Text style={styles.line}>🍀 {gains.tower.spared} seconde{gains.tower.spared > 1 ? 's' : ''} chance{gains.tower.spared > 1 ? 's' : ''}</Text>
                     )}
                     <Text style={styles.line}>💎 +{fmtNum(gains.tower.shards)} éclats</Text>
                   </>

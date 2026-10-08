@@ -32,6 +32,10 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
 - `src/game/` : **moteur pur TS, sans React, testé**. Toute règle de jeu vit ici, déterministe (toujours passer un `Rng`).
   - `battle.ts` : classe `Battle`, combat temps réel à recharges. `step(dt)` par pas de 50 ms, `drain()` renvoie les
     événements pour l'UI, `runToEnd()` pour les tests. PV ×4 en combat (`HP_SCALE`), `MAX_BATTLE_TIME` 120 s = défaite.
+    Options (`BattleOptions`, 2026-10-08, Tour seulement ; aucune = combat d'avant, tirages compris) : `frontPct` (chance
+    de viser le Pokémon de devant, `FRONT_PCT` 70 : le reste au hasard, lui compris, soit ~80 % des coups) et `reserve`
+    (Relève : entre `RESERVE_DELAY` 0,8 s après le 1er K.O. d'un équipier, à sa place dans `fighters`, événement `enter` ;
+    pas de défaite tant qu'elle n'est pas entrée).
     Action : première capacité prête et utile dans l'ordre du Pokémon (jamais une attaque à ×0 contre la cible,
     ni une attaque de zone sans effet sur tous, depuis le 2026-10-01), sinon attaque de base (**neutre** : jamais de STAB,
     jamais ×0/×2). Dégâts : `((0.4·niv+2)·puissance·atq/déf)/50+2` × STAB 1.5 × type × crit × bonus × 0.85–1.
@@ -60,9 +64,9 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   Tour (2026-10-01) ~+12 points de victoire en moyenne. `movesAtLevel` reste celui des sauvages (équilibrage).
 - Sprites : atlas PMD par espèce (`assets/sprites/p025.png`, `ps025.png` chromatique), manifeste `src/data/sprites.json`,
   `spriteAssets.ts`, miniatures `assets/thumbs` (`tools/make_thumbs.py`, 240 px).
-- UI : `App.tsx` (onglets Équipe, Sac, Boutique, Carte, Pension, Exploration, Pokédex) ; `src/ui/battle/runner.ts` (singleton hors React qui pilote le combat affiché, offres de capture,
+- UI : `App.tsx` (onglets Équipe, Sac, Boutique, Carte, Tour — fin de jeu seulement —, Pension, Exploration, Pokédex) ; `src/ui/battle/runner.ts` (singleton hors React qui pilote le combat affiché, offres de capture,
   bandeaux), `BattleView.tsx` (Skia), `Hud.tsx` (réglages), `CaptureBar.tsx`, `panels/` (Équipe, Sac, Boutique, Carte,
-  Pension, Exploration, Pokédex), `TowerSection.tsx` (onglet de la Tour sur la Carte), `MonSheet.tsx` (fiche Pokémon,
+  Pension, Exploration, Pokédex), `panels/TowerPanel.tsx` (onglet 🗼 Tour, 2026-10-08 : sous-onglets « 🧗 Ascension » = `TowerSection.tsx`, et « 🌳 Arbre » = `TowerTree.tsx` ; avant, un onglet de la Carte après le dernier biome), `MonSheet.tsx` (fiche Pokémon,
   2026-10-01 : en-tête sur une ligne, onglets Combat · Talents · Bonbons, capacités sur une ligne avec sélecteur
   `MovePicker`, objets en 3 mini-cartes avec sous-stats et bouton « ⚙ Gérer », effet de chaque talent toujours affiché,
   gènes en colonnes), `ItemDetail.tsx` (fiche d'un objet), `HelpScreen.tsx`, `IdleSummary.tsx`, `PrestigeOffer.tsx`.
@@ -219,7 +223,7 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   est porté (`Mon.equipAuto` : uid retenus + objets essayés) ; un objet porté par un coéquipier peut afficher ▲
   (échange à faire soi-même).
   **« ★ Ordre »** (2026-10-02, bouton à côté du titre « Équipe », `autoTeamOrder`) : les ennemis visent le 1er Pokémon
-  (70 % de leurs coups) et l'ordre pèse plus que l'équipement (Tour, étage 120, même équipe et même équipement : 85 %
+  (70 % du temps, le reste au hasard : ~80 % de leurs coups à cible unique, mesuré le 2026-10-08) et l'ordre pèse plus que l'équipement (Tour, étage 120, même équipe et même équipement : 85 %
   de victoires dans le meilleur ordre, 66 % dans le pire). Le bouton essaie les 6 ordres (2 à 2 Pokémon) sur le banc
   d'essai d'« ★ Auto » (240 combats chacun, `ORDER_WAVES`, difficulté calée sur un ordre fixe : même résultat quel que soit l'ordre de
   départ, un 2e appui ne change rien) et garde le meilleur (« Nouvel ordre : A → B → C » ou « Déjà le meilleur ordre »).
@@ -263,7 +267,7 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   pastille sombre cerclée d'or (`BEYOND`, `glowBlur`, `pillBorder`). Bordure dégradée (`RainbowBorder`, fixe dans les listes, tournante seulement dans la fiche
   détaillée ; halo flouté dès l'Or), pastille « +N » à cheval sur le coin haut-gauche (`ChromaPill`), nom de l'objet et
   « Chromatique +N » de la fiche aux couleurs du palier (`ChromaText`).
-- **Tour de Combat** (fin de jeu, onglet « 🗼 Tour de Combat » après le dernier biome de la Carte, `TowerSection`, 2026-09-30) : `StageKind` `'tower'`, 1 combat par étage
+- **Tour de Combat** (fin de jeu, onglet « 🗼 Tour » depuis le 2026-10-08, `TowerPanel` ; avant, après le dernier biome de la Carte, 2026-09-30) : `StageKind` `'tower'`, 1 combat par étage
   contre 3 formes finales/légendaires Nv.100 aux gènes parfaits (`towerSpecies`, `towerWaves`), PV et Atq ×`TOWER_BASE`
   (12) × `TOWER_GROWTH` (1,024)^(étage − 1), calés par `tools/scratch/tower.ts` avant la refonte Vitesse/Recharge (mur
   ~étage 13 pour le bot en fin de Sinnoh, ~30 en Chromatique Nv.100, ~100 en +8 Nv.300). Mesure du 2026-10-01
@@ -292,6 +296,24 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   niveau du record via `towerPreviewItem`, figés à l'ouverture) d'où on la vise ou la retire. Sous les puces, les bonus
   des panoplies visées sans valeur (`setBonusLabel`) ; la carte (`TowerFocusCard`, mémorisée) ne lit que la sélection
   et ne se redessine pas à chaque étage. Pas de simulation (le bot ne joue pas la Tour).
+  **Arbre de la Tour** (2026-10-08, étape 1 ; conception dans `IDEES.md`) : `TOWER_NODES`, `GameState.towerTree` (rang par
+  nœud). Médailles = `floor(towerBest / 10)` (`towerMedals`, rétroactives, jamais stockées) − dépensées ; `buyTowerNode`
+  (prérequis `requires`, `towerNodeBlock`), `resetTowerTree` gratuit (objets transmutés gardés). Pastille 🏅 de l'onglet
+  (`towerTreeReady`). Nœuds codés : Butin précis (`towerSlot`, filtre de `towerDropPool`, puces dans la carte 🎯),
+  Butin béni (`towerBlessedPlus` : 1/25 → +3 crans, coffres exclus ; `WaveRewards.blessed`, `IdleGains.tower.blessed`),
+  Transmutation (`transmuteItem` / `transmute` dans `items.ts` : même uid donc toujours porté, `tier` recalculé pour
+  garder la puissance, sous-stat devenue stat principale retirée à 85-100 %, `equipAuto` effacé ; prix `transmuteCost` =
+  éclats de 30 étages au record ; bouton « ⚗ Transmuter » de la fiche d'un Chromatique), Longue absence (`towerIdleCapMs` :
+  12 / 16 / 24 h, absence dans la Tour seulement), Départ lancé (`towerStart`/`towerClimbStart` : record − 2, jamais
+  sous le palier), Seconde chance (hors ligne, 1re défaite de chaque palier sans redescente, `IdleGains.tower.spared`),
+  Entraînement (`towerPowerMult` = Élixir × (1 + 5 % × rang), `withTowerMult`, en combat et hors ligne). Stratège (étape 2, même jour) :
+  Relève (`GameState.towerReserve`, `towerReserve` : valide seulement avec le nœud, hors équipe ; `release` la refuse ;
+  carte « 🔄 Relève » d'Ascension, `TowerReserve.tsx`, liste de la boîte triée par PC, vignette → fiche ; entre à 50 %
+  de ses PV, `TOWER_RESERVE_HP`, message « 🔄 X entre en jeu ! », sprite préchargé), Relève aguerrie (100 % des PV, son
+  aura compte en entier dès le début : `allyFighter(…, auraTeam)`, jamais en plus de sa demi-aura de pension), Rempart
+  (`TOWER_RAMPART_FRONT` 55 : ~70 % des coups sur le Pokémon de devant au lieu de ~80 %, compté par le banc d'essai
+  d'« ★ Auto » et d'« ★ Ordre », `benchOptions` ; la réserve n'y est pas). Tout passe par `towerFighters` (StageRun de
+  la Tour et `sampleTowerFloor` hors ligne). Tests : `__tests__/towerTree.test.ts`.
   **Entraînement hors ligne** (`towerIdle`, activé par défaut, interrupteur dans l'onglet de la Tour) : dès un étage
   franchi, l'absence se passe dans la Tour au lieu de farmer la zone, en deux modes (`towerIdleClimb`, puces de la carte
   « 🌙 Hors ligne ») : **🧗 Grimper** (défaut, 2026-10-07 : Arno ne joue qu'hors ligne et son record ne bougeait jamais)
