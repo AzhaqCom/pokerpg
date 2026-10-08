@@ -109,7 +109,7 @@ class Runner {
     const zone = biome.zones[s.zone];
     if (kind === 'boss') this.showBanner(`Boss : ${species(zone.boss.speciesId).name} !`, '#ff5252');
     else if (kind === 'arena') this.showBanner(`${biome.arena.name} : ${biome.arena.leader} vous défie !`, '#ffb300');
-    else if (kind === 'tower') this.showBanner(`Tour de Combat : étage ${this.run.floor}`, '#b388ff');
+    // Tour : pas de bandeau à chaque étage (2026-10-08, demande d'Arno) : la barre du haut affiche déjà l'étage
   }
 
   private resetAnims() {
@@ -183,9 +183,7 @@ class Runner {
       } else if (lost) {
         sfx('deny');
         toast(run.kind === 'stage' ? `Défaite… retour à ${BIOMES[s.biome].zones[s.zone].name} ${s.stage}`
-          : run.kind === 'tower' ? (s.towerFloor !== null
-            ? `🗼 Défaite à l'étage ${run.floor} : reprise à l'étage ${s.towerFloor}` // combat continu
-            : `🗼 Tour : arrêt à l'étage ${run.floor} (record : étage ${s.towerBest})`)
+          : run.kind === 'tower' ? `🗼 Défaite à l'étage ${run.floor} : reprise à l'étage ${s.towerFloor}` // combat continu
           : 'Défaite… entraîne-toi et réessaie', '#ff5252');
       }
       this.run = null;

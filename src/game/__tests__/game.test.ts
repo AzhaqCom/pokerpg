@@ -1654,12 +1654,13 @@ test('Tour : étage gagné (éclats, objet Nv.100 + étage, Chromatique à chois
   expect(it.rarity).toBe(6);
   expect(it.level).toBe(110);
   expect(s.towerRewards).toHaveLength(0);
-  // défaite : sortie de la Tour, zone et étape inchangées
+  // défaite à l'étage 11 : on reste dans la Tour (combat continu, toujours depuis le 2026-10-08), reprise au palier,
+  // zone et étape inchangées
   const { biome, zone, stage } = s;
   const lost = new StageRun(s, 'tower', seededRng(4));
   lost.battle.result = 'lose';
   lost.finishWave();
-  expect(s.towerFloor).toBeNull();
+  expect(s.towerFloor).toBe(1);
   expect([s.biome, s.zone, s.stage]).toEqual([biome, zone, stage]);
   expect(s.towerBest).toBe(10);
 });
@@ -2051,22 +2052,19 @@ test('bonbon : refusé au niveau maximum (il était consommé pour rien)', () =>
   expect(s.candies[lineBase(25)]).toBe(5);
 });
 
-test('Tour, combat continu : une défaite fait reprendre au début du palier (ou du précédent sur son 1er étage), sinon sortie', () => {
+test('Tour, combat continu (toujours) : une défaite fait reprendre au début du palier (ou du précédent sur son 1er étage)', () => {
   expect(towerRetryFloor(48)).toBe(41);
   expect(towerRetryFloor(50)).toBe(41);
   expect(towerRetryFloor(51)).toBe(41); // 1er étage du palier : un palier plus bas
   expect(towerRetryFloor(5)).toBe(1);
   expect(towerRetryFloor(1)).toBe(1);
-  for (const auto of [true, false]) {
-    const s = newGame();
-    chooseStarter(s, 4, seededRng(1));
-    s.towerAuto = auto;
-    s.towerFloor = 48;
-    const run = new StageRun(s, 'tower', seededRng(2));
-    run.battle.result = 'lose';
-    run.finishWave();
-    expect(s.towerFloor).toBe(auto ? 41 : null);
-  }
+  const s = newGame();
+  chooseStarter(s, 4, seededRng(1));
+  s.towerFloor = 48;
+  const run = new StageRun(s, 'tower', seededRng(2));
+  run.battle.result = 'lose';
+  run.finishWave();
+  expect(s.towerFloor).toBe(41);
 });
 
 test('Tour : coffre de palier au premier passage seulement ; rejouer le palier rapporte éclats et Chromatique, pas de coffre', () => {

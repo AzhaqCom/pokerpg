@@ -5,7 +5,7 @@ import {
   resetTowerTree, setTowerIdlePick, setTowerSlot, toggleTowerSet, towerBlessedPlus, towerClimbStart, towerDropPool, towerIdleCapMs,
   towerMedals, towerMedalsLeft, towerMedalsSpent, towerNodeBlock, towerPowerMult, towerRank, towerStart, towerTreeReady, transmuteCost,
   transmuteItem, transmuteTargets, withTowerMult, allyFighter, wildFighter, towerFighters, towerReserve, setTowerReserve, release,
-  TOWER_RAMPART_FRONT, TOWER_RESERVE_HP, setTeam,
+  TOWER_RAMPART_FRONT, TOWER_RESERVE_HP, setTeam, towerRetryFloor, StageRun,
 } from '../game';
 import { Rng } from '../rng';
 import { computeIdleGains } from '../idle';
@@ -337,4 +337,21 @@ test('Rempart : le Pokémon de devant prend ~70 % des coups à cible unique au l
   expect(plain).toBeLessThan(0.84);
   expect(rampart).toBeGreaterThan(0.66);
   expect(rampart).toBeLessThan(0.74);
+});
+
+test('Départ lancé : en combat continu, une défaite fait reprendre 2 étages sous l\'étage perdu, jamais sous la reprise d\'avant', () => {
+  expect([towerRetryFloor(386), towerRetryFloor(381), towerRetryFloor(382)]).toEqual([381, 371, 381]);
+  expect([towerRetryFloor(386, true), towerRetryFloor(381, true), towerRetryFloor(382, true), towerRetryFloor(2, true)]).toEqual([384, 379, 381, 1]);
+  // branché sur la défaite dans la Tour
+  const s = towerGame();
+  s.towerBest = 390;
+  s.towerFloor = 386;
+  s.towerTree = { departLance: 1 };
+  const run = new StageRun(s, 'tower', seededRng(1));
+  // équipe sans PV : défaite immédiate
+  for (const f of run.battle.fighters.filter((x) => x.side === 0)) f.hp = 1;
+  run.battle.runToEnd();
+  run.finishWave();
+  expect(run.result).toBe('lose');
+  expect(s.towerFloor).toBe(384);
 });

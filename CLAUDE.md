@@ -274,8 +274,8 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   (`tower100.ts`) : Giratina + Kyogre + Heatran, Nv.100 4★, Chromatiques Nv.200, gagnent l'étage 100 à 53 % en +0,
   84 % en +2, 95 % en +4. `GameState.towerFloor` (null = hors Tour ; le runner enchaîne
   les étages, `selectStage`/boss/arène en sortent), `towerBest` (record), reprise au palier de 10 (`towerStart`).
-  Défaite = sortie sans pénalité ; jamais hors ligne. **Combat continu** (`towerAuto`, interrupteur 🔁, défaut désactivé,
-  2026-10-01) : une défaite fait reprendre au début du palier de 10 en cours, ou du précédent sur son 1er étage
+  Jamais hors ligne. **Combat continu, toujours** (depuis le 2026-10-08 ; avant, interrupteur 🔁 `towerAuto` désactivé par
+  défaut, une défaite faisait sortir de la Tour ; « Quitter la Tour » reste la seule sortie) : une défaite fait reprendre au début du palier de 10 en cours, ou du précédent sur son 1er étage
   (`towerRetryFloor`). **Coffres de palier au premier passage seulement** (étage gagné > record, 2026-10-01) : rejouer
   des étages ne rapporte que leurs éclats et leur Chromatique (avant, un +5 au choix toutes les 10 victoires vers l'étage 120). Récompenses (`towerFloorRewards`) : `towerShards` éclats
   (1 000 + 100 × étage depuis le 2026-10-07 ; avant, 500 + 50 × étage), 1 objet
@@ -305,7 +305,8 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   garder la puissance, sous-stat devenue stat principale retirée à 85-100 %, `equipAuto` effacé ; prix `transmuteCost` =
   éclats de 30 étages au record ; bouton « ⚗ Transmuter » de la fiche d'un Chromatique), Longue absence (`towerIdleCapMs` :
   12 / 16 / 24 h, absence dans la Tour seulement), Départ lancé (`towerStart`/`towerClimbStart` : record − 2, jamais
-  sous le palier), Seconde chance (hors ligne, 1re défaite de chaque palier sans redescente, `IdleGains.tower.spared`),
+  sous le palier ; en combat continu, `towerRetryFloor(perdu, true)` : perdu − 2, jamais sous la reprise d'avant ; pas de
+  bandeau « étage N » à chaque étage depuis le même jour, la barre du haut l'affiche), Seconde chance (hors ligne, 1re défaite de chaque palier sans redescente, `IdleGains.tower.spared`),
   Entraînement (`towerPowerMult` = Élixir × (1 + 5 % × rang), `withTowerMult`, en combat et hors ligne). Stratège (étape 2, même jour) :
   Relève (`GameState.towerReserve`, `towerReserve` : valide seulement avec le nœud, hors équipe ; `release` la refuse ;
   carte « 🔄 Relève » d'Ascension, `TowerReserve.tsx`, liste de la boîte triée par PC, vignette → fiche ; dans l'onglet

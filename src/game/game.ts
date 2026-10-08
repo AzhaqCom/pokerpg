@@ -142,8 +142,6 @@ export interface GameState {
   /** Hors ligne, grimper au-delà du record (record et coffres de palier, 2026-10-07, activé par défaut) plutôt que
    *  rejouer l'étage choisi (`towerIdlePick`). */
   towerIdleClimb: boolean;
-  /** Combat continu dans la Tour (jeu actif) : une défaite fait reprendre plus bas au lieu de sortir (`towerRetryFloor`). */
-  towerAuto: boolean;
   /** Panoplies visées dans la Tour (`toggleTowerSet`, 1 à 3) : ses Chromatiques ne tombent plus que dans celles-là
    *  (`towerDropPool`) ; aucune = tirage sur les 20 panoplies du jeu. */
   towerSets: string[];
@@ -172,7 +170,7 @@ export function newGame(): GameState {
     prestige: 0,
     startedAt: Date.now(), prestigeOffered: false, adventureStart: Date.now(), endingSeen: false,
     shinyCharmSeen: false, boosts: noBoosts(), universalMega: 0,
-    towerBest: 0, towerFloor: null, towerRewards: [], towerIdle: true, towerIdlePick: null, towerIdleClimb: true, towerAuto: false, towerSets: [],
+    towerBest: 0, towerFloor: null, towerRewards: [], towerIdle: true, towerIdlePick: null, towerIdleClimb: true, towerSets: [],
     towerTree: {}, towerSlot: null, towerReserve: null, balanceVersion: 5,
   };
 }
@@ -1893,7 +1891,8 @@ function onStageWon(s: GameState, kind: StageKind, biome: number, zone: number, 
 /** Défaite : on recule d'une étape, jusqu'à la dernière étape de la zone précédente. */
 function onStageLost(s: GameState, kind: StageKind) {
   // défaite dans la Tour : retour à la zone, sans pénalité ; en combat continu, on reprend plus bas (`towerRetryFloor`)
-  if (kind === 'tower') { s.towerFloor = s.towerAuto ? towerRetryFloor(s.towerFloor ?? 1) : null; return; }
+  // (toujours le combat continu depuis le 2026-10-08 : sortir de la Tour à chaque défaite n'avait aucun intérêt)
+  if (kind === 'tower') { s.towerFloor = towerRetryFloor(s.towerFloor ?? 1, towerRank(s, 'departLance') > 0); return; }
   if (kind !== 'stage') return;
   if (s.stage > 1) s.stage--;
   else if (s.zone > 0 && s.fixedStage === null) { s.zone--; s.stage = s.unlocked[s.biome][s.zone]; }
@@ -2193,18 +2192,18 @@ export function exitTower(s: GameState) {
 }
 
 /**
- * Combat continu (`towerAuto`) : étage repris après une défaite. Le début du palier de 10 en cours (comme en entrant
+ * Combat continu (toujours, depuis le 2026-10-08 ; avant, un interrupteur `towerAuto` désactivé par défaut qui faisait
+ * sortir de la Tour à chaque défaite) : étage repris après une défaite. Le début du palier de 10 en cours (comme en entrant
  * dans la Tour), ou le palier d'en dessous si la défaite tombe sur son 1er étage (sinon un joueur au mur rejouerait
  * sans fin un étage qu'il ne passe pas). Les coffres de palier ne se gagnent qu'au premier passage
  * (`towerFloorRewards`) : rejouer des étages ne rapporte que leurs éclats et leur Chromatique.
+ * `launch` (Départ lancé, arbre de la Tour, étendu le 2026-10-08) : `TOWER_LAUNCH_GAP` étages sous l'étage perdu, jamais
+ * sous cette reprise (perdu au 386 → 384 au lieu de 381 ; au 381 → 379 au lieu de 371).
  */
-export function towerRetryFloor(lost: number): number {
+export function towerRetryFloor(lost: number, launch = false): number {
   const blockStart = Math.floor((Math.max(1, lost) - 1) / 10) * 10 + 1;
-  return lost === blockStart ? Math.max(1, blockStart - 10) : blockStart;
-}
-
-export function setTowerAuto(s: GameState, on: boolean) {
-  s.towerAuto = on;
+  const base = lost === blockStart ? Math.max(1, blockStart - 10) : blockStart;
+  return launch ? Math.max(base, lost - TOWER_LAUNCH_GAP) : base;
 }
 
 /**
@@ -2460,7 +2459,7 @@ export const TOWER_NODES: TowerNode[] = [
   { id: 'longueAbsence', branch: 'ascension', name: 'Longue absence', icon: '🌙', costs: [3, 5],
     desc: ['Absence dans la Tour comptée jusqu’à 16 h (au lieu de 12 h)', 'Absence dans la Tour comptée jusqu’à 24 h'] },
   { id: 'departLance', branch: 'ascension', name: 'Départ lancé', icon: '🚀', costs: [4],
-    desc: [`La Tour repart ${TOWER_LAUNCH_GAP} étages sous ton record au lieu du palier de 10, en jeu comme hors ligne`] },
+    desc: [`La Tour repart ${TOWER_LAUNCH_GAP} étages sous ton record au lieu du palier de 10 (en jeu comme hors ligne), et ${TOWER_LAUNCH_GAP} étages sous l’étage perdu en combat continu`] },
   { id: 'secondeChance', branch: 'ascension', name: 'Seconde chance', icon: '🍀', costs: [6],
     desc: ['Hors ligne, la 1re défaite de chaque palier de 10 fait retenter l’étage au lieu de redescendre'] },
   { id: 'entrainement', branch: 'puissance', name: 'Entraînement', icon: '🏋', costs: [2, 2, 2, 2, 2],

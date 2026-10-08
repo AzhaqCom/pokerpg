@@ -2,7 +2,7 @@ import { memo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { Text } from './components/Text';
 import {
-  GameState, TOWER_FOCUS_SETS, TOWER_IDLE_ITEM_EVERY, TOWER_LEVEL, claimTowerReward, enterTower, exitTower, setTowerAuto, setTowerIdle,
+  GameState, TOWER_FOCUS_SETS, TOWER_LAUNCH_GAP, TOWER_IDLE_ITEM_EVERY, TOWER_LEVEL, claimTowerReward, enterTower, exitTower, setTowerIdle,
   setTowerIdleClimb, setTowerIdlePick, setTowerSlot, toggleTowerSet, towerIdleCapMs, towerRank, towerClimbStart, towerDropPlus, towerFocusChoices, towerIdleFloor, towerPreviewItem, towerRewardPlus, towerShards, towerStart, towerWildMult,
 } from '../game/game';
 import { SETS, TEMPLATES, setBonusLabel, setBonusText } from '../game/items';
@@ -56,8 +56,11 @@ export function TowerSection() {
         <Text style={styles.sub}>
           Étages infinis contre 3 Pokémon Nv.100 aux gènes parfaits, de plus en plus forts. Chaque étage donne un Chromatique
           de l'une des 20 panoplies du jeu, ou de tes panoplies visées, à un cran +N qui monte avec l'étage (dès l'étage
-          150) : fusionne les identiques pour monter en +N. Une
-          défaite te ramène à ta zone, sans pénalité (sauf en combat continu) ; tu reprends ensuite au dernier palier de 10.
+          150) : fusionne les identiques pour monter en +N. Une défaite ne te fait pas sortir : tu reprends{' '}
+          {towerRank(s, 'departLance') > 0
+            ? `${TOWER_LAUNCH_GAP} étages plus bas (Départ lancé, jamais sous le début du palier)`
+            : 'au début du palier de 10 (ou du précédent si tu tombes sur son 1er étage)'}, et ton équipe continue à grimper.
+          « Quitter la Tour » te ramène à ta zone.
         </Text>
         {inTower ? (
           <Button label={`Quitter la Tour (étage ${s.towerFloor} en cours)`} onPress={() => { act(exitTower); runner.restart(); feedback(); }} />
@@ -78,18 +81,6 @@ export function TowerSection() {
       <TowerFocusCard />
 
       <TowerReserveCard />
-
-      <View style={styles.card}>
-        <View style={styles.row}>
-          <Text style={[styles.name, { flex: 1 }]}>🔁 Combat continu</Text>
-          <Switch value={s.towerAuto} onValueChange={(v) => { act((g) => setTowerAuto(g, v)); feedback(); }} />
-        </View>
-        <Text style={styles.sub}>
-          {s.towerAuto
-            ? 'Une défaite ne te fait plus sortir de la Tour : tu reprends au début du palier de 10 en cours (ou du précédent si tu tombes sur son 1er étage), et ton équipe continue à grimper.'
-            : 'Désactivé : une défaite te ramène à ta zone.'}
-        </Text>
-      </View>
 
       <View style={styles.card}>
         <View style={styles.row}>
