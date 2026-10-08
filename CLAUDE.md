@@ -309,6 +309,7 @@ le mode sombre forcé des téléphones assombrissait les couleurs claires, ex. �
   bandeau « étage N » à chaque étage depuis le même jour, la barre du haut l'affiche), Seconde chance (hors ligne, 1re défaite de chaque palier sans redescente, `IdleGains.tower.spared`),
   Entraînement (`towerPowerMult` = Élixir × (1 + 5 % × rang), `withTowerMult`, en combat et hors ligne). Stratège (étape 2, même jour) :
   Relève (`GameState.towerReserve`, `towerReserve` : valide seulement avec le nœud, hors équipe ; `release` la refuse ;
+  « Déséquiper la boîte » ne la compte ni ne la déséquipe, `boxEquipped`, corrigé le 2026-10-08 ;
   carte « 🔄 Relève » d'Ascension, `TowerReserve.tsx`, liste de la boîte triée par PC, vignette → fiche ; dans l'onglet
   Équipe, 4e carte sous l'équipe en pointillés violets, `ReserveTeamCard`, ou carte vide qui mène à l'onglet Tour, et
   « · 🔄 » sur sa case de la Boîte ; entre à 50 %

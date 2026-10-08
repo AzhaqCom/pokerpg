@@ -4,7 +4,7 @@ import { Text, TextInput } from '../components/Text';
 import { regionOf } from '../../game/content';
 import { PType, species } from '../../game/data';
 import {
-  GameState, TOWER_RESERVE_HP, autoTeamOrder, canCompleteDex, canEvolve, completeDex, endgameUnlocked, excessMons, monsBelowStars, monsNotShiny,
+  GameState, TOWER_RESERVE_HP, autoTeamOrder, boxEquipped, canCompleteDex, canEvolve, completeDex, endgameUnlocked, excessMons, monsBelowStars, monsNotShiny,
   releaseBelowStars, isTargeted, releaseExcess, releaseList, releaseNotShiny, setTeam, towerRank, towerReserve, unequipBox,
 } from '../../game/game';
 import { CollectionGoal, boxExcess, boxProgress, completeBox, needsXp } from '../../game/collection';
@@ -182,9 +182,8 @@ export function TeamPanel() {
   const boxRef = useRef<Mon[]>([]);
   boxRef.current = box;
   const openCell = useMemo(() => (uid: string) => openMon(uid, boxRef.current.map((x) => x.uid)), [openMon]);
-  const boxEquippedCount = Object.values(s.mons)
-    .filter((m) => !s.team.includes(m.uid))
-    .reduce((a, m) => a + Object.keys(m.items).length, 0);
+  // la réserve de la Tour garde ses objets : ni comptée ni déséquipée (`boxEquipped`)
+  const boxEquippedCount = boxEquipped(s).reduce((a, m) => a + Object.keys(m.items).length, 0);
   const hasActions = dexCompletable || excess.length > 0 || boxEquippedCount > 0 || (belowStars.length > 0 && !hideStarsOnlyButton) || (notShiny.length > 0 && !hideShinyOnlyButton);
 
   return (

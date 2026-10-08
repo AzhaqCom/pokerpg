@@ -696,14 +696,20 @@ export function releaseNotShiny(s: GameState): { count: number; candies: number 
 
 /** Retire tous les objets portés par les Pokémon de la boîte (jamais l'équipe) : pratique pour
  * reconsolider l'équipement dans le sac quand des Pokémon de passage en équipe l'ont dispersé. */
+/** Objets de la boîte retirés (équipe exceptée, et réserve de la Tour depuis le 2026-10-08 : elle les déséquipait). */
 export function unequipBox(s: GameState): number {
   let n = 0;
-  for (const m of Object.values(s.mons)) {
-    if (s.team.includes(m.uid)) continue;
+  for (const m of boxEquipped(s)) {
     n += Object.keys(m.items).length;
     m.items = {};
   }
   return n;
+}
+
+/** Pokémon de la boîte qui portent des objets : ni l'équipe ni la réserve de la Tour (Relève). */
+export function boxEquipped(s: GameState): Mon[] {
+  const reserve = towerReserve(s);
+  return Object.values(s.mons).filter((m) => !s.team.includes(m.uid) && m.uid !== reserve && Object.keys(m.items).length > 0);
 }
 
 /** Étage le plus avancé qu'un Pokémon peut atteindre par évolutions successives à son niveau actuel. */

@@ -5,7 +5,7 @@ import {
   resetTowerTree, setTowerIdlePick, setTowerSlot, toggleTowerSet, towerBlessedPlus, towerClimbStart, towerDropPool, towerIdleCapMs,
   towerMedals, towerMedalsLeft, towerMedalsSpent, towerNodeBlock, towerPowerMult, towerRank, towerStart, towerTreeReady, transmuteCost,
   transmuteItem, transmuteTargets, withTowerMult, allyFighter, wildFighter, towerFighters, towerReserve, setTowerReserve, release,
-  TOWER_RAMPART_FRONT, TOWER_RESERVE_HP, setTeam, towerRetryFloor, StageRun,
+  TOWER_RAMPART_FRONT, TOWER_RESERVE_HP, setTeam, towerRetryFloor, StageRun, boxEquipped, unequipBox,
 } from '../game';
 import { Rng } from '../rng';
 import { computeIdleGains } from '../idle';
@@ -354,4 +354,27 @@ test('Départ lancé : en combat continu, une défaite fait reprendre 2 étages 
   run.finishWave();
   expect(run.result).toBe('lose');
   expect(s.towerFloor).toBe(384);
+});
+
+test('Relève : « Déséquiper la boîte » ne compte ni ne déséquipe la réserve', () => {
+  const s = towerGame();
+  s.towerBest = 370;
+  s.towerTree = { releve: 1 };
+  const reserve = makeMon(68, 100, seededRng(77), false, 15);
+  const other = makeMon(1, 50, seededRng(78), false, 15);
+  addMon(s, reserve);
+  addMon(s, other);
+  for (const m of [reserve, other]) {
+    const it = makeItem('cape-champion', 6, 300, seededRng(m === reserve ? 1 : 2), 46);
+    s.items[it.uid] = it;
+    equip(s, m.uid, it.uid);
+  }
+  setTowerReserve(s, reserve.uid);
+  expect(boxEquipped(s).map((m) => m.uid)).toEqual([other.uid]);
+  expect(unequipBox(s)).toBe(1);
+  expect(Object.keys(s.mons[reserve.uid].items)).toHaveLength(1); // la réserve garde son objet
+  expect(Object.keys(s.mons[other.uid].items)).toHaveLength(0);
+  // sans le nœud, ce n'est plus une réserve : déséquipée comme le reste de la boîte
+  s.towerTree = {};
+  expect(unequipBox(s)).toBe(1);
 });
